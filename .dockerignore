@@ -1,0 +1,52 @@
+# .NET Build artifacts
+**/bin/
+**/obj/
+**/out/
+**/*.user
+**/*.suo
+**/*.userprefs
+
+# Visual Studio
+.vs/
+*.sln.docstates
+
+# NuGet
+**/packages/
+*.nupkg
+
+# Test results
+**/TestResults/
+*.trx
+
+# Logs
+**/logs/
+*.log
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Documentation
+README.md
+*.md
+
+# Docker
+docker-compose*.yml
+Dockerfile*
+.dockerignore
+
+# Frontend
+frontend/
+node_modules/

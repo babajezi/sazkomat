@@ -1,0 +1,21 @@
+{
+  "version": "1.0",
+  "schemaVersion": "1.0.0",
+  "exportedAt": "2025-10-31T00:00:00Z",
+  "description": "Test import with Basketball sport",
+  "metadata": {
+    "totalEntities": 1,
+    "includedTypes": ["sports"]
+  },
+  "sports": [
+    {
+      "id": "b1234567-89ab-cdef-0123-456789abcdef",
+      "name": "Basketball",
+      "code": "basketball",
+      "isActive": true,
+      "priority": 9,
+      "createdAt": "2025-10-31T00:00:00Z",
+      "updatedAt": "2025-10-31T00:00:00Z"
+    }
+  ]
+}

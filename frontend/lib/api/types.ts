@@ -1,0 +1,450 @@
+// API Response types matching backend DTOs
+
+export interface Sport {
+  id: string;
+  name: string;
+  code: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpdateSportRequest {
+  isActive?: boolean;
+}
+
+export interface Country {
+  id: string;
+  name: string;
+  code: string;
+  flagEmoji: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  countryProviders?: CountryProvider[];
+}
+
+export interface CountryProvider {
+  id: string;
+  countryId: string;
+  providerId: string;
+  providerCode: string;
+  providerName: string;
+  isActive: boolean;
+  metadata?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  provider?: DataProvider;
+}
+
+export interface League {
+  id: string;
+  sportId: string;
+  countryId: string;
+  name: string;
+  displayName: string;
+  betExplorerSlug: string;
+  isSyncEnabled: boolean;
+  isBettable: boolean;
+  isActive: boolean;
+  priority: number;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  sport?: Sport;
+  country?: Country;
+  leagueProviders?: LeagueProvider[];
+}
+
+export interface LeagueProvider {
+  id: string;
+  leagueId: string;
+  providerId: string;
+  providerSlug: string;
+  providerName: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  provider?: DataProvider;
+}
+
+export interface CreateCountryRequest {
+  name: string;
+  code: string;
+  flagEmoji: string;
+}
+
+export interface UpdateCountryRequest {
+  name?: string;
+  code?: string;
+  flagEmoji?: string;
+  isActive?: boolean;
+}
+
+export interface CreateLeagueRequest {
+  sportId: string;
+  countryId: string;
+  name: string;
+  displayName: string;
+  betExplorerSlug: string;
+  isSyncEnabled: boolean;
+  isBettable: boolean;
+  priority: number;
+  notes?: string;
+}
+
+export interface UpdateLeagueRequest {
+  name?: string;
+  displayName?: string;
+  betExplorerSlug?: string;
+  isSyncEnabled?: boolean;
+  isBettable?: boolean;
+  isActive?: boolean;
+  priority?: number;
+  notes?: string;
+}
+
+export interface ToggleProviderSyncRequest {
+  isActive: boolean;
+}
+
+export interface Season {
+  id: string;
+  name: string;
+  startYear: number;
+  endYear?: number | null;
+  createdAt: string;
+}
+
+export interface LeagueSeason {
+  id: string;
+  leagueId: string;
+  seasonId: string;
+  seasonName: string;
+  startYear: number;
+  endYear?: number | null;
+  isAvailableOnBetExplorer: boolean;
+  hasData: boolean;
+  hasOdds: boolean;
+  roundsCount: number;
+  matchesCount: number;
+  lastScrapedAt?: string | null;
+  syncEnabled: boolean;
+  isCurrent: boolean;
+  syncMode: "Historical" | "Current";
+  lastDataSyncAt?: string | null;
+}
+
+export interface AvailableSeason extends Season {
+  hasData: boolean;
+  hasOdds: boolean;
+  roundsCount: number;
+  matchesCount: number;
+  lastScrapedAt?: string | null;
+}
+
+export interface HistoricalImportRequest {
+  leagueIds: string[];
+  seasons?: string[];                   // Now optional - not required when importAllHistorical is true
+  includeWithoutOdds: boolean;
+  importAllHistorical?: boolean;        // Import all historical seasons (except current)
+}
+
+export interface ImportJob {
+  id: string;
+  leagueId: string;
+  type: "Historical" | "Incremental";
+  status: "Pending" | "Running" | "Completed" | "Failed" | "PartialSuccess";
+  seasons: string[];
+  includeWithoutOdds: boolean;
+  startedAt: string;
+  completedAt?: string | null;
+  progress: ImportProgressData;
+  createdAt: string;
+  updatedAt: string;
+  league?: League;
+}
+
+export interface ImportProgressData {
+  totalSeasons: number;
+  processedSeasons: string[]; // Array of completed season names
+  totalRounds?: number;
+  processedRounds: number;
+  errors: string[]; // Array of error messages
+  currentSeason?: string | null;
+  currentRound?: number | null;
+}
+
+export interface ImportStats {
+  leagueId: string;
+  totalSeasons: number;
+  totalRounds: number;
+  earliestSeason: string;
+  latestSeason: string;
+  lastImportDate: string;
+}
+
+export interface DashboardStats {
+  overall: OverallStats;
+  results: MatchResultsStats;
+  topLeagues: LeagueStats[];
+  seasonBreakdown: SeasonStats[];
+  recentJobs: RecentImportJob[];
+}
+
+export interface OverallStats {
+  totalLeagues: number;
+  totalRounds: number;
+  totalSeasons: number;
+  totalMatches: number;
+}
+
+export interface MatchResultsStats {
+  homeWins: number;
+  draws: number;
+  awayWins: number;
+  homeWinPercentage: number;
+  drawPercentage: number;
+  awayWinPercentage: number;
+}
+
+export interface LeagueStats {
+  leagueId: string;
+  leagueName: string;
+  countryName: string;
+  countryFlag: string;
+  sportName: string;
+  roundsCount: number;
+  seasonsCount: number;
+  matchesCount: number;
+  lastImport: string | null;
+}
+
+export interface SeasonStats {
+  season: string;
+  roundsCount: number;
+  matchesCount: number;
+  leaguesCount: number;
+}
+
+export interface RecentImportJob {
+  jobId: string;
+  leagueId: string;
+  leagueName: string;
+  status: string;
+  startedAt: string;
+  completedAt: string | null;
+  processedRounds: number;
+  totalSeasons: number;
+}
+
+export interface ErrorResponse {
+  error: string;
+  errors?: string[];
+  timestamp: string;
+}
+
+// Match types
+export interface Match {
+  id: string;
+  homeTeam: string;
+  awayTeam: string;
+  homeScore: number;
+  awayScore: number;
+  result: "H" | "D" | "A";
+  homeOdds?: number | null;
+  drawOdds?: number | null;
+  awayOdds?: number | null;
+  matchDate?: string | null;
+  betExplorerUrl?: string | null;
+  round: {
+    id: string;
+    season: string;
+    roundNumber: number;
+    leagueId: string;
+  };
+  league?: {
+    id: string;
+    name: string;
+    displayName: string;
+    country?: string | null;
+    sport?: string | null;
+  } | null;
+}
+
+export interface MatchFilter {
+  leagueId?: string;
+  season?: string;
+  roundNumber?: number;
+  result?: "H" | "D" | "A";
+  dateFrom?: string;
+  dateTo?: string;
+  teamName?: string;
+  skip?: number;
+  take?: number;
+  sortBy?: "date" | "round";
+  sortDescending?: boolean;
+}
+
+export interface MatchesResponse {
+  matches: Match[];
+  totalCount: number;
+  skip: number;
+  take: number;
+}
+
+// Round types
+export interface Round {
+  id: string;
+  leagueId: string;
+  league?: {
+    id: string;
+    name: string;
+    displayName: string;
+    country: string;
+    countryFlagEmoji: string;
+    sport: string;
+  };
+  season: string;
+  roundNumber: number;
+  matchesCount: number;
+  homeWins: number;
+  draws: number;
+  awayWins: number;
+  summaryResult: string;
+  cumulativeOddsHome: number;
+  cumulativeOddsDraw: number;
+  cumulativeOddsAway: number;
+  oddsComplete: string;
+  scrapedAt: string;
+  dataSource: string;
+  matches: RoundMatch[];
+}
+
+export interface RoundMatch {
+  id: string;
+  homeTeam: string;
+  awayTeam: string;
+  homeScore: number;
+  awayScore: number;
+  result: "H" | "D" | "A";
+  homeOdds?: number | null;
+  drawOdds?: number | null;
+  awayOdds?: number | null;
+  matchDate?: string | null;
+  betExplorerUrl?: string | null;
+}
+
+export interface RoundsResponse {
+  rounds: Round[];
+  totalCount: number;
+  skip: number;
+  take: number;
+}
+
+export interface RoundFilter {
+  season?: string;
+  leagueId?: string;
+  skip?: number;
+  take?: number;
+  sortDescending?: boolean;
+}
+
+// Data Provider types
+export interface DataProvider {
+  id: string;
+  name: string;
+  code: string;
+  baseUrl: string;
+  isActive: boolean;
+  priority: number;
+  type: number; // 1=Scraper, 2=API, 3=Manual, 4=BettingProvider
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SyncLeaguesRequest {
+  sportCode: string;
+}
+
+// Sync types
+export interface SyncRequest {
+  providerId: string;
+  type: "Countries" | "Leagues" | "Seasons";
+  entityId?: string | null;
+  activateCountries?: boolean;
+}
+
+export interface SyncResponse {
+  success: boolean;
+  message: string;
+  statistics: SyncStatistics;
+  completedAt: string;
+  duration: string;
+}
+
+export interface SyncStatistics {
+  totalProcessed: number;
+  created: number;
+  updated: number;
+  skipped: number;
+  errors: number;
+  errorMessages: string[];
+}
+
+export interface SyncStatusResponse {
+  isRunning: boolean;
+  currentOperation?: string | null;
+  startedAt?: string | null;
+  lastCompletedAt?: string | null;
+  lastResult?: SyncResponse | null;
+}
+
+export interface SyncWorkflowState {
+  id: string;
+  countriesSynced: boolean;
+  countriesConfirmed: boolean;
+  leaguesSynced: boolean;
+  leaguesConfirmed: boolean;
+  seasonsSynced: boolean;
+  countriesSyncedAt?: string | null;
+  leaguesSyncedAt?: string | null;
+  seasonsSyncedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpdateSyncEnabledRequest {
+  enabled: boolean;
+}
+
+export interface SyncSeasonDataRequest {
+  providerId: string;
+  forceUpdate?: boolean;
+}
+
+export interface AvailableSeasonsResponse {
+  leagueId: string;
+  leagueName: string;
+  seasons: string[];
+  currentSeason: string | null;
+  historicalSeasons: string[];
+}
+
+// Country Provider CRUD requests
+export interface CreateCountryProviderRequest {
+  countryId: string;
+  providerId: string;
+  providerCode: string;
+  providerName?: string;
+  isActive?: boolean;
+  metadata?: string;
+}
+
+export interface UpdateCountryProviderRequest {
+  providerCode?: string;
+  providerName?: string;
+  isActive?: boolean;
+  metadata?: string;
+}

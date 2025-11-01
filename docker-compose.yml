@@ -1,0 +1,115 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: sazkomat-postgres
+    environment:
+      POSTGRES_USER: sazkomat
+      POSTGRES_PASSWORD: sazkomat123
+      POSTGRES_DB: sazkomat_db
+    ports:
+      - "3002:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sazkomat"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sazkomat-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: sazkomat-redis
+    ports:
+      - "3003:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - sazkomat-network
+
+  # .NET 9 API
+  api:
+    build:
+      context: .
+      dockerfile: src/Sazkomat.Api/Dockerfile
+    container_name: sazkomat-api
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:3001
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=sazkomat_db;Username=sazkomat;Password=sazkomat123
+      - Redis__ConnectionString=redis:6379
+      - Scraper__BaseUrl=https://www.betexplorer.com
+      - Scraper__MinDelayMs=2000
+      - Scraper__MaxDelayMs=5000
+      - Scraper__MaxRetries=3
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - sazkomat-network
+    volumes:
+      - ./logs:/app/logs
+
+  # Next.js Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://127.0.0.1:3001
+    container_name: sazkomat-frontend
+    environment:
+      - NODE_ENV=production
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    networks:
+      - sazkomat-network
+    # Volumes disabled for production build - enable for development with hot reload
+    # volumes:
+    #   - ./frontend:/app
+    #   - /app/node_modules
+    #   - /app/.next
+
+  # pgAdmin (Optional - for database management)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: sazkomat-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@sazkomat.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+    ports:
+      - "3004:80"
+    depends_on:
+      - postgres
+    networks:
+      - sazkomat-network
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+
+networks:
+  sazkomat-network:
+    driver: bridge

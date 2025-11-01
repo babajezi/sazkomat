@@ -1,0 +1,161 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet --version:*)",
+      "Bash(dotnet new:*)",
+      "Bash(dotnet sln:*)",
+      "Bash(dotnet sln add:*)",
+      "Bash(dotnet add:*)",
+      "Bash(dotnet ef migrations add:*)",
+      "Bash(dotnet build:*)",
+      "Bash(docker compose up:*)",
+      "Bash(dotnet ef migrations remove:*)",
+      "Bash(npx create-next-app:*)",
+      "Bash(npx create-next-app@latest:*)",
+      "Bash(npm install)",
+      "Bash(npm run build:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(npm run dev:*)",
+      "Bash(dotnet run:*)",
+      "Bash(docker-compose ps:*)",
+      "Bash(dotnet test:*)",
+      "Bash(del \"C:\\projects\\private\\Sazkomat\\tests\\Sazkomat.Tests\\Configuration\\LeagueServiceTests.cs\")",
+      "Bash(curl:*)",
+      "Bash(docker ps:*)",
+      "Bash(docker-compose build:*)",
+      "Bash(docker stop:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(taskkill:*)",
+      "Bash(docker logs:*)",
+      "Bash(docker run --rm --entrypoint sh sazkomat-frontend -c \"ls -la /app/\")",
+      "Bash(docker run --rm --entrypoint sh sazkomat-frontend -c \"whoami && pwd && ls -la /app/server.js\")",
+      "Bash(docker-compose down:*)",
+      "Bash(docker-compose restart:*)",
+      "Bash(if not exist .claude mkdir .claude)",
+      "Bash(if not exist logs mkdir logs)",
+      "Bash(docker-compose logs:*)",
+      "Bash(powershell.exe -Command \"Stop-Process -Id 4932 -Force\")",
+      "Bash(del \"C:\\projects\\private\\Sazkomat\\src\\Sazkomat.DataImport\\Scrapers\\ISeasonScraper.cs\")",
+      "Bash(powershell.exe -Command \"Stop-Process -Id 27728 -Force\")",
+      "Bash(powershell.exe -Command \"Get-NetTCPConnection -LocalPort 5118 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess | ForEach-Object { Stop-Process -Id $_-Force }\")",
+      "Bash(timeout:*)",
+      "Bash(dotnet ef database update:*)",
+      "Bash(ping:*)",
+      "Bash(del \"C:\\projects\\private\\Sazkomat\\src\\Sazkomat.Configuration\\Services\\DatabaseResetService.cs\")",
+      "Bash(del \"C:\\projects\\private\\Sazkomat\\src\\Sazkomat.Configuration\\Services\\IDatabaseResetService.cs\")",
+      "Bash(powershell.exe -Command \"Stop-Process -Id 60816 -Force\")",
+      "Bash(docker run:*)",
+      "Bash(docker exec:*)",
+      "Bash(docker-compose stop:*)",
+      "Bash(powershell.exe -Command \"Stop-Process -Id 22300 -Force\")",
+      "Bash(python -m json.tool:*)",
+      "Bash(powershell.exe -Command \"Stop-Process -Id 45692 -Force\")",
+      "Bash(docker-compose rm:*)",
+      "Bash(del \"C:\\projects\\private\\Sazkomat\\src\\Sazkomat.Configuration\\Services\\ISeasonScraper.cs\")",
+      "Bash(powershell.exe -Command \"Remove-Item ''C:\\projects\\private\\Sazkomat\\src\\Sazkomat.Configuration\\Services\\ISeasonScraper.cs''\")",
+      "Bash(powershell.exe -Command \"Stop-Process -Id 21280 -Force\")",
+      "Bash(dir:*)",
+      "Bash(cat:*)",
+      "Bash(powershell.exe -Command \"Stop-Process -Id 41260 -Force\")",
+      "Bash(if not exist scripts mkdir scripts)",
+      "Bash(powershell.exe -Command \"if (-not (Test-Path ''scripts'')) { New-Item -ItemType Directory -Path ''scripts'' }\")",
+      "Bash(powershell.exe -ExecutionPolicy Bypass -File scripts/start-dev.ps1)",
+      "Bash(powershell.exe -Command \"Invoke-RestMethod -Uri ''http://localhost:3001/api/sync/countries'' -Method POST -Body (ConvertTo-Json @{providerId=''a0000000-0000-0000-0000-000000000001''}) -ContentType ''application/json'' | ConvertTo-Json -Depth 10\")",
+      "Bash(powershell.exe -Command \"$body = @{providerId=''a0000000-0000-0000-0000-000000000001''} | ConvertTo-Json; Invoke-RestMethod -Uri ''http://localhost:3001/api/sync/countries'' -Method POST -Body $body -ContentType ''application/json'' | ConvertTo-Json -Depth 10\")",
+      "Bash(powershell.exe -Command \"Invoke-RestMethod -Uri ''http://localhost:3001/api/sync/countries'' -Method POST -InFile ''test-sync-request.json'' -ContentType ''application/json'' | ConvertTo-Json -Depth 10\")",
+      "Bash(powershell.exe -Command \"Invoke-RestMethod -Uri ''http://localhost:3001/api/sync/leagues'' -Method POST -InFile ''test-sync-request.json'' -ContentType ''application/json'' | ConvertTo-Json -Depth 10\")",
+      "Bash(powershell.exe -Command \"Stop-Process -Id 45468 -Force\")",
+      "Bash(del Migrations20251026083134_UseLeagueProviderMapping.cs)",
+      "Bash(del Migrations20251026083134_UseLeagueProviderMapping.Designer.cs)",
+      "Bash(powershell.exe -Command \"Remove-Item ''C:\\projects\\private\\Sazkomat\\src\\Sazkomat.Configuration\\Migrations\\20251026083134_UseLeagueProviderMapping.cs'' -Force; Remove-Item ''C:\\projects\\private\\Sazkomat\\src\\Sazkomat.Configuration\\Migrations\\20251026083134_UseLeagueProviderMapping.Designer.cs'' -Force\")",
+      "Bash(powershell.exe -Command \"Invoke-RestMethod -Uri ''http://localhost:3001/api/config/leagues?pageSize=20'' -Method GET | ConvertTo-Json -Depth 5\")",
+      "Bash(powershell.exe -Command \"Get-NetTCPConnection -LocalPort 3001 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess | ForEach-Object { Stop-Process -Id $_-Force }\")",
+      "Bash(del \"C:\\projects\\private\\Sazkomat\\src\\Sazkomat.Configuration\\Migrations\\20251026140551_AddSyncWorkflowState.cs\")",
+      "Bash(del \"C:\\projects\\private\\Sazkomat\\src\\Sazkomat.Configuration\\Migrations\\20251026140551_AddSyncWorkflowState.Designer.cs\")",
+      "Bash(powershell.exe -Command \"Remove-Item ''C:\\projects\\private\\Sazkomat\\src\\Sazkomat.Configuration\\Migrations\\20251026140551_AddSyncWorkflowState.cs'' -Force; Remove-Item ''C:\\projects\\private\\Sazkomat\\src\\Sazkomat.Configuration\\Migrations\\20251026140551_AddSyncWorkflowState.Designer.cs'' -Force\")",
+      "Bash(dotnet ef migrations:*)",
+      "Bash(powershell.exe -Command \"Stop-Process -Id 44904 -Force\")",
+      "Bash(powershell.exe -ExecutionPolicy Bypass -File scripts/cleanup-invalid-countries.ps1)",
+      "Bash(powershell.exe -Command \"Invoke-RestMethod -Uri ''http://localhost:3001/api/config/countries'' | Measure-Object | Select-Object -ExpandProperty Count\")",
+      "Bash(powershell.exe -Command \"$countries = Invoke-RestMethod -Uri ''http://localhost:3001/api/config/countries''; $invalidCodes = @(''popular-bets'', ''odds-movements'', ''odds-filter'', ''livescore''); $countries | Where-Object { $invalidCodes -contains $_code } | Measure-Object | Select-Object -ExpandProperty Count\")",
+      "Bash(powershell.exe -Command \"Invoke-RestMethod -Uri ''http://localhost:3001/api/sync/workflow/state'' | ConvertTo-Json\")",
+      "Bash(powershell.exe -Command \"Invoke-RestMethod -Uri ''http://localhost:3001/api/config/countries'' | Select-Object -First 5 | ConvertTo-Json\")",
+      "Bash(powershell.exe -Command \"$countries = Invoke-RestMethod -Uri ''http://localhost:3001/api/config/countries''; $invalidCodes = @(''popular-bets'', ''odds-movements'', ''odds-filter'', ''livescore''); $invalid = $countries | Where-Object { $invalidCodes -contains $_code }; if ($invalid) { $invalid | Select-Object name, code | ConvertTo-Json } else { Write-Host ''No invalid countries found'' }\")",
+      "Bash(powershell.exe -Command \"$countries = Invoke-RestMethod -Uri ''http://localhost:3001/api/config/countries''; $countries | Where-Object { $_code -in @(''popular-bets'', ''odds-movements'', ''odds-filter'', ''livescore'') } | Measure-Object | Select-Object -ExpandProperty Count\")",
+      "Bash(powershell.exe -Command \"(Invoke-RestMethod -Uri ''http://localhost:3001/api/config/countries'').Count\")",
+      "Bash(powershell.exe -Command \"Start-Process ''http://localhost:3000/sync''\")",
+      "Bash(powershell.exe -Command \"Stop-Process -Id 44740 -Force\")",
+      "Bash(powershell.exe -Command \"Stop-Process -Id 9328 -Force\")",
+      "Bash(powershell.exe -ExecutionPolicy Bypass -File scripts/cleanup-continents.ps1)",
+      "Bash(powershell.exe -Command \"Get-NetTCPConnection -LocalPort 3001 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess | Select-Object -Unique | ForEach-Object { if ($_-is [int]) { Stop-Process -Id $_-Force } }\")",
+      "Bash(powershell.exe -Command \"Invoke-RestMethod -Uri ''http://localhost:3001/api/sync/countries'' -Method POST -Body (ConvertTo-Json @{providerId=''a0000000-0000-0000-0000-000000000001''}) -ContentType ''application/json'' | ConvertTo-Json -Depth 5\")",
+      "Bash(powershell.exe -Command \"Invoke-RestMethod -Uri ''http://localhost:3001/api/sync/countries'' -Method POST -Body (ConvertTo-Json @{providerId=''a0000000-0000-0000-0000-000000000001''}) -ContentType ''application/json''\")",
+      "Bash(powershell.exe -Command \"$countries = Invoke-RestMethod -Uri ''http://localhost:3001/api/config/countries''; Write-Host ''Total countries:'' $countries.Count; $continents = $countries | Where-Object { $_code -in @(''europe'', ''africa'', ''asia'', ''australia-oceania'', ''north-central-america'', ''south-america'') }; Write-Host ''Continents found:'' $continents.Count; if ($continents.Count -gt 0) { $continents | Select-Object name, code | ConvertTo-Json }\")",
+      "Bash(powershell.exe -Command \"$c = Invoke-RestMethod -Uri ''http://localhost:3001/api/config/countries''; $c | Select-Object -First 15 name, code | Format-Table\")",
+      "Bash(powershell.exe -Command \"Stop-Process -Id 47460 -Force\")",
+      "Bash(powershell.exe -Command \"Stop-Process -Id 52420 -Force\")",
+      "Bash(powershell.exe:*)",
+      "Bash(del scriptstest-season-sync.ps1)",
+      "WebFetch(domain:www.betexplorer.com)",
+      "Bash(npm install:*)",
+      "Bash(docker inspect:*)",
+      "Bash(pwsh -Command \"cd src/Sazkomat.Api && dotnet build --no-incremental\":*)",
+      "Bash(pwsh:*)",
+      "Bash(dotnet tool install:*)",
+      "Bash(playwright install:*)",
+      "Bash(Select-Object -First 1)",
+      "Bash(Select-String \"error|Error\")",
+      "Bash(Select-Object -First 5)",
+      "Bash(python test_betting.py:*)",
+      "Bash(npx shadcn@latest add:*)",
+      "Bash(psql:*)",
+      "Bash(Select-String \"error|Build succeeded|Build FAILED\")",
+      "Bash(nul)",
+      "Bash(Test-Path \"C:\\projects\\private\\Sazkomat\\logs\")",
+      "Bash(git init:*)",
+      "Bash(git remote add:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
+    ],
+    "additionalDirectories": [
+      "c:\\projects\\claude-share"
+    ]
+  },
+  "hooks": {
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -File .claude/hooks/notification.ps1"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -File .claude/hooks/user-prompt-submit.ps1"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -File .claude/hooks/stop.ps1"
+          }
+        ]
+      }
+    ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "powershell -File .claude/statusline.ps1"
+  }
+}

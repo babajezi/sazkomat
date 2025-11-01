@@ -1,0 +1,1761 @@
+{
+  "version": "1.0",
+  "schemaVersion": "1.0.0",
+  "exportedAt": "2025-10-30T23:55:20.8567147Z",
+  "exportedBy": null,
+  "description": "Sazkomat configuration export",
+  "metadata": {
+    "totalEntities": 188,
+    "includedTypes": [
+      "sports",
+      "countries",
+      "providers"
+    ]
+  },
+  "sports": [
+    {
+      "id": "5a1e7ef5-0b6e-4407-bf50-6e09ea7a76e7",
+      "name": "Football",
+      "code": "football",
+      "isActive": true,
+      "priority": 0,
+      "createdAt": "2025-10-27T20:04:00.939305Z",
+      "updatedAt": "2025-10-27T20:04:00.939305Z"
+    }
+  ],
+  "countries": [
+    {
+      "id": "46c7189d-2694-428c-a9e7-4c645bacbfe2",
+      "name": "England",
+      "code": "england",
+      "flagEmoji": "\uD83C\uDDEC\uD83C\uDDE7",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:29.991542Z",
+      "updatedAt": "2025-10-30T01:16:29.991542Z"
+    },
+    {
+      "id": "1d252655-f044-403d-8088-b807291b6a02",
+      "name": "Spain",
+      "code": "spain",
+      "flagEmoji": "\uD83C\uDDEA\uD83C\uDDF8",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.017578Z",
+      "updatedAt": "2025-10-30T01:16:30.017578Z"
+    },
+    {
+      "id": "414aed8a-76f6-4fa8-9ab3-e2c00b419ceb",
+      "name": "Germany",
+      "code": "germany",
+      "flagEmoji": "\uD83C\uDDE9\uD83C\uDDEA",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.021058Z",
+      "updatedAt": "2025-10-30T01:16:30.021058Z"
+    },
+    {
+      "id": "fe2d1799-06ab-40b3-8833-cace89cd3c46",
+      "name": "Italy",
+      "code": "italy",
+      "flagEmoji": "\uD83C\uDDEE\uD83C\uDDF9",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.023554Z",
+      "updatedAt": "2025-10-30T01:16:30.023554Z"
+    },
+    {
+      "id": "6c40c63a-c596-423c-8d93-b91dd594725a",
+      "name": "France",
+      "code": "france",
+      "flagEmoji": "\uD83C\uDDEB\uD83C\uDDF7",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.026787Z",
+      "updatedAt": "2025-10-30T01:16:30.026787Z"
+    },
+    {
+      "id": "7ab6b990-ecb6-4962-b3f1-74c57e4ed620",
+      "name": "Netherlands",
+      "code": "netherlands",
+      "flagEmoji": "\uD83C\uDDF3\uD83C\uDDF1",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.030139Z",
+      "updatedAt": "2025-10-30T01:16:30.030139Z"
+    },
+    {
+      "id": "bde59a80-d7c3-4ece-b3e9-aa7acc47f2ec",
+      "name": "Portugal",
+      "code": "portugal",
+      "flagEmoji": "\uD83C\uDDF5\uD83C\uDDF9",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.035104Z",
+      "updatedAt": "2025-10-30T01:16:30.035104Z"
+    },
+    {
+      "id": "3a25dd1b-7ee3-443e-8b37-181a0eefd35f",
+      "name": "Turkey",
+      "code": "turkey",
+      "flagEmoji": "\uD83C\uDDF9\uD83C\uDDF7",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.038342Z",
+      "updatedAt": "2025-10-30T01:16:30.038342Z"
+    },
+    {
+      "id": "fa3d514a-0db8-4dba-a6e6-8b23355acfc3",
+      "name": "Belgium",
+      "code": "belgium",
+      "flagEmoji": "\uD83C\uDDE7\uD83C\uDDEA",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.041248Z",
+      "updatedAt": "2025-10-30T01:16:30.041248Z"
+    },
+    {
+      "id": "78c9bca8-4d00-463c-8cc4-399177f55f53",
+      "name": "Albania",
+      "code": "albania",
+      "flagEmoji": "\uD83C\uDDE6\uD83C\uDDF1",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.043816Z",
+      "updatedAt": "2025-10-30T01:16:30.043816Z"
+    },
+    {
+      "id": "2585953c-aae7-4eb5-88a4-43ab83c6e63f",
+      "name": "Algeria",
+      "code": "algeria",
+      "flagEmoji": "\uD83C\uDDE9\uD83C\uDDFF",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.046366Z",
+      "updatedAt": "2025-10-30T01:16:30.046366Z"
+    },
+    {
+      "id": "36c1e017-f1e2-40de-b188-5070826a7265",
+      "name": "Andorra",
+      "code": "andorra",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.048818Z",
+      "updatedAt": "2025-10-30T01:16:30.048818Z"
+    },
+    {
+      "id": "69207412-3229-4fde-b162-ddc1b66a2d63",
+      "name": "Angola",
+      "code": "angola",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.051442Z",
+      "updatedAt": "2025-10-30T01:16:30.051442Z"
+    },
+    {
+      "id": "bd52e742-b175-41d8-9f1f-496ae5bdc40a",
+      "name": "Antigua \u0026 Barbuda",
+      "code": "antigua-barbuda",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.054251Z",
+      "updatedAt": "2025-10-30T01:16:30.054251Z"
+    },
+    {
+      "id": "3552d65f-d106-4116-ba8b-9f599c1fb58c",
+      "name": "Argentina",
+      "code": "argentina",
+      "flagEmoji": "\uD83C\uDDE6\uD83C\uDDF7",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.057021Z",
+      "updatedAt": "2025-10-30T01:16:30.057021Z"
+    },
+    {
+      "id": "60c40cbb-c606-4eb4-a276-514e94d41374",
+      "name": "Armenia",
+      "code": "armenia",
+      "flagEmoji": "\uD83C\uDDE6\uD83C\uDDF2",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.059954Z",
+      "updatedAt": "2025-10-30T01:16:30.059954Z"
+    },
+    {
+      "id": "04e82987-b8c0-40aa-b826-a6e9eca4633e",
+      "name": "Aruba",
+      "code": "aruba",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.062488Z",
+      "updatedAt": "2025-10-30T01:16:30.062488Z"
+    },
+    {
+      "id": "fa13925d-38db-4b01-9b70-743cae31e60f",
+      "name": "Australia",
+      "code": "australia",
+      "flagEmoji": "\uD83C\uDDE6\uD83C\uDDFA",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.06479Z",
+      "updatedAt": "2025-10-30T01:16:30.06479Z"
+    },
+    {
+      "id": "5996a842-4c15-47d2-a84f-be18301d18e5",
+      "name": "Austria",
+      "code": "austria",
+      "flagEmoji": "\uD83C\uDDE6\uD83C\uDDF9",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.06698Z",
+      "updatedAt": "2025-10-30T01:16:30.06698Z"
+    },
+    {
+      "id": "89f690fd-0f49-4364-8878-6c13cd2c6ea8",
+      "name": "Azerbaijan",
+      "code": "azerbaijan",
+      "flagEmoji": "\uD83C\uDDE6\uD83C\uDDFF",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.069176Z",
+      "updatedAt": "2025-10-30T01:16:30.069176Z"
+    },
+    {
+      "id": "7e710981-d68e-4030-b851-a73ef608051b",
+      "name": "Bahrain",
+      "code": "bahrain",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.071284Z",
+      "updatedAt": "2025-10-30T01:16:30.071284Z"
+    },
+    {
+      "id": "7eba6996-0a52-402a-9567-7f9b601c7ad5",
+      "name": "Bangladesh",
+      "code": "bangladesh",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.073442Z",
+      "updatedAt": "2025-10-30T01:16:30.073442Z"
+    },
+    {
+      "id": "19da1367-cfb7-47b1-9716-035f8738a2fc",
+      "name": "Barbados",
+      "code": "barbados",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.07623Z",
+      "updatedAt": "2025-10-30T01:16:30.07623Z"
+    },
+    {
+      "id": "bb49ac6a-c8af-4712-9000-8806c80db6d0",
+      "name": "Belarus",
+      "code": "belarus",
+      "flagEmoji": "\uD83C\uDDE7\uD83C\uDDFE",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.078381Z",
+      "updatedAt": "2025-10-30T01:16:30.078381Z"
+    },
+    {
+      "id": "3efe1f3e-55fc-46a3-a7bf-bc82cf431693",
+      "name": "Benin",
+      "code": "benin",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.080574Z",
+      "updatedAt": "2025-10-30T01:16:30.080574Z"
+    },
+    {
+      "id": "e56daeb0-0719-4dd6-9361-67438c93e192",
+      "name": "Bermuda",
+      "code": "bermuda",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.082889Z",
+      "updatedAt": "2025-10-30T01:16:30.082889Z"
+    },
+    {
+      "id": "e191026b-be4f-4adc-8310-0027e28128be",
+      "name": "Bhutan",
+      "code": "bhutan",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.085204Z",
+      "updatedAt": "2025-10-30T01:16:30.085204Z"
+    },
+    {
+      "id": "21ae480c-b319-4efb-b8d1-7f5023667f97",
+      "name": "Bolivia",
+      "code": "bolivia",
+      "flagEmoji": "\uD83C\uDDE7\uD83C\uDDF4",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.087708Z",
+      "updatedAt": "2025-10-30T01:16:30.087708Z"
+    },
+    {
+      "id": "31bcb9b1-d465-4ce6-9021-ab1d62fcfef4",
+      "name": "Bosnia and Herzegovina",
+      "code": "bosnia-and-herzegovina",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.09017Z",
+      "updatedAt": "2025-10-30T01:16:30.09017Z"
+    },
+    {
+      "id": "78860edf-bb6f-4d4a-90ef-45b6853c4aa6",
+      "name": "Botswana",
+      "code": "botswana",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.092882Z",
+      "updatedAt": "2025-10-30T01:16:30.092882Z"
+    },
+    {
+      "id": "fccf4238-eb0a-4146-bf9f-c46d5483b897",
+      "name": "Brazil",
+      "code": "brazil",
+      "flagEmoji": "\uD83C\uDDE7\uD83C\uDDF7",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.095461Z",
+      "updatedAt": "2025-10-30T01:16:30.095461Z"
+    },
+    {
+      "id": "ea54c13c-03c2-41be-8ca3-e27e27f385d9",
+      "name": "Bulgaria",
+      "code": "bulgaria",
+      "flagEmoji": "\uD83C\uDDE7\uD83C\uDDEC",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.097911Z",
+      "updatedAt": "2025-10-30T01:16:30.097911Z"
+    },
+    {
+      "id": "2ed9adfd-b9cb-4a47-912b-432ef42b4af0",
+      "name": "Burkina Faso",
+      "code": "burkina-faso",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.100113Z",
+      "updatedAt": "2025-10-30T01:16:30.100113Z"
+    },
+    {
+      "id": "86e7c263-ad7c-475b-9fe5-50616a1af7d5",
+      "name": "Burundi",
+      "code": "burundi",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.102333Z",
+      "updatedAt": "2025-10-30T01:16:30.102333Z"
+    },
+    {
+      "id": "2cd9d79a-8785-4998-a54c-8220e9a77d98",
+      "name": "Cambodia",
+      "code": "cambodia",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.104543Z",
+      "updatedAt": "2025-10-30T01:16:30.104543Z"
+    },
+    {
+      "id": "079dfa35-584e-4646-bd2b-4d2b25d0d5e8",
+      "name": "Cameroon",
+      "code": "cameroon",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.106639Z",
+      "updatedAt": "2025-10-30T01:16:30.106639Z"
+    },
+    {
+      "id": "8523ffd1-ed03-4a76-857f-b2b4922f9f48",
+      "name": "Canada",
+      "code": "canada",
+      "flagEmoji": "\uD83C\uDDE8\uD83C\uDDE6",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.109208Z",
+      "updatedAt": "2025-10-30T01:16:30.109208Z"
+    },
+    {
+      "id": "75617a20-5bb1-42ce-be38-64f935241ad6",
+      "name": "Cape Verde",
+      "code": "cape-verde",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.111937Z",
+      "updatedAt": "2025-10-30T01:16:30.111937Z"
+    },
+    {
+      "id": "6e18a43b-86f9-45a6-aa88-95ac206200c0",
+      "name": "Chad",
+      "code": "chad",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.114571Z",
+      "updatedAt": "2025-10-30T01:16:30.114571Z"
+    },
+    {
+      "id": "39c866ff-f43b-4948-85b4-77a889e35e97",
+      "name": "Chile",
+      "code": "chile",
+      "flagEmoji": "\uD83C\uDDE8\uD83C\uDDF1",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.116895Z",
+      "updatedAt": "2025-10-30T01:16:30.116895Z"
+    },
+    {
+      "id": "ff8666f6-78cd-41dd-8161-eb84d018e075",
+      "name": "China",
+      "code": "china",
+      "flagEmoji": "\uD83C\uDDE8\uD83C\uDDF3",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.119125Z",
+      "updatedAt": "2025-10-30T01:16:30.119125Z"
+    },
+    {
+      "id": "be4fdbbd-4238-44a9-a90b-2e92e6a0824c",
+      "name": "Colombia",
+      "code": "colombia",
+      "flagEmoji": "\uD83C\uDDE8\uD83C\uDDF4",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.121322Z",
+      "updatedAt": "2025-10-30T01:16:30.121323Z"
+    },
+    {
+      "id": "3a3a7b5a-f15d-468e-9fe9-94afd4792363",
+      "name": "Costa Rica",
+      "code": "costa-rica",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.123501Z",
+      "updatedAt": "2025-10-30T01:16:30.123501Z"
+    },
+    {
+      "id": "5f15a0a9-d21e-403a-97fd-f2f017bfc91e",
+      "name": "Croatia",
+      "code": "croatia",
+      "flagEmoji": "\uD83C\uDDED\uD83C\uDDF7",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.126195Z",
+      "updatedAt": "2025-10-30T01:16:30.126195Z"
+    },
+    {
+      "id": "9ceb768f-350b-438c-9f8f-b8e359f5ef1b",
+      "name": "Cuba",
+      "code": "cuba",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.128781Z",
+      "updatedAt": "2025-10-30T01:16:30.128781Z"
+    },
+    {
+      "id": "2a2eb667-6a8b-4aa5-823a-30b05f669851",
+      "name": "Cura\u00E7ao",
+      "code": "curacao",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.131157Z",
+      "updatedAt": "2025-10-30T01:16:30.131157Z"
+    },
+    {
+      "id": "88c0ef5b-264d-4348-b668-23d666d05236",
+      "name": "Cyprus",
+      "code": "cyprus",
+      "flagEmoji": "\uD83C\uDDE8\uD83C\uDDFE",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.133315Z",
+      "updatedAt": "2025-10-30T01:16:30.133315Z"
+    },
+    {
+      "id": "b36027c4-024d-452a-9d35-28b818b4ba51",
+      "name": "Czech Republic",
+      "code": "czech-republic",
+      "flagEmoji": "\uD83C\uDDE8\uD83C\uDDFF",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.135451Z",
+      "updatedAt": "2025-10-30T01:16:30.135451Z"
+    },
+    {
+      "id": "b87d6c53-f66b-4a34-971f-f78b2459f529",
+      "name": "Denmark",
+      "code": "denmark",
+      "flagEmoji": "\uD83C\uDDE9\uD83C\uDDF0",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.1374Z",
+      "updatedAt": "2025-10-30T01:16:30.1374Z"
+    },
+    {
+      "id": "195759b7-6074-4c04-8c0f-5f123f495295",
+      "name": "Djibouti",
+      "code": "djibouti",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.139458Z",
+      "updatedAt": "2025-10-30T01:16:30.139458Z"
+    },
+    {
+      "id": "b432f9a6-bb32-4ffd-a6f4-e4be01d057ab",
+      "name": "Dominican Republic",
+      "code": "dominican-republic",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.142028Z",
+      "updatedAt": "2025-10-30T01:16:30.142028Z"
+    },
+    {
+      "id": "ba48b854-f029-4816-ba68-6b41fdafbf89",
+      "name": "DR Congo",
+      "code": "dr-congo",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.144905Z",
+      "updatedAt": "2025-10-30T01:16:30.144905Z"
+    },
+    {
+      "id": "562922bd-088a-4438-9949-4dc57ca85744",
+      "name": "Ecuador",
+      "code": "ecuador",
+      "flagEmoji": "\uD83C\uDDEA\uD83C\uDDE8",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.147496Z",
+      "updatedAt": "2025-10-30T01:16:30.147496Z"
+    },
+    {
+      "id": "854e83b1-c360-4300-9b06-4d3e4bc7a2d1",
+      "name": "Egypt",
+      "code": "egypt",
+      "flagEmoji": "\uD83C\uDDEA\uD83C\uDDEC",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.149689Z",
+      "updatedAt": "2025-10-30T01:16:30.149689Z"
+    },
+    {
+      "id": "c1b80db1-6c13-4431-9153-26712f7e7f3f",
+      "name": "El Salvador",
+      "code": "el-salvador",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.151785Z",
+      "updatedAt": "2025-10-30T01:16:30.151785Z"
+    },
+    {
+      "id": "96adbed0-7b86-43c4-bb3a-57040d64ba1a",
+      "name": "Estonia",
+      "code": "estonia",
+      "flagEmoji": "\uD83C\uDDEA\uD83C\uDDEA",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.15404Z",
+      "updatedAt": "2025-10-30T01:16:30.15404Z"
+    },
+    {
+      "id": "bc075072-3013-4107-9c0b-8098a9a88e4b",
+      "name": "Eswatini",
+      "code": "eswatini",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.156109Z",
+      "updatedAt": "2025-10-30T01:16:30.156109Z"
+    },
+    {
+      "id": "87d80f0e-f37e-47bb-9ae5-fbde1a7fbdd5",
+      "name": "Ethiopia",
+      "code": "ethiopia",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.158569Z",
+      "updatedAt": "2025-10-30T01:16:30.158569Z"
+    },
+    {
+      "id": "a677837e-eb3b-4a0c-a21f-1723d83c1d2e",
+      "name": "Faroe Islands",
+      "code": "faroe-islands",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.161481Z",
+      "updatedAt": "2025-10-30T01:16:30.161481Z"
+    },
+    {
+      "id": "9af3defc-7ab1-40b1-ad33-341e10c4ad26",
+      "name": "Fiji",
+      "code": "fiji",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.164229Z",
+      "updatedAt": "2025-10-30T01:16:30.164229Z"
+    },
+    {
+      "id": "c1a11973-2010-4928-a71e-f8679d43c65b",
+      "name": "Finland",
+      "code": "finland",
+      "flagEmoji": "\uD83C\uDDEB\uD83C\uDDEE",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.166673Z",
+      "updatedAt": "2025-10-30T01:16:30.166673Z"
+    },
+    {
+      "id": "3b0363ee-7848-4f70-be11-ef9feed581c5",
+      "name": "Gabon",
+      "code": "gabon",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.169024Z",
+      "updatedAt": "2025-10-30T01:16:30.169024Z"
+    },
+    {
+      "id": "d1781b22-97b4-4146-bf91-d090e4dc2d94",
+      "name": "Gambia",
+      "code": "gambia",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.171239Z",
+      "updatedAt": "2025-10-30T01:16:30.171239Z"
+    },
+    {
+      "id": "2e38efed-fd45-406b-95ac-00acd06a8e53",
+      "name": "Georgia",
+      "code": "georgia",
+      "flagEmoji": "\uD83C\uDDEC\uD83C\uDDEA",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.17353Z",
+      "updatedAt": "2025-10-30T01:16:30.17353Z"
+    },
+    {
+      "id": "891736e3-1cc0-4a34-9b45-20f18bf0c5af",
+      "name": "Ghana",
+      "code": "ghana",
+      "flagEmoji": "\uD83C\uDDEC\uD83C\uDDED",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.176676Z",
+      "updatedAt": "2025-10-30T01:16:30.176676Z"
+    },
+    {
+      "id": "1ce2094a-e163-4587-883b-bc38a6240c99",
+      "name": "Gibraltar",
+      "code": "gibraltar",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.179422Z",
+      "updatedAt": "2025-10-30T01:16:30.179423Z"
+    },
+    {
+      "id": "c5b077a9-e4bf-40fc-8db9-b05ec4c8b34a",
+      "name": "Greece",
+      "code": "greece",
+      "flagEmoji": "\uD83C\uDDEC\uD83C\uDDF7",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.181776Z",
+      "updatedAt": "2025-10-30T01:16:30.181776Z"
+    },
+    {
+      "id": "ba6d3aa2-deb0-475a-a53e-af84dd89400f",
+      "name": "Grenada",
+      "code": "grenada",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.184057Z",
+      "updatedAt": "2025-10-30T01:16:30.184057Z"
+    },
+    {
+      "id": "8eb134d2-0731-4205-83d5-0ad9860c489b",
+      "name": "Guatemala",
+      "code": "guatemala",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.18628Z",
+      "updatedAt": "2025-10-30T01:16:30.18628Z"
+    },
+    {
+      "id": "2fb49c2f-52c9-470b-84e6-a0ec91369788",
+      "name": "Guinea",
+      "code": "guinea",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.188465Z",
+      "updatedAt": "2025-10-30T01:16:30.188465Z"
+    },
+    {
+      "id": "4a7b00e8-6a06-4b6f-ad5e-ed5fb705fa5c",
+      "name": "Haiti",
+      "code": "haiti",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.190718Z",
+      "updatedAt": "2025-10-30T01:16:30.190718Z"
+    },
+    {
+      "id": "9bba57e2-e705-4b59-be72-b71bc4ad9970",
+      "name": "Honduras",
+      "code": "honduras",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.193751Z",
+      "updatedAt": "2025-10-30T01:16:30.193751Z"
+    },
+    {
+      "id": "28622597-5955-4b05-80c7-e76a057504de",
+      "name": "Hong Kong",
+      "code": "hong-kong",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.196288Z",
+      "updatedAt": "2025-10-30T01:16:30.196288Z"
+    },
+    {
+      "id": "aea049e5-7e34-480a-89ed-d4d2c7e04278",
+      "name": "Hungary",
+      "code": "hungary",
+      "flagEmoji": "\uD83C\uDDED\uD83C\uDDFA",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.198713Z",
+      "updatedAt": "2025-10-30T01:16:30.198713Z"
+    },
+    {
+      "id": "ef8861b5-dc82-41fa-88fc-2221b0a632b7",
+      "name": "Iceland",
+      "code": "iceland",
+      "flagEmoji": "\uD83C\uDDEE\uD83C\uDDF8",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.201056Z",
+      "updatedAt": "2025-10-30T01:16:30.201056Z"
+    },
+    {
+      "id": "1bf16098-8ab8-4e16-9d11-85b0ea19e8e0",
+      "name": "India",
+      "code": "india",
+      "flagEmoji": "\uD83C\uDDEE\uD83C\uDDF3",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.203386Z",
+      "updatedAt": "2025-10-30T01:16:30.203386Z"
+    },
+    {
+      "id": "283f4e39-3b90-4936-a726-906ba47331a4",
+      "name": "Indonesia",
+      "code": "indonesia",
+      "flagEmoji": "\uD83C\uDDEE\uD83C\uDDE9",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.205922Z",
+      "updatedAt": "2025-10-30T01:16:30.205922Z"
+    },
+    {
+      "id": "46d5dd37-43b2-4e7a-8c90-02d7664143a9",
+      "name": "Iran",
+      "code": "iran",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.210384Z",
+      "updatedAt": "2025-10-30T01:16:30.210384Z"
+    },
+    {
+      "id": "c57489ad-5431-406c-9a3c-1ca96b4618b7",
+      "name": "Iraq",
+      "code": "iraq",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.213462Z",
+      "updatedAt": "2025-10-30T01:16:30.213462Z"
+    },
+    {
+      "id": "c143e7da-36c4-45b7-848e-d88d9f6757c8",
+      "name": "Ireland",
+      "code": "ireland",
+      "flagEmoji": "\uD83C\uDDEE\uD83C\uDDEA",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.215936Z",
+      "updatedAt": "2025-10-30T01:16:30.215936Z"
+    },
+    {
+      "id": "9d0d6c94-daa4-4062-ae55-98d49783d8f5",
+      "name": "Israel",
+      "code": "israel",
+      "flagEmoji": "\uD83C\uDDEE\uD83C\uDDF1",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.218442Z",
+      "updatedAt": "2025-10-30T01:16:30.218442Z"
+    },
+    {
+      "id": "703939dc-a892-4e0c-98ee-4f33121fb295",
+      "name": "Ivory Coast",
+      "code": "ivory-coast",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.220861Z",
+      "updatedAt": "2025-10-30T01:16:30.220861Z"
+    },
+    {
+      "id": "44f42455-4e2a-42ae-84ac-237f60126907",
+      "name": "Jamaica",
+      "code": "jamaica",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.223515Z",
+      "updatedAt": "2025-10-30T01:16:30.223515Z"
+    },
+    {
+      "id": "e9b93596-6ad1-46cd-bcf7-080e95ee1cae",
+      "name": "Japan",
+      "code": "japan",
+      "flagEmoji": "\uD83C\uDDEF\uD83C\uDDF5",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.253141Z",
+      "updatedAt": "2025-10-30T01:16:30.253141Z"
+    },
+    {
+      "id": "5211293f-a7a4-4c72-863f-6667d7964d6f",
+      "name": "Jordan",
+      "code": "jordan",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.256392Z",
+      "updatedAt": "2025-10-30T01:16:30.256392Z"
+    },
+    {
+      "id": "3715ba4d-c5ee-41c5-9e04-a19650e51e02",
+      "name": "Kazakhstan",
+      "code": "kazakhstan",
+      "flagEmoji": "\uD83C\uDDF0\uD83C\uDDFF",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.259528Z",
+      "updatedAt": "2025-10-30T01:16:30.259528Z"
+    },
+    {
+      "id": "809eac86-6a0f-42b6-ade3-ab7aa1afb543",
+      "name": "Kenya",
+      "code": "kenya",
+      "flagEmoji": "\uD83C\uDDF0\uD83C\uDDEA",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.262208Z",
+      "updatedAt": "2025-10-30T01:16:30.262208Z"
+    },
+    {
+      "id": "e733c1d6-885d-46a1-aadc-93adfc5a42ae",
+      "name": "Kosovo",
+      "code": "kosovo",
+      "flagEmoji": "\uD83C\uDDFD\uD83C\uDDF0",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.264622Z",
+      "updatedAt": "2025-10-30T01:16:30.264622Z"
+    },
+    {
+      "id": "4b706002-a804-4cc9-b6a7-13a4410bb1ef",
+      "name": "Kuwait",
+      "code": "kuwait",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.266796Z",
+      "updatedAt": "2025-10-30T01:16:30.266796Z"
+    },
+    {
+      "id": "e122b345-7c03-40e5-bbf4-1a53564d13d9",
+      "name": "Kyrgyzstan",
+      "code": "kyrgyzstan",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.269079Z",
+      "updatedAt": "2025-10-30T01:16:30.269079Z"
+    },
+    {
+      "id": "7dd103e9-2d8d-4021-ba22-484ba7723e56",
+      "name": "Laos",
+      "code": "laos",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.271282Z",
+      "updatedAt": "2025-10-30T01:16:30.271282Z"
+    },
+    {
+      "id": "df0d3927-b83b-4888-aeb9-64214d6d950b",
+      "name": "Latvia",
+      "code": "latvia",
+      "flagEmoji": "\uD83C\uDDF1\uD83C\uDDFB",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.27442Z",
+      "updatedAt": "2025-10-30T01:16:30.27442Z"
+    },
+    {
+      "id": "7b3cba2b-3e73-430e-b18c-cb76de7e8e79",
+      "name": "Lebanon",
+      "code": "lebanon",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.277366Z",
+      "updatedAt": "2025-10-30T01:16:30.277366Z"
+    },
+    {
+      "id": "6a86f5ad-7aac-44f6-80c5-420281bd5632",
+      "name": "Lesotho",
+      "code": "lesotho",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.279981Z",
+      "updatedAt": "2025-10-30T01:16:30.279981Z"
+    },
+    {
+      "id": "4453c9e4-04fc-42d7-80e4-28ec986708f2",
+      "name": "Liberia",
+      "code": "liberia",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.282359Z",
+      "updatedAt": "2025-10-30T01:16:30.282359Z"
+    },
+    {
+      "id": "90e08d0e-5da0-4898-990c-3bf52818e629",
+      "name": "Libya",
+      "code": "libya",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.284787Z",
+      "updatedAt": "2025-10-30T01:16:30.284787Z"
+    },
+    {
+      "id": "f56c5e6e-d12e-4981-863e-28b56e27c814",
+      "name": "Liechtenstein",
+      "code": "liechtenstein",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.286982Z",
+      "updatedAt": "2025-10-30T01:16:30.286982Z"
+    },
+    {
+      "id": "b7b110e3-288c-46fd-9382-972c2b882cde",
+      "name": "Lithuania",
+      "code": "lithuania",
+      "flagEmoji": "\uD83C\uDDF1\uD83C\uDDF9",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.289128Z",
+      "updatedAt": "2025-10-30T01:16:30.289128Z"
+    },
+    {
+      "id": "da7e68ea-a867-4aee-a4e3-74d31d480494",
+      "name": "Luxembourg",
+      "code": "luxembourg",
+      "flagEmoji": "\uD83C\uDDF1\uD83C\uDDFA",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.291565Z",
+      "updatedAt": "2025-10-30T01:16:30.291565Z"
+    },
+    {
+      "id": "c33d281b-f740-40b6-b124-aebc62035ea2",
+      "name": "Macao",
+      "code": "macao",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.294368Z",
+      "updatedAt": "2025-10-30T01:16:30.294368Z"
+    },
+    {
+      "id": "5143b358-bbc2-4a29-99ad-949bfe66ae83",
+      "name": "Madagascar",
+      "code": "madagascar",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.296909Z",
+      "updatedAt": "2025-10-30T01:16:30.296909Z"
+    },
+    {
+      "id": "3ad19134-1398-4ec0-95f2-c6624f4328c4",
+      "name": "Malawi",
+      "code": "malawi",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.299195Z",
+      "updatedAt": "2025-10-30T01:16:30.299195Z"
+    },
+    {
+      "id": "fad8fea3-0d3b-4318-b7e6-3ed96f76403d",
+      "name": "Malaysia",
+      "code": "malaysia",
+      "flagEmoji": "\uD83C\uDDF2\uD83C\uDDFE",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.301734Z",
+      "updatedAt": "2025-10-30T01:16:30.301734Z"
+    },
+    {
+      "id": "9da1850f-8424-4e62-9e0c-1651fe406dfb",
+      "name": "Maldives",
+      "code": "maldives",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.304064Z",
+      "updatedAt": "2025-10-30T01:16:30.304065Z"
+    },
+    {
+      "id": "2896af49-afbd-41c1-bf5e-c43e7b0a3d5a",
+      "name": "Mali",
+      "code": "mali",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.306326Z",
+      "updatedAt": "2025-10-30T01:16:30.306326Z"
+    },
+    {
+      "id": "6b12fedb-22ba-449f-9c31-cfd8f2a44111",
+      "name": "Malta",
+      "code": "malta",
+      "flagEmoji": "\uD83C\uDDF2\uD83C\uDDF9",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.308912Z",
+      "updatedAt": "2025-10-30T01:16:30.308912Z"
+    },
+    {
+      "id": "7ddcd4ba-134f-4cd2-84a7-46ca913b3290",
+      "name": "Martinique",
+      "code": "martinique",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.311659Z",
+      "updatedAt": "2025-10-30T01:16:30.311659Z"
+    },
+    {
+      "id": "ac5e7cd8-a3a2-4b6e-9829-508643dafd65",
+      "name": "Mauritania",
+      "code": "mauritania",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.314135Z",
+      "updatedAt": "2025-10-30T01:16:30.314135Z"
+    },
+    {
+      "id": "63c04e56-b0b7-46e0-8bd5-70e3fb7431e3",
+      "name": "Mauritius",
+      "code": "mauritius",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.316461Z",
+      "updatedAt": "2025-10-30T01:16:30.316461Z"
+    },
+    {
+      "id": "190862a2-e138-4957-828f-837f4fb3e8e7",
+      "name": "Mexico",
+      "code": "mexico",
+      "flagEmoji": "\uD83C\uDDF2\uD83C\uDDFD",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.318822Z",
+      "updatedAt": "2025-10-30T01:16:30.318822Z"
+    },
+    {
+      "id": "65c66142-6ffe-4896-a66e-ddcdf4a1f3be",
+      "name": "Moldova",
+      "code": "moldova",
+      "flagEmoji": "\uD83C\uDDF2\uD83C\uDDE9",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.321001Z",
+      "updatedAt": "2025-10-30T01:16:30.321001Z"
+    },
+    {
+      "id": "917852b5-63c0-4ccc-a3dc-146dd587cacc",
+      "name": "Mongolia",
+      "code": "mongolia",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.323087Z",
+      "updatedAt": "2025-10-30T01:16:30.323087Z"
+    },
+    {
+      "id": "33a60592-6c9e-44fb-a3c1-7879a2e73939",
+      "name": "Montenegro",
+      "code": "montenegro",
+      "flagEmoji": "\uD83C\uDDF2\uD83C\uDDEA",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.325609Z",
+      "updatedAt": "2025-10-30T01:16:30.32561Z"
+    },
+    {
+      "id": "2aff387c-098e-40d8-a285-f2b555805b89",
+      "name": "Morocco",
+      "code": "morocco",
+      "flagEmoji": "\uD83C\uDDF2\uD83C\uDDE6",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.328296Z",
+      "updatedAt": "2025-10-30T01:16:30.328296Z"
+    },
+    {
+      "id": "a71016d3-c605-4c3b-9862-5b4debfcc9be",
+      "name": "Mozambique",
+      "code": "mozambique",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.330838Z",
+      "updatedAt": "2025-10-30T01:16:30.330838Z"
+    },
+    {
+      "id": "eb1e75cc-2b95-44e7-912e-9e0be1c015e2",
+      "name": "Myanmar",
+      "code": "myanmar",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.333216Z",
+      "updatedAt": "2025-10-30T01:16:30.333216Z"
+    },
+    {
+      "id": "de00b738-9f74-4dc5-bc24-01e0ef3de01e",
+      "name": "Namibia",
+      "code": "namibia",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.335444Z",
+      "updatedAt": "2025-10-30T01:16:30.335444Z"
+    },
+    {
+      "id": "0774d200-0520-4811-8e39-5ee515d1b013",
+      "name": "New Zealand",
+      "code": "new-zealand",
+      "flagEmoji": "\uD83C\uDDF3\uD83C\uDDFF",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.337666Z",
+      "updatedAt": "2025-10-30T01:16:30.337666Z"
+    },
+    {
+      "id": "f895c48a-add5-4294-81de-bc64ce9d2e02",
+      "name": "Nicaragua",
+      "code": "nicaragua",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.339913Z",
+      "updatedAt": "2025-10-30T01:16:30.339913Z"
+    },
+    {
+      "id": "eb1f68ea-447e-403f-b1cb-d716b5fd852a",
+      "name": "Niger",
+      "code": "niger",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.342772Z",
+      "updatedAt": "2025-10-30T01:16:30.342772Z"
+    },
+    {
+      "id": "3f2071d9-dbf0-44d3-bbde-d31192ca4c45",
+      "name": "Nigeria",
+      "code": "nigeria",
+      "flagEmoji": "\uD83C\uDDF3\uD83C\uDDEC",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.345583Z",
+      "updatedAt": "2025-10-30T01:16:30.345583Z"
+    },
+    {
+      "id": "5089c8f1-682c-45c7-99ac-8c0271f8f06a",
+      "name": "Northern Ireland",
+      "code": "northern-ireland",
+      "flagEmoji": "\uD83C\uDDEC\uD83C\uDDE7",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.348063Z",
+      "updatedAt": "2025-10-30T01:16:30.348063Z"
+    },
+    {
+      "id": "8f2969c0-ee0f-4384-82f4-64742cc54199",
+      "name": "North Macedonia",
+      "code": "north-macedonia",
+      "flagEmoji": "\uD83C\uDDF2\uD83C\uDDF0",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.350416Z",
+      "updatedAt": "2025-10-30T01:16:30.350416Z"
+    },
+    {
+      "id": "aad0e7ce-1090-422c-b3b5-bb98efafb292",
+      "name": "Norway",
+      "code": "norway",
+      "flagEmoji": "\uD83C\uDDF3\uD83C\uDDF4",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.352697Z",
+      "updatedAt": "2025-10-30T01:16:30.352697Z"
+    },
+    {
+      "id": "7e8a85b7-10b7-43a4-9e2b-b3527b047671",
+      "name": "Oman",
+      "code": "oman",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.354912Z",
+      "updatedAt": "2025-10-30T01:16:30.354912Z"
+    },
+    {
+      "id": "0f617109-be2b-4529-be5d-7cf3cbd58d87",
+      "name": "Pakistan",
+      "code": "pakistan",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.35727Z",
+      "updatedAt": "2025-10-30T01:16:30.35727Z"
+    },
+    {
+      "id": "aed087f3-69c9-4cc7-b763-1b424dccc75a",
+      "name": "Palestine",
+      "code": "palestine",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.359877Z",
+      "updatedAt": "2025-10-30T01:16:30.359877Z"
+    },
+    {
+      "id": "8e70eb30-3fb2-47fd-877a-9c4f2bcbf60f",
+      "name": "Panama",
+      "code": "panama",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.362607Z",
+      "updatedAt": "2025-10-30T01:16:30.362607Z"
+    },
+    {
+      "id": "e944a1a0-7769-4bea-82b5-347764df5db6",
+      "name": "Paraguay",
+      "code": "paraguay",
+      "flagEmoji": "\uD83C\uDDF5\uD83C\uDDFE",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.365107Z",
+      "updatedAt": "2025-10-30T01:16:30.365107Z"
+    },
+    {
+      "id": "a7a7581a-bacf-45e1-9c6e-2ff447314582",
+      "name": "Peru",
+      "code": "peru",
+      "flagEmoji": "\uD83C\uDDF5\uD83C\uDDEA",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.367618Z",
+      "updatedAt": "2025-10-30T01:16:30.367618Z"
+    },
+    {
+      "id": "f87a3bec-8527-4d97-b0b4-f8af4878b410",
+      "name": "Philippines",
+      "code": "philippines",
+      "flagEmoji": "\uD83C\uDDF5\uD83C\uDDED",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.369935Z",
+      "updatedAt": "2025-10-30T01:16:30.369935Z"
+    },
+    {
+      "id": "ace5532a-5bae-411a-ae51-ca530d229957",
+      "name": "Poland",
+      "code": "poland",
+      "flagEmoji": "\uD83C\uDDF5\uD83C\uDDF1",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.372207Z",
+      "updatedAt": "2025-10-30T01:16:30.372207Z"
+    },
+    {
+      "id": "e3615871-ac93-4338-aa2a-137d0d5caebf",
+      "name": "Qatar",
+      "code": "qatar",
+      "flagEmoji": "\uD83C\uDDF6\uD83C\uDDE6",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.374758Z",
+      "updatedAt": "2025-10-30T01:16:30.374758Z"
+    },
+    {
+      "id": "337c8030-eeb3-4bb7-9113-694907ede2de",
+      "name": "Republic of the Congo",
+      "code": "republic-of-the-congo",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.378697Z",
+      "updatedAt": "2025-10-30T01:16:30.378697Z"
+    },
+    {
+      "id": "99a4e3cb-4520-4a3f-964e-5468a9ac4e44",
+      "name": "R\u00E9union",
+      "code": "reunion",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.381255Z",
+      "updatedAt": "2025-10-30T01:16:30.381255Z"
+    },
+    {
+      "id": "f7a4766f-1627-4d5d-90b4-728b9241f0a4",
+      "name": "Romania",
+      "code": "romania",
+      "flagEmoji": "\uD83C\uDDF7\uD83C\uDDF4",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.383727Z",
+      "updatedAt": "2025-10-30T01:16:30.383727Z"
+    },
+    {
+      "id": "1bc86852-1d8c-4c44-b649-6ac55b9f7e15",
+      "name": "Russia",
+      "code": "russia",
+      "flagEmoji": "\uD83C\uDDF7\uD83C\uDDFA",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.386097Z",
+      "updatedAt": "2025-10-30T01:16:30.386097Z"
+    },
+    {
+      "id": "55fe36ce-ac58-4b56-ac89-393c3274dcb6",
+      "name": "Rwanda",
+      "code": "rwanda",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.388568Z",
+      "updatedAt": "2025-10-30T01:16:30.388568Z"
+    },
+    {
+      "id": "e4b1b613-4c35-467d-9fa9-3e6ccd78086f",
+      "name": "San Marino",
+      "code": "san-marino",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.391182Z",
+      "updatedAt": "2025-10-30T01:16:30.391182Z"
+    },
+    {
+      "id": "cf7467ab-f3ce-4abd-80be-26822d7ee381",
+      "name": "S\u00E3o Tom\u00E9 and Pr\u00EDncipe",
+      "code": "sao-tome-and-principe",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.394727Z",
+      "updatedAt": "2025-10-30T01:16:30.394727Z"
+    },
+    {
+      "id": "4b57c4c3-6910-468f-a846-143ed608cd59",
+      "name": "Saudi Arabia",
+      "code": "saudi-arabia",
+      "flagEmoji": "\uD83C\uDDF8\uD83C\uDDE6",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.397424Z",
+      "updatedAt": "2025-10-30T01:16:30.397424Z"
+    },
+    {
+      "id": "528b8bec-cf61-44e9-ae3c-7085edeec74a",
+      "name": "Scotland",
+      "code": "scotland",
+      "flagEmoji": "\uD83C\uDDEC\uD83C\uDDE7",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.399931Z",
+      "updatedAt": "2025-10-30T01:16:30.399931Z"
+    },
+    {
+      "id": "4744c4fb-2686-43cb-a303-cc23d1ed7a05",
+      "name": "Senegal",
+      "code": "senegal",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.402523Z",
+      "updatedAt": "2025-10-30T01:16:30.402523Z"
+    },
+    {
+      "id": "79852312-d99b-461a-9fc1-cecbbd933397",
+      "name": "Serbia",
+      "code": "serbia",
+      "flagEmoji": "\uD83C\uDDF7\uD83C\uDDF8",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.405103Z",
+      "updatedAt": "2025-10-30T01:16:30.405103Z"
+    },
+    {
+      "id": "f951053e-7c20-40b7-84b3-819948a0eb8e",
+      "name": "Serbia and Montenegro",
+      "code": "serbia-and-montenegro",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.407756Z",
+      "updatedAt": "2025-10-30T01:16:30.407756Z"
+    },
+    {
+      "id": "89988286-24ae-4381-8190-decfcb938093",
+      "name": "Seychelles",
+      "code": "seychelles",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.410963Z",
+      "updatedAt": "2025-10-30T01:16:30.410963Z"
+    },
+    {
+      "id": "a0be3607-9e56-49e5-842d-ed21f37a3539",
+      "name": "Sierra Leone",
+      "code": "sierra-leone",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.414098Z",
+      "updatedAt": "2025-10-30T01:16:30.414098Z"
+    },
+    {
+      "id": "d7c5d1c6-a705-4dbb-a2c9-b7c558ddebfd",
+      "name": "Singapore",
+      "code": "singapore",
+      "flagEmoji": "\uD83C\uDDF8\uD83C\uDDEC",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.41699Z",
+      "updatedAt": "2025-10-30T01:16:30.41699Z"
+    },
+    {
+      "id": "ea46b725-cad0-42be-88c4-5fae7cf87810",
+      "name": "Slovakia",
+      "code": "slovakia",
+      "flagEmoji": "\uD83C\uDDF8\uD83C\uDDF0",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.419684Z",
+      "updatedAt": "2025-10-30T01:16:30.419684Z"
+    },
+    {
+      "id": "920bf20f-e026-4895-a51e-8becd3bc7fa8",
+      "name": "Somalia",
+      "code": "somalia",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.42542Z",
+      "updatedAt": "2025-10-30T01:16:30.42542Z"
+    },
+    {
+      "id": "46d5eddc-00ff-4658-9f22-20cd56a3558b",
+      "name": "South Africa",
+      "code": "south-africa",
+      "flagEmoji": "\uD83C\uDDFF\uD83C\uDDE6",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.428989Z",
+      "updatedAt": "2025-10-30T01:16:30.428989Z"
+    },
+    {
+      "id": "9397e99d-9098-45eb-a440-19a0af33ad56",
+      "name": "South Korea",
+      "code": "south-korea",
+      "flagEmoji": "\uD83C\uDDF0\uD83C\uDDF7",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.431938Z",
+      "updatedAt": "2025-10-30T01:16:30.431948Z"
+    },
+    {
+      "id": "f9a4b4e0-2591-49f4-b9d4-e2ab9ea26c06",
+      "name": "Sri Lanka",
+      "code": "sri-lanka",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.43475Z",
+      "updatedAt": "2025-10-30T01:16:30.43475Z"
+    },
+    {
+      "id": "73e8f408-3008-4e01-9c21-a02aea606c61",
+      "name": "Sudan",
+      "code": "sudan",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.437544Z",
+      "updatedAt": "2025-10-30T01:16:30.437544Z"
+    },
+    {
+      "id": "fc1b3379-b8c7-44b2-833c-30eaea59374a",
+      "name": "Suriname",
+      "code": "suriname",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.440261Z",
+      "updatedAt": "2025-10-30T01:16:30.440261Z"
+    },
+    {
+      "id": "0208bb6e-271a-4a2b-941d-4bc9d201967d",
+      "name": "Sweden",
+      "code": "sweden",
+      "flagEmoji": "\uD83C\uDDF8\uD83C\uDDEA",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.44374Z",
+      "updatedAt": "2025-10-30T01:16:30.44374Z"
+    },
+    {
+      "id": "7e3ce189-145f-4831-a755-a4f206a02f9a",
+      "name": "Switzerland",
+      "code": "switzerland",
+      "flagEmoji": "\uD83C\uDDE8\uD83C\uDDED",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.446578Z",
+      "updatedAt": "2025-10-30T01:16:30.446578Z"
+    },
+    {
+      "id": "e99d0f0c-7d20-47c6-b439-f89bcf791841",
+      "name": "Syria",
+      "code": "syria",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.44927Z",
+      "updatedAt": "2025-10-30T01:16:30.44927Z"
+    },
+    {
+      "id": "81447157-bdfe-4890-b97e-835cfe179f78",
+      "name": "Taiwan",
+      "code": "taiwan",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.451931Z",
+      "updatedAt": "2025-10-30T01:16:30.451931Z"
+    },
+    {
+      "id": "251f16ad-d9af-4d83-b59c-890837e0c122",
+      "name": "Tajikistan",
+      "code": "tajikistan",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.454889Z",
+      "updatedAt": "2025-10-30T01:16:30.454889Z"
+    },
+    {
+      "id": "75350575-3907-40ef-a3cf-adab3777725e",
+      "name": "Tanzania",
+      "code": "tanzania",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.457855Z",
+      "updatedAt": "2025-10-30T01:16:30.457855Z"
+    },
+    {
+      "id": "e79d249a-8e1f-4c17-be26-bfe6d7292373",
+      "name": "Thailand",
+      "code": "thailand",
+      "flagEmoji": "\uD83C\uDDF9\uD83C\uDDED",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.461154Z",
+      "updatedAt": "2025-10-30T01:16:30.461154Z"
+    },
+    {
+      "id": "03b503e0-0e05-48b6-a30a-9568b4207c37",
+      "name": "Togo",
+      "code": "togo",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.464316Z",
+      "updatedAt": "2025-10-30T01:16:30.464316Z"
+    },
+    {
+      "id": "2187c969-3fbc-46f9-8c4a-5415d18a54dd",
+      "name": "Trinidad and Tobago",
+      "code": "trinidad-and-tobago",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.467182Z",
+      "updatedAt": "2025-10-30T01:16:30.467182Z"
+    },
+    {
+      "id": "6c68d8ee-f5e3-4465-bbc4-83042dc6a30c",
+      "name": "Tunisia",
+      "code": "tunisia",
+      "flagEmoji": "\uD83C\uDDF9\uD83C\uDDF3",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.470104Z",
+      "updatedAt": "2025-10-30T01:16:30.470104Z"
+    },
+    {
+      "id": "e0467320-e9ed-4424-942a-6d5631485741",
+      "name": "Turkmenistan",
+      "code": "turkmenistan",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.472924Z",
+      "updatedAt": "2025-10-30T01:16:30.472924Z"
+    },
+    {
+      "id": "16cb4010-6d5d-4690-9b1c-f1669e916cfb",
+      "name": "Uganda",
+      "code": "uganda",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.47616Z",
+      "updatedAt": "2025-10-30T01:16:30.47616Z"
+    },
+    {
+      "id": "e8eb616b-ffa2-4359-abe7-4a07b1db92f2",
+      "name": "Ukraine",
+      "code": "ukraine",
+      "flagEmoji": "\uD83C\uDDFA\uD83C\uDDE6",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.479451Z",
+      "updatedAt": "2025-10-30T01:16:30.479451Z"
+    },
+    {
+      "id": "a92832c7-a26c-4cde-aa4e-ed2f45685c62",
+      "name": "United Arab Emirates",
+      "code": "united-arab-emirates",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.482451Z",
+      "updatedAt": "2025-10-30T01:16:30.482451Z"
+    },
+    {
+      "id": "2ee52515-4b0e-4e1e-8746-214ea0d47b22",
+      "name": "Uruguay",
+      "code": "uruguay",
+      "flagEmoji": "\uD83C\uDDFA\uD83C\uDDFE",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.48557Z",
+      "updatedAt": "2025-10-30T01:16:30.48557Z"
+    },
+    {
+      "id": "0cc4ac0d-361d-4872-bfd0-8eda61c39152",
+      "name": "USA",
+      "code": "usa",
+      "flagEmoji": "\uD83C\uDDFA\uD83C\uDDF8",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.488535Z",
+      "updatedAt": "2025-10-30T01:16:30.488535Z"
+    },
+    {
+      "id": "ebefec9b-8896-4d14-8e48-741df05e0432",
+      "name": "Uzbekistan",
+      "code": "uzbekistan",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.49163Z",
+      "updatedAt": "2025-10-30T01:16:30.49163Z"
+    },
+    {
+      "id": "f03a003d-d36d-4f29-ad08-4402b0523a77",
+      "name": "Venezuela",
+      "code": "venezuela",
+      "flagEmoji": "\uD83C\uDDFB\uD83C\uDDEA",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.495164Z",
+      "updatedAt": "2025-10-30T01:16:30.495164Z"
+    },
+    {
+      "id": "ace15620-0ea2-4aba-9f96-9126ac0bd5e5",
+      "name": "Vietnam",
+      "code": "vietnam",
+      "flagEmoji": "\uD83C\uDDFB\uD83C\uDDF3",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.498188Z",
+      "updatedAt": "2025-10-30T01:16:30.498188Z"
+    },
+    {
+      "id": "f308c874-e08c-4c14-a37c-2f8b96fe6520",
+      "name": "Wales",
+      "code": "wales",
+      "flagEmoji": "\uD83C\uDDEC\uD83C\uDDE7",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.501033Z",
+      "updatedAt": "2025-10-30T01:16:30.501033Z"
+    },
+    {
+      "id": "d45496dc-e816-4614-aa24-1fa1484a51ce",
+      "name": "World",
+      "code": "world",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.503856Z",
+      "updatedAt": "2025-10-30T01:16:30.503856Z"
+    },
+    {
+      "id": "3dd8894c-246a-4420-a9fb-578f0d9a4384",
+      "name": "Yemen",
+      "code": "yemen",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.506608Z",
+      "updatedAt": "2025-10-30T01:16:30.506608Z"
+    },
+    {
+      "id": "cc2a6eca-42ff-464f-aed9-ab8477083ff3",
+      "name": "Zambia",
+      "code": "zambia",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.509731Z",
+      "updatedAt": "2025-10-30T01:16:30.509731Z"
+    },
+    {
+      "id": "6705e430-b747-4b21-a4a2-4b72061ad024",
+      "name": "Zimbabwe",
+      "code": "zimbabwe",
+      "flagEmoji": "",
+      "isActive": false,
+      "createdAt": "2025-10-30T01:16:30.512783Z",
+      "updatedAt": "2025-10-30T01:16:30.512783Z"
+    },
+    {
+      "id": "c4a2e829-cce0-43a2-a92e-d1f74d40ff44",
+      "name": "Slovenia",
+      "code": "slovenia",
+      "flagEmoji": "\uD83C\uDDF8\uD83C\uDDEE",
+      "isActive": true,
+      "createdAt": "2025-10-30T01:16:30.422295Z",
+      "updatedAt": "2025-10-30T01:16:40.261683Z"
+    }
+  ],
+  "providers": [
+    {
+      "id": "a0000000-0000-0000-0000-000000000001",
+      "name": "BetExplorer",
+      "code": "betexplorer",
+      "baseUrl": "https://www.betexplorer.com",
+      "isActive": true,
+      "priority": 10,
+      "type": "Scraper",
+      "currentSeasonPatterns": "[\u00222025\u0022, \u00222025-2026\u0022]",
+      "credentials": null,
+      "configuration": null,
+      "notes": null,
+      "createdAt": "2025-10-27T20:04:00.287866Z",
+      "updatedAt": "2025-10-27T20:04:00.886244Z"
+    },
+    {
+      "id": "a0000000-0000-0000-0000-000000000002",
+      "name": "Oddsportal",
+      "code": "oddsportal",
+      "baseUrl": "https://www.oddsportal.com",
+      "isActive": false,
+      "priority": 5,
+      "type": "Scraper",
+      "currentSeasonPatterns": "[]",
+      "credentials": null,
+      "configuration": null,
+      "notes": "Prepared for future use",
+      "createdAt": "2025-10-27T20:04:00.934624Z",
+      "updatedAt": "2025-10-27T20:04:00.934624Z"
+    },
+    {
+      "id": "b0000000-0000-0000-0000-000000000002",
+      "name": "Chance",
+      "code": "chance",
+      "baseUrl": "https://www.chance.cz",
+      "isActive": false,
+      "priority": 8,
+      "type": "BettingProvider",
+      "currentSeasonPatterns": "[]",
+      "credentials": null,
+      "configuration": null,
+      "notes": "Czech betting provider - Aggressive Cloudflare protection",
+      "createdAt": "2025-10-30T16:13:26.841301Z",
+      "updatedAt": "2025-10-30T16:13:26.841301Z"
+    },
+    {
+      "id": "b0000000-0000-0000-0000-000000000003",
+      "name": "Fortuna",
+      "code": "fortuna",
+      "baseUrl": "https://www.ifortuna.cz",
+      "isActive": false,
+      "priority": 9,
+      "type": "BettingProvider",
+      "currentSeasonPatterns": "[]",
+      "credentials": null,
+      "configuration": null,
+      "notes": "Czech betting provider",
+      "createdAt": "2025-10-30T16:13:26.842635Z",
+      "updatedAt": "2025-10-30T16:13:26.842635Z"
+    },
+    {
+      "id": "b0000000-0000-0000-0000-000000000004",
+      "name": "Tipsport",
+      "code": "tipsport",
+      "baseUrl": "https://www.tipsport.cz",
+      "isActive": false,
+      "priority": 9,
+      "type": "BettingProvider",
+      "currentSeasonPatterns": "[]",
+      "credentials": null,
+      "configuration": null,
+      "notes": "Largest Czech bookmaker",
+      "createdAt": "2025-10-30T16:13:26.843482Z",
+      "updatedAt": "2025-10-30T16:13:26.843482Z"
+    },
+    {
+      "id": "b0000000-0000-0000-0000-000000000005",
+      "name": "Kingsbet",
+      "code": "kingsbet",
+      "baseUrl": "https://www.kingsbet.cz",
+      "isActive": false,
+      "priority": 7,
+      "type": "BettingProvider",
+      "currentSeasonPatterns": "[]",
+      "credentials": null,
+      "configuration": null,
+      "notes": "Czech betting provider",
+      "createdAt": "2025-10-30T16:13:26.844358Z",
+      "updatedAt": "2025-10-30T16:13:26.844358Z"
+    },
+    {
+      "id": "b0000000-0000-0000-0000-000000000001",
+      "name": "Betano",
+      "code": "betano",
+      "baseUrl": "https://www.betano.cz",
+      "isActive": true,
+      "priority": 10,
+      "type": "BettingProvider",
+      "currentSeasonPatterns": "[]",
+      "credentials": "{\u0022Password\u0022: \u0022test_pass123\u0022, \u0022Username\u0022: \u0022test_user\u0022, \u0022SessionCookies\u0022: \u0022cookie_data\u0022}",
+      "configuration": null,
+      "notes": "Czech betting provider - Kaizen Gaming",
+      "createdAt": "2025-10-30T16:13:26.828075Z",
+      "updatedAt": "2025-10-30T19:37:09.016009Z"
+    }
+  ],
+  "seasons": null,
+  "leagues": null,
+  "sportProviders": null,
+  "countryProviders": null,
+  "leagueProviders": null,
+  "leagueSeasons": null
+}
