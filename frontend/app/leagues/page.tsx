@@ -17,16 +17,24 @@ import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { EditLeagueDialog } from "@/components/LeagueFormDialog";
 import { LeagueSeasonsDisplay } from "@/components/LeagueSeasonsDisplay";
-import type { League } from "@/lib/api/types";
+import { LeagueProviderDialog } from "@/components/LeagueProviderDialog";
+import { PaginationControls } from "@/components/PaginationControls";
+import type { League, LeagueProvider } from "@/lib/api/types";
 
 export default function LeaguesPage() {
   const queryClient = useQueryClient();
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedLeague, setSelectedLeague] = useState<League | null>(null);
+  const [providerDialogOpen, setProviderDialogOpen] = useState(false);
+  const [editingProviderMapping, setEditingProviderMapping] = useState<LeagueProvider | null>(null);
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
   const [filterSportId, setFilterSportId] = useState<string>("");
   const [filterCountryId, setFilterCountryId] = useState<string>("");
   const [filterEnabled, setFilterEnabled] = useState<string>("");
   const [filterBettable, setFilterBettable] = useState<string>("");
+  const [filterHasProviders, setFilterHasProviders] = useState<string>("");
+  const [filterProviderId, setFilterProviderId] = useState<string>("");
 
   const { data: leagues, isLoading, error } = useQuery({
     queryKey: ["leagues"],
@@ -41,6 +49,11 @@ export default function LeaguesPage() {
   const { data: countries } = useQuery({
     queryKey: ["countries"],
     queryFn: () => configApi.getCountries(),
+  });
+
+  const { data: providers } = useQuery({
+    queryKey: ["allProviders"],
+    queryFn: () => configApi.getProviders(),
   });
 
   const deleteMutation = useMutation({
@@ -84,6 +97,13 @@ export default function LeaguesPage() {
       providerId: string;
       isActive: boolean;
     }) => configApi.toggleLeagueProviderSync(leagueId, providerId, { isActive }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["leagues"] });
+    },
+  });
+
+  const deleteLeagueProviderMappingMutation = useMutation({
+    mutationFn: (mappingId: string) => configApi.deleteLeagueProvider(mappingId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["leagues"] });
     },
@@ -136,6 +156,28 @@ export default function LeaguesPage() {
     });
   };
 
+  const handleAddLeagueProvider = (league: League) => {
+    setSelectedLeague(league);
+    setEditingProviderMapping(null);
+    setProviderDialogOpen(true);
+  };
+
+  const handleEditLeagueProviderMapping = (league: League, mapping: LeagueProvider) => {
+    setSelectedLeague(league);
+    setEditingProviderMapping(mapping);
+    setProviderDialogOpen(true);
+  };
+
+  const handleDeleteLeagueProviderMapping = async (mapping: LeagueProvider) => {
+    if (
+      window.confirm(
+        `Opravdu chcete smazat provider mapping "${mapping.provider?.name || mapping.providerName}" (${mapping.providerSlug})? Tato akce je nevratná.`
+      )
+    ) {
+      deleteLeagueProviderMappingMutation.mutate(mapping.id);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -176,8 +218,33 @@ export default function LeaguesPage() {
     if (filterEnabled === "false" && league.isSyncEnabled) return false;
     if (filterBettable === "true" && !league.isBettable) return false;
     if (filterBettable === "false" && league.isBettable) return false;
+
+    // Filtr podle existence providerů
+    if (filterHasProviders === "yes") {
+      if (!league.leagueProviders || league.leagueProviders.length === 0) return false;
+    }
+    if (filterHasProviders === "no") {
+      if (league.leagueProviders && league.leagueProviders.length > 0) return false;
+    }
+
+    // Filtr podle konkrétního providera
+    if (filterProviderId) {
+      if (!league.leagueProviders || !league.leagueProviders.some(lp => lp.providerId === filterProviderId)) {
+        return false;
+      }
+    }
+
     return true;
   });
+
+  // Pagination - client-side slice
+  const paginatedLeagues = filteredLeagues?.slice(
+    page * pageSize,
+    (page + 1) * pageSize
+  );
+
+  // Reset page when filters change
+  const resetPage = () => setPage(0);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -194,6 +261,40 @@ export default function LeaguesPage() {
           </Link>
         </div>
 
+        {/* Statistics */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-2xl font-bold">{leagues?.length || 0}</div>
+              <p className="text-xs text-muted-foreground">Celkem lig</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-2xl font-bold text-green-600">
+                {leagues?.filter(l => l.isSyncEnabled).length || 0}
+              </div>
+              <p className="text-xs text-muted-foreground">Aktivní synchronizace</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-2xl font-bold text-blue-600">
+                {leagues?.filter(l => l.leagueProviders && l.leagueProviders.length > 0).length || 0}
+              </div>
+              <p className="text-xs text-muted-foreground">S provider mappings</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-2xl font-bold text-orange-600">
+                {leagues?.reduce((sum, l) => sum + (l.leagueProviders?.length || 0), 0) || 0}
+              </div>
+              <p className="text-xs text-muted-foreground">Celkem mappingů</p>
+            </CardContent>
+          </Card>
+        </div>
+
         {/* Filters */}
         {sports && countries && (
           <Card className="mb-6">
@@ -201,7 +302,7 @@ export default function LeaguesPage() {
               <CardTitle className="text-lg">Filtry</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="filter-sport">Sport</Label>
                   <select
@@ -264,6 +365,68 @@ export default function LeaguesPage() {
                   </select>
                 </div>
 
+                <div className="grid gap-2">
+                  <Label htmlFor="filter-has-providers">Má providery</Label>
+                  <select
+                    id="filter-has-providers"
+                    value={filterHasProviders}
+                    onChange={(e) => setFilterHasProviders(e.target.value)}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <option value="">Vše</option>
+                    <option value="yes">Ano (≥1 provider)</option>
+                    <option value="no">Ne (0 providerů)</option>
+                  </select>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="filter-provider">Provider</Label>
+                  <select
+                    id="filter-provider"
+                    value={filterProviderId}
+                    onChange={(e) => setFilterProviderId(e.target.value)}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <option value="">Všichni provideři</option>
+                    {providers?.filter(p => p.type === 1).length > 0 && (
+                      <optgroup label="Scraper">
+                        {providers?.filter(p => p.type === 1).map((provider) => (
+                          <option key={provider.id} value={provider.id}>
+                            {provider.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                    {providers?.filter(p => p.type === 2).length > 0 && (
+                      <optgroup label="API">
+                        {providers?.filter(p => p.type === 2).map((provider) => (
+                          <option key={provider.id} value={provider.id}>
+                            {provider.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                    {providers?.filter(p => p.type === 3).length > 0 && (
+                      <optgroup label="Manual">
+                        {providers?.filter(p => p.type === 3).map((provider) => (
+                          <option key={provider.id} value={provider.id}>
+                            {provider.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                    {providers?.filter(p => p.type === 4).length > 0 && (
+                      <optgroup label="Betting Provider">
+                        {providers?.filter(p => p.type === 4).map((provider) => (
+                          <option key={provider.id} value={provider.id}>
+                            {provider.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                  </select>
+                </div>
+
                 <div className="grid gap-2 items-end">
                   <Button
                     variant="outline"
@@ -272,6 +435,9 @@ export default function LeaguesPage() {
                       setFilterCountryId("");
                       setFilterEnabled("");
                       setFilterBettable("");
+                      setFilterHasProviders("");
+                      setFilterProviderId("");
+                      setPage(0);
                     }}
                     className="w-full"
                   >
@@ -281,6 +447,23 @@ export default function LeaguesPage() {
               </div>
             </CardContent>
           </Card>
+        )}
+
+        {/* Pagination Controls - Top */}
+        {filteredLeagues && filteredLeagues.length > 0 && (
+          <PaginationControls
+            page={page}
+            pageSize={pageSize}
+            totalCount={leagues?.length || 0}
+            displayedCount={filteredLeagues.length}
+            itemName="lig"
+            onPageChange={setPage}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
+              setPage(0);
+            }}
+            className="mb-6"
+          />
         )}
 
         <div className="grid gap-4">
@@ -294,7 +477,7 @@ export default function LeaguesPage() {
             </Card>
           )}
 
-          {filteredLeagues?.map((league) => (
+          {paginatedLeagues?.map((league) => (
             <Card key={league.id}>
               <CardHeader>
                 <div className="flex justify-between items-start">
@@ -378,50 +561,61 @@ export default function LeaguesPage() {
                     )}
                   </div>
 
-                  {/* Provider Sync Section */}
-                  {league.leagueProviders && league.leagueProviders.length > 0 && (
-                    <div className="pt-3 border-t">
-                      <h4 className="text-sm font-semibold mb-3">Synchronizace providerů</h4>
-                      <div className="space-y-2">
-                        {league.leagueProviders.map((provider) => (
-                          <div key={provider.id} className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <Label
-                                htmlFor={`provider-${provider.id}`}
-                                className="text-sm"
-                              >
-                                {provider.providerName}
-                              </Label>
-                              <Badge
-                                variant={provider.isActive ? "default" : "outline"}
-                                className="text-xs"
-                              >
-                                {provider.isActive ? "Aktivní" : "Neaktivní"}
-                              </Badge>
+                  {/* Provider Mappings Section */}
+                  <div className="pt-3 border-t space-y-2">
+                    <div className="text-sm font-semibold">Provider Mappings:</div>
+                    {league.leagueProviders && league.leagueProviders.length > 0 ? (
+                      <div className="space-y-1">
+                        {league.leagueProviders.map((lp) => (
+                          <div
+                            key={lp.id}
+                            className="flex items-center justify-between text-sm p-2 bg-gray-50 rounded"
+                          >
+                            <div>
+                              <span className="font-medium">{lp.provider?.name || lp.providerName || "Unknown"}</span>
+                              <span className="text-gray-500 ml-2">({lp.providerSlug})</span>
                             </div>
-                            <Switch
-                              id={`provider-${provider.id}`}
-                              checked={provider.isActive}
-                              onCheckedChange={(checked) =>
-                                handleToggleProviderSync(league, provider.providerId, checked)
-                              }
-                              disabled={toggleProviderSyncMutation.isPending}
-                            />
+                            <div className="flex gap-2 items-center">
+                              {lp.isActive ? (
+                                <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded">
+                                  Active
+                                </span>
+                              ) : (
+                                <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
+                                  Inactive
+                                </span>
+                              )}
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleEditLeagueProviderMapping(league, lp)}
+                              >
+                                Upravit
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => handleDeleteLeagueProviderMapping(lp)}
+                              >
+                                Smazat
+                              </Button>
+                            </div>
                           </div>
                         ))}
                       </div>
-                      {!league.isActive && (
-                        <p className="text-xs text-amber-600 mt-2">
-                          ⚠️ Liga musí být aktivní pro povolení synchronizace
-                        </p>
-                      )}
-                      {league.isActive && league.country && !league.country.isActive && (
-                        <p className="text-xs text-amber-600 mt-2">
-                          ⚠️ Země musí být aktivní pro povolení synchronizace
-                        </p>
-                      )}
+                    ) : (
+                      <p className="text-sm text-gray-500">Žádné provider mappings</p>
+                    )}
+                    <div className="mt-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleAddLeagueProvider(league)}
+                      >
+                        + Přidat Provider
+                      </Button>
                     </div>
-                  )}
+                  </div>
                 </div>
                 <LeagueSeasonsDisplay leagueId={league.id} />
               </CardContent>
@@ -437,6 +631,16 @@ export default function LeaguesPage() {
           league={selectedLeague}
           sports={sports}
           countries={countries}
+        />
+      )}
+
+      {selectedLeague && (
+        <LeagueProviderDialog
+          open={providerDialogOpen}
+          onOpenChange={setProviderDialogOpen}
+          leagueId={selectedLeague.id}
+          leagueName={selectedLeague.displayName}
+          editingMapping={editingProviderMapping || undefined}
         />
       )}
     </div>

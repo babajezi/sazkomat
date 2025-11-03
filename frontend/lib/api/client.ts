@@ -10,6 +10,8 @@ import type {
   UpdateCountryRequest,
   CreateCountryProviderRequest,
   UpdateCountryProviderRequest,
+  CreateLeagueProviderRequest,
+  UpdateLeagueProviderRequest,
   CreateLeagueRequest,
   UpdateLeagueRequest,
   ToggleProviderSyncRequest,
@@ -119,6 +121,32 @@ export const configApi = {
 
   deleteCountryProvider: async (id: string): Promise<void> => {
     await apiClient.delete(`/config/providers/country-mappings/${id}`);
+  },
+
+  // League provider CRUD operations
+  createLeagueProvider: async (
+    request: CreateLeagueProviderRequest
+  ): Promise<LeagueProvider> => {
+    const { data } = await apiClient.post<LeagueProvider>(
+      "/config/providers/league-mappings",
+      request
+    );
+    return data;
+  },
+
+  updateLeagueProvider: async (
+    id: string,
+    request: UpdateLeagueProviderRequest
+  ): Promise<LeagueProvider> => {
+    const { data } = await apiClient.patch<LeagueProvider>(
+      `/config/providers/league-mappings/${id}`,
+      request
+    );
+    return data;
+  },
+
+  deleteLeagueProvider: async (id: string): Promise<void> => {
+    await apiClient.delete(`/config/providers/league-mappings/${id}`);
   },
 
   getLeagues: async (params?: {

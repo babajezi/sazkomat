@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { EditCountryDialog } from "@/components/CountryFormDialog";
 import { CountryProviderDialog } from "@/components/CountryProviderDialog";
+import { PaginationControls } from "@/components/PaginationControls";
 import type { Country, CountryProvider } from "@/lib/api/types";
 
 export default function CountriesPage() {
@@ -23,6 +24,8 @@ export default function CountriesPage() {
   const [selectedCountry, setSelectedCountry] = useState<Country | null>(null);
   const [providerDialogOpen, setProviderDialogOpen] = useState(false);
   const [editingProviderMapping, setEditingProviderMapping] = useState<CountryProvider | null>(null);
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
   const [filterActive, setFilterActive] = useState<string>("");
   const [filterProviderId, setFilterProviderId] = useState<string>("");
   const [filterHasProviders, setFilterHasProviders] = useState<string>("");
@@ -33,8 +36,8 @@ export default function CountriesPage() {
   });
 
   const { data: providers } = useQuery({
-    queryKey: ["bettingProviders"],
-    queryFn: () => configApi.getBettingProviders(),
+    queryKey: ["allProviders"],
+    queryFn: () => configApi.getProviders(),
   });
 
   const deleteMutation = useMutation({
@@ -185,6 +188,12 @@ export default function CountriesPage() {
     return true;
   });
 
+  // Pagination - client-side slice
+  const paginatedCountries = filteredCountries?.slice(
+    page * pageSize,
+    (page + 1) * pageSize
+  );
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto px-4 py-8">
@@ -266,11 +275,42 @@ export default function CountriesPage() {
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <option value="">Všichni provideři</option>
-                  {providers?.map((provider) => (
-                    <option key={provider.id} value={provider.id}>
-                      {provider.name}
-                    </option>
-                  ))}
+                  {providers?.filter(p => p.type === 1).length > 0 && (
+                    <optgroup label="Scraper">
+                      {providers?.filter(p => p.type === 1).map((provider) => (
+                        <option key={provider.id} value={provider.id}>
+                          {provider.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  {providers?.filter(p => p.type === 2).length > 0 && (
+                    <optgroup label="API">
+                      {providers?.filter(p => p.type === 2).map((provider) => (
+                        <option key={provider.id} value={provider.id}>
+                          {provider.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  {providers?.filter(p => p.type === 3).length > 0 && (
+                    <optgroup label="Manual">
+                      {providers?.filter(p => p.type === 3).map((provider) => (
+                        <option key={provider.id} value={provider.id}>
+                          {provider.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  {providers?.filter(p => p.type === 4).length > 0 && (
+                    <optgroup label="Betting Provider">
+                      {providers?.filter(p => p.type === 4).map((provider) => (
+                        <option key={provider.id} value={provider.id}>
+                          {provider.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
                 </select>
               </div>
 
@@ -297,6 +337,7 @@ export default function CountriesPage() {
                     setFilterActive("");
                     setFilterProviderId("");
                     setFilterHasProviders("");
+                    setPage(0);
                   }}
                   className="w-full"
                 >
@@ -307,6 +348,23 @@ export default function CountriesPage() {
           </CardContent>
         </Card>
 
+        {/* Pagination Controls - Top */}
+        {filteredCountries && filteredCountries.length > 0 && (
+          <PaginationControls
+            page={page}
+            pageSize={pageSize}
+            totalCount={countries?.length || 0}
+            displayedCount={filteredCountries.length}
+            itemName="zemí"
+            onPageChange={setPage}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
+              setPage(0);
+            }}
+            className="mb-6"
+          />
+        )}
+
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {filteredCountries && filteredCountries.length === 0 && (
             <Card className="col-span-full">
@@ -316,7 +374,7 @@ export default function CountriesPage() {
             </Card>
           )}
 
-          {filteredCountries?.map((country) => (
+          {paginatedCountries?.map((country) => (
             <Card key={country.id}>
               <CardHeader>
                 <div className="flex justify-between items-start">

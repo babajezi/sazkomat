@@ -448,3 +448,18 @@ export interface UpdateCountryProviderRequest {
   isActive?: boolean;
   metadata?: string;
 }
+
+// League Provider CRUD requests
+export interface CreateLeagueProviderRequest {
+  leagueId: string;
+  providerId: string;
+  providerSlug: string;
+  providerName?: string;
+  isActive?: boolean;
+}
+
+export interface UpdateLeagueProviderRequest {
+  providerSlug?: string;
+  providerName?: string;
+  isActive?: boolean;
+}

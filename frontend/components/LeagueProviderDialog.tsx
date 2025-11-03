@@ -14,27 +14,27 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { CountryProvider } from "@/lib/api/types";
+import type { LeagueProvider } from "@/lib/api/types";
 
-interface CountryProviderDialogProps {
+interface LeagueProviderDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  countryId: string;
-  countryName: string;
-  editingMapping?: CountryProvider;
+  leagueId: string;
+  leagueName: string;
+  editingMapping?: LeagueProvider;
 }
 
-export function CountryProviderDialog({
+export function LeagueProviderDialog({
   open,
   onOpenChange,
-  countryId,
-  countryName,
+  leagueId,
+  leagueName,
   editingMapping,
-}: CountryProviderDialogProps) {
+}: LeagueProviderDialogProps) {
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
     providerId: "",
-    providerCode: "",
+    providerSlug: "",
     providerName: "",
     isActive: true,
   });
@@ -46,7 +46,7 @@ export function CountryProviderDialog({
     if (editingMapping) {
       setFormData({
         providerId: editingMapping.providerId || "",
-        providerCode: editingMapping.providerCode || "",
+        providerSlug: editingMapping.providerSlug || "",
         providerName: editingMapping.providerName || "",
         isActive: editingMapping.isActive ?? true,
       });
@@ -54,7 +54,7 @@ export function CountryProviderDialog({
       // Reset form for create mode
       setFormData({
         providerId: "",
-        providerCode: "",
+        providerSlug: "",
         providerName: "",
         isActive: true,
       });
@@ -70,35 +70,35 @@ export function CountryProviderDialog({
 
   const createMutation = useMutation({
     mutationFn: (data: typeof formData) =>
-      configApi.createCountryProvider({
-        countryId,
+      configApi.createLeagueProvider({
+        leagueId,
         providerId: data.providerId,
-        providerCode: data.providerCode,
+        providerSlug: data.providerSlug,
         providerName: data.providerName || undefined,
         isActive: data.isActive,
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["countries"] });
+      queryClient.invalidateQueries({ queryKey: ["leagues"] });
       onOpenChange(false);
     },
   });
 
   const updateMutation = useMutation({
     mutationFn: (data: typeof formData) =>
-      configApi.updateCountryProvider(editingMapping!.id, {
-        providerCode: data.providerCode,
+      configApi.updateLeagueProvider(editingMapping!.id, {
+        providerSlug: data.providerSlug,
         providerName: data.providerName || undefined,
         isActive: data.isActive,
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["countries"] });
+      queryClient.invalidateQueries({ queryKey: ["leagues"] });
       onOpenChange(false);
     },
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.providerId || !formData.providerCode) {
+    if (!formData.providerId || !formData.providerSlug) {
       alert("Prosím vyplňte všechna povinná pole");
       return;
     }
@@ -121,7 +121,7 @@ export function CountryProviderDialog({
             {isEditMode ? "Upravit" : "Přidat"} Provider Mapping
           </DialogTitle>
           <DialogDescription>
-            {isEditMode ? "Upravte" : "Přidejte"} mapování providera pro zemi: {countryName}
+            {isEditMode ? "Upravte" : "Přidejte"} mapování providera pro ligu: {leagueName}
           </DialogDescription>
         </DialogHeader>
 
@@ -185,19 +185,19 @@ export function CountryProviderDialog({
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="providerCode">
-                Provider Code *
+              <Label htmlFor="providerSlug">
+                Provider Slug *
                 <span className="text-xs text-gray-500 ml-2">
-                  (např. "cz" pro Betano, "czech-republic" pro BetExplorer)
+                  (např. "premier-league" pro BetExplorer)
                 </span>
               </Label>
               <Input
-                id="providerCode"
-                value={formData.providerCode}
+                id="providerSlug"
+                value={formData.providerSlug}
                 onChange={(e) =>
-                  setFormData({ ...formData, providerCode: e.target.value })
+                  setFormData({ ...formData, providerSlug: e.target.value })
                 }
-                placeholder="cz"
+                placeholder="premier-league"
                 required
               />
             </div>
@@ -213,7 +213,7 @@ export function CountryProviderDialog({
                 onChange={(e) =>
                   setFormData({ ...formData, providerName: e.target.value })
                 }
-                placeholder="Czech Republic"
+                placeholder="Premier League"
               />
             </div>
 

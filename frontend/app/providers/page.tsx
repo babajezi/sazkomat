@@ -14,6 +14,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { RefreshCw, Database } from "lucide-react";
 import { SyncDialog } from "@/components/SyncDialog";
+import { PaginationControls } from "@/components/PaginationControls";
 
 interface DataProvider {
   id: string;
@@ -30,6 +31,8 @@ export default function ProvidersPage() {
   const queryClient = useQueryClient();
   const [syncDialogOpen, setSyncDialogOpen] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<DataProvider | null>(null);
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
 
   const { data: providers, isLoading, error } = useQuery<DataProvider[]>({
     queryKey: ["providers"],
@@ -78,6 +81,12 @@ export default function ProvidersPage() {
     );
   }
 
+  // Pagination - client-side slice
+  const paginatedProviders = providers?.slice(
+    page * pageSize,
+    (page + 1) * pageSize
+  );
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto px-4 py-8">
@@ -93,8 +102,25 @@ export default function ProvidersPage() {
           </Link>
         </div>
 
+        {/* Pagination Controls - Top */}
+        {providers && providers.length > 0 && (
+          <PaginationControls
+            page={page}
+            pageSize={pageSize}
+            totalCount={providers.length}
+            displayedCount={providers.length}
+            itemName="providerů"
+            onPageChange={setPage}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
+              setPage(0);
+            }}
+            className="mb-6"
+          />
+        )}
+
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {providers?.map((provider) => (
+          {paginatedProviders?.map((provider) => (
             <Card key={provider.id}>
               <CardHeader>
                 <div className="flex items-start justify-between">

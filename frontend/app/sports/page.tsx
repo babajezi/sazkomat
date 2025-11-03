@@ -13,12 +13,15 @@ import {
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { SportProviderDialog } from "@/components/SportProviderDialog";
+import { PaginationControls } from "@/components/PaginationControls";
 
 export default function SportsPage() {
   const queryClient = useQueryClient();
   const [providerDialogOpen, setProviderDialogOpen] = useState(false);
   const [selectedSport, setSelectedSport] = useState<{ id: string; name: string } | null>(null);
   const [editingMapping, setEditingMapping] = useState<any>(null);
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
 
   const deleteMappingMutation = useMutation({
     mutationFn: async ({ sportId, providerId }: { sportId: string; providerId: string }) => {
@@ -70,6 +73,12 @@ export default function SportsPage() {
     );
   }
 
+  // Pagination - client-side slice
+  const paginatedSports = sports?.slice(
+    page * pageSize,
+    (page + 1) * pageSize
+  );
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto px-4 py-8">
@@ -85,8 +94,25 @@ export default function SportsPage() {
           </Link>
         </div>
 
+        {/* Pagination Controls - Top */}
+        {sports && sports.length > 0 && (
+          <PaginationControls
+            page={page}
+            pageSize={pageSize}
+            totalCount={sports.length}
+            displayedCount={sports.length}
+            itemName="sportů"
+            onPageChange={setPage}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
+              setPage(0);
+            }}
+            className="mb-6"
+          />
+        )}
+
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {sports?.map((sport) => (
+          {paginatedSports?.map((sport) => (
             <Card key={sport.id}>
               <CardHeader>
                 <div className="flex justify-between items-start">
