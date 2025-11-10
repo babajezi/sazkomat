@@ -29,6 +29,9 @@ import type {
   AvailableSeasonsResponse,
   DataProvider,
   SyncLeaguesRequest,
+  LeagueNameMapping,
+  CreateLeagueNameMappingRequest,
+  UpdateLeagueNameMappingRequest,
 } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
@@ -345,6 +348,50 @@ export const syncApi = {
       request
     );
     return data;
+  },
+};
+
+// League Name Mapping endpoints
+export const mappingApi = {
+  getMappings: async (params?: {
+    providerCode?: string;
+    countryCode?: string;
+    isActive?: boolean;
+  }): Promise<LeagueNameMapping[]> => {
+    const { data } = await apiClient.get<LeagueNameMapping[]>("/mappings", {
+      params,
+    });
+    return data;
+  },
+
+  getMappingById: async (id: string): Promise<LeagueNameMapping> => {
+    const { data } = await apiClient.get<LeagueNameMapping>(`/mappings/${id}`);
+    return data;
+  },
+
+  createMapping: async (
+    request: CreateLeagueNameMappingRequest
+  ): Promise<LeagueNameMapping> => {
+    const { data } = await apiClient.post<LeagueNameMapping>(
+      "/mappings",
+      request
+    );
+    return data;
+  },
+
+  updateMapping: async (
+    id: string,
+    request: UpdateLeagueNameMappingRequest
+  ): Promise<LeagueNameMapping> => {
+    const { data } = await apiClient.patch<LeagueNameMapping>(
+      `/mappings/${id}`,
+      request
+    );
+    return data;
+  },
+
+  deleteMapping: async (id: string): Promise<void> => {
+    await apiClient.delete(`/mappings/${id}`);
   },
 };
 

@@ -1,5 +1,60 @@
 // API Response types matching backend DTOs
 
+// Enums
+export enum ProviderType {
+  Scraper = 1,
+  API = 2,
+  Manual = 3,
+  BettingProvider = 4
+}
+
+export enum MatchResult {
+  Home = "H",
+  Draw = "D",
+  Away = "A"
+}
+
+export enum ImportJobStatus {
+  Pending = "Pending",
+  Running = "Running",
+  Completed = "Completed",
+  Failed = "Failed",
+  PartialSuccess = "PartialSuccess"
+}
+
+export enum ImportJobType {
+  Historical = "Historical",
+  Incremental = "Incremental"
+}
+
+export enum SyncMode {
+  Historical = "Historical",
+  Current = "Current"
+}
+
+export enum SyncType {
+  Countries = "Countries",
+  Leagues = "Leagues",
+  Seasons = "Seasons"
+}
+
+export enum MatchSortBy {
+  Date = "date",
+  Round = "round"
+}
+
+export enum BooleanFilterValue {
+  All = "",
+  True = "true",
+  False = "false"
+}
+
+export enum HasProvidersFilter {
+  All = "",
+  Yes = "yes",
+  No = "no"
+}
+
 export interface Sport {
   id: string;
   name: string;
@@ -18,6 +73,7 @@ export interface Country {
   name: string;
   code: string;
   flagEmoji: string;
+  isoCode: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -131,7 +187,7 @@ export interface LeagueSeason {
   lastScrapedAt?: string | null;
   syncEnabled: boolean;
   isCurrent: boolean;
-  syncMode: "Historical" | "Current";
+  syncMode: SyncMode;
   lastDataSyncAt?: string | null;
 }
 
@@ -153,8 +209,8 @@ export interface HistoricalImportRequest {
 export interface ImportJob {
   id: string;
   leagueId: string;
-  type: "Historical" | "Incremental";
-  status: "Pending" | "Running" | "Completed" | "Failed" | "PartialSuccess";
+  type: ImportJobType;
+  status: ImportJobStatus;
   seasons: string[];
   includeWithoutOdds: boolean;
   startedAt: string;
@@ -251,7 +307,7 @@ export interface Match {
   awayTeam: string;
   homeScore: number;
   awayScore: number;
-  result: "H" | "D" | "A";
+  result: MatchResult;
   homeOdds?: number | null;
   drawOdds?: number | null;
   awayOdds?: number | null;
@@ -276,13 +332,13 @@ export interface MatchFilter {
   leagueId?: string;
   season?: string;
   roundNumber?: number;
-  result?: "H" | "D" | "A";
+  result?: MatchResult;
   dateFrom?: string;
   dateTo?: string;
   teamName?: string;
   skip?: number;
   take?: number;
-  sortBy?: "date" | "round";
+  sortBy?: MatchSortBy;
   sortDescending?: boolean;
 }
 
@@ -327,7 +383,7 @@ export interface RoundMatch {
   awayTeam: string;
   homeScore: number;
   awayScore: number;
-  result: "H" | "D" | "A";
+  result: MatchResult;
   homeOdds?: number | null;
   drawOdds?: number | null;
   awayOdds?: number | null;
@@ -358,7 +414,7 @@ export interface DataProvider {
   baseUrl: string;
   isActive: boolean;
   priority: number;
-  type: number; // 1=Scraper, 2=API, 3=Manual, 4=BettingProvider
+  type: ProviderType;
   notes?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -371,7 +427,7 @@ export interface SyncLeaguesRequest {
 // Sync types
 export interface SyncRequest {
   providerId: string;
-  type: "Countries" | "Leagues" | "Seasons";
+  type: SyncType;
   entityId?: string | null;
   activateCountries?: boolean;
 }
@@ -462,4 +518,140 @@ export interface UpdateLeagueProviderRequest {
   providerSlug?: string;
   providerName?: string;
   isActive?: boolean;
+}
+
+// Scan & Job Queue types
+export enum SyncJobType {
+  Scan = "Scan",
+  Import = "Import",
+  LiveSync = "LiveSync"
+}
+
+export enum SyncJobStatus {
+  Pending = "Pending",
+  Running = "Running",
+  Completed = "Completed",
+  Failed = "Failed"
+}
+
+export enum SyncEntityType {
+  Countries = "Countries",
+  Leagues = "Leagues",
+  Seasons = "Seasons"
+}
+
+export interface ProviderCountry {
+  id: string;
+  providerId: string;
+  providerCode: string;
+  providerName: string;
+  data: any;
+  scannedAt: string;
+  createdAt: string;
+}
+
+export interface ProviderLeague {
+  id: string;
+  providerId: string;
+  providerSlug: string;
+  providerName: string;
+  displayName: string | null;
+  countryCode: string;
+  sportCode: string;
+  data: any;
+  scannedAt: string;
+  createdAt: string;
+}
+
+export interface ProviderSeason {
+  id: string;
+  providerId: string;
+  providerLeagueSlug: string;
+  seasonName: string;
+  data: any;
+  scannedAt: string;
+  createdAt: string;
+}
+
+export interface SyncJob {
+  id: string;
+  providerId: string;
+  jobType: SyncJobType;
+  entityType: SyncEntityType;
+  status: SyncJobStatus;
+  entityIds: string[] | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  errorMessage: string | null;
+  createdAt: string;
+  updatedAt: string;
+  provider?: DataProvider;
+}
+
+export interface ScanCountriesRequest {
+  providerId: string;
+}
+
+export interface ScanLeaguesRequest {
+  providerId: string;
+  countryIds: string[];
+}
+
+export interface ScanSeasonsRequest {
+  providerId: string;
+  leagueIds: string[];
+}
+
+export interface ScanJobResponse {
+  jobId: string;
+  message: string;
+}
+
+export interface LiveSyncRoundsRequest {
+  providerId: string;
+  leagueIds?: string[] | null;
+  forceRefresh?: boolean;
+}
+
+export interface LiveSyncRoundRequest {
+  providerId: string;
+}
+
+export interface LiveSyncStatsResponse {
+  totalLeagues: number;
+  totalRounds: number;
+  lastSyncAt: string | null;
+  roundsUpdatedToday: number;
+}
+
+// League Name Mappings
+export interface LeagueNameMapping {
+  id: string;
+  providerCode: string;
+  countryCode: string;
+  providerLeagueName: string;
+  betExplorerSlug: string;
+  isActive: boolean;
+  notes: string | null;
+  priority: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateLeagueNameMappingRequest {
+  providerCode: string;
+  countryCode: string;
+  providerLeagueName: string;
+  betExplorerSlug: string;
+  isActive?: boolean;
+  notes?: string;
+  priority?: number;
+}
+
+export interface UpdateLeagueNameMappingRequest {
+  providerLeagueName?: string;
+  betExplorerSlug?: string;
+  isActive?: boolean;
+  notes?: string;
+  priority?: number;
 }

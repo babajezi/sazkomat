@@ -14,6 +14,8 @@ using Sazkomat.BettingProviders.Services;
 using StackExchange.Redis;
 using Serilog;
 using Serilog.Events;
+using Hangfire;
+using Hangfire.PostgreSql;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -44,6 +46,7 @@ builder.Services.AddOpenApi();
 builder.Services.ConfigureHttpJsonOptions(options =>
 {
     options.SerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+    options.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
 });
 
 // Configure CORS for Next.js frontend
@@ -90,12 +93,23 @@ builder.Services.AddScoped<IRoundRepository, RoundRepository>();
 builder.Services.AddScoped<IMatchRepository, MatchRepository>();
 builder.Services.AddScoped<IImportJobRepository, ImportJobRepository>();
 
+// Register Provider Cache repositories
+builder.Services.AddScoped<IProviderCountryRepository, ProviderCountryRepository>();
+builder.Services.AddScoped<IProviderLeagueRepository, ProviderLeagueRepository>();
+builder.Services.AddScoped<IProviderSeasonRepository, ProviderSeasonRepository>();
+builder.Services.AddScoped<ISyncJobRepository, SyncJobRepository>();
+builder.Services.AddScoped<ILeagueNameMappingRepository, LeagueNameMappingRepository>();
+
 // Register DataImport scrapers
 builder.Services.AddScoped<ILeagueScraper, FootballBetExplorerScraper>();
 builder.Services.AddScoped<ISeasonScraper, BetExplorerSeasonScraper>();
 builder.Services.AddScoped<ICountryScraper, BetExplorerCountryScraper>();
+builder.Services.AddScoped<BetExplorerLeagueMetadataScraper>(); // Concrete class for enrichment service
 builder.Services.AddScoped<ILeagueMetadataScraper, BetExplorerLeagueMetadataScraper>();
 builder.Services.AddScoped<ScraperFactory>();
+
+// Register DataImport validators
+builder.Services.AddScoped<Sazkomat.DataImport.Validators.ILeagueRoundValidator, Sazkomat.DataImport.Validators.BetExplorerRoundValidator>();
 
 // Configure Redis
 var redisConnectionString = builder.Configuration.GetConnectionString("RedisConnection") ?? "localhost:6379";
@@ -113,6 +127,9 @@ builder.Services.AddScoped<IBettingProviderScraper, BetanoScraper>();
 builder.Services.AddScoped<ILeagueMetadataScraper, BetanoLeagueMetadataScraper>();
 builder.Services.AddScoped<ICountryScraper, BetanoCountryScraper>();
 builder.Services.AddScoped<ISeasonScraper, BetanoSeasonScraper>();
+
+// Register Fortuna scrapers (skeleton for future implementation)
+builder.Services.AddScoped<ILeagueMetadataScraper, Sazkomat.BettingProviders.Scrapers.FortunaLeagueMetadataScraper>();
 
 // Register BettingProviders services
 builder.Services.AddScoped<SyncQueueService>();
@@ -134,6 +151,36 @@ builder.Services.AddScoped<IHttpClient, PlaywrightHttpClient>();
 builder.Services.AddScoped<IImportOrchestrator, ImportOrchestrator>();
 builder.Services.AddScoped<ISyncService, ProviderSyncService>();
 builder.Services.AddScoped<ISeasonSyncService, SeasonSyncService>();
+builder.Services.AddScoped<IScanService, ScanService>();
+builder.Services.AddScoped<IImportService, ImportService>();
+builder.Services.AddScoped<ILiveSyncService, LiveSyncService>();
+builder.Services.AddScoped<ISyncJobProcessor, SyncJobProcessor>();
+builder.Services.AddScoped<IBetExplorerEnrichmentService, BetExplorerEnrichmentService>();
+
+// Register Hangfire background services
+builder.Services.AddHostedService<RecurringSyncScheduler>();
+
+// Configure Hangfire
+var hangfireConnection = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? throw new InvalidOperationException("DefaultConnection string not found");
+
+builder.Services.AddHangfire(configuration => configuration
+    .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+    .UseSimpleAssemblyNameTypeSerializer()
+    .UseRecommendedSerializerSettings()
+    .UsePostgreSqlStorage(options =>
+        options.UseNpgsqlConnection(hangfireConnection),
+        new PostgreSqlStorageOptions
+        {
+            SchemaName = "hangfire",
+            QueuePollInterval = TimeSpan.FromSeconds(15)
+        }));
+
+builder.Services.AddHangfireServer(options =>
+{
+    options.WorkerCount = builder.Configuration.GetValue<int>("Hangfire:WorkerCount", 5);
+    options.ServerName = $"Sazkomat-{Environment.MachineName}";
+});
 
 var app = builder.Build();
 
@@ -147,6 +194,15 @@ if (app.Environment.IsDevelopment())
 app.UseMiddleware<ErrorHandlingMiddleware>();
 app.UseSerilogRequestLogging();
 app.UseCors();
+
+// Use Hangfire Dashboard
+var dashboardPath = app.Configuration.GetValue<string>("Hangfire:DashboardPath") ?? "/hangfire";
+app.UseHangfireDashboard(dashboardPath, new DashboardOptions
+{
+    Authorization = Array.Empty<Hangfire.Dashboard.IDashboardAuthorizationFilter>(), // TODO: Add authentication in production
+    StatsPollingInterval = 5000, // 5 seconds
+    DisplayStorageConnectionString = false
+});
 
 // Health check endpoint
 app.MapGet("/health", () => Results.Ok(new
@@ -166,6 +222,11 @@ app.MapSeasonEndpoints();
 app.MapDatabaseEndpoints();
 app.MapSyncEndpoints();
 app.MapImportExportEndpoints();
+app.MapScanEndpoints();
+app.MapJobEndpoints();
+app.MapLiveSyncEndpoints();
+app.MapProviderCacheEndpoints();
+app.MapLeagueNameMappingEndpoints();
 
 // Auto migration and seed on startup
 using (var scope = app.Services.CreateScope())

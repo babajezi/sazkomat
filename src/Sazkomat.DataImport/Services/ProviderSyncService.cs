@@ -3,7 +3,9 @@ using Sazkomat.Configuration.Entities;
 using Sazkomat.Configuration.Repositories;
 using Sazkomat.Core.Common;
 using Sazkomat.DataImport.DTOs;
+using Sazkomat.DataImport.Helpers;
 using Sazkomat.DataImport.Scrapers;
+using Sazkomat.DataImport.Validators;
 using System.Diagnostics;
 using System.Text.Json;
 
@@ -23,6 +25,7 @@ public class ProviderSyncService : ISyncService
     private readonly IEnumerable<ILeagueMetadataScraper> _leagueScrapers;
     private readonly IEnumerable<ISeasonScraper> _seasonScrapers;
     private readonly ISeasonSyncService _seasonSyncService;
+    private readonly ILeagueRoundValidator _roundValidator;
     private readonly ILogger<ProviderSyncService> _logger;
 
     private static SyncStatusResponse _currentStatus = new();
@@ -41,6 +44,7 @@ public class ProviderSyncService : ISyncService
         IEnumerable<ILeagueMetadataScraper> leagueScrapers,
         IEnumerable<ISeasonScraper> seasonScrapers,
         ISeasonSyncService seasonSyncService,
+        ILeagueRoundValidator roundValidator,
         ILogger<ProviderSyncService> logger)
     {
         _providerRepository = providerRepository;
@@ -55,6 +59,7 @@ public class ProviderSyncService : ISyncService
         _leagueScrapers = leagueScrapers;
         _seasonScrapers = seasonScrapers;
         _seasonSyncService = seasonSyncService;
+        _roundValidator = roundValidator;
         _logger = logger;
     }
 
@@ -127,17 +132,48 @@ public class ProviderSyncService : ISyncService
 
                             if (existingCountry == null)
                             {
-                                // Country not found - skip with warning (do NOT create!)
-                                _logger.LogWarning(
-                                    "Country {ProviderCode} ({ProviderName}) could not be mapped to existing country. " +
-                                    "Normalized code: {NormalizedCode}. Skipping. Consider adding mapping in NormalizeCountryCodeAsync.",
-                                    countryInfo.Code, countryInfo.Name, normalizedCode);
-                                stats.Skipped++;
+                                // Country not found - create new country
+                                existingCountry = new Country
+                                {
+                                    Code = normalizedCode,
+                                    Name = countryInfo.Name,
+                                    FlagEmoji = countryInfo.FlagEmoji ?? "🏳️",
+                                    IsoCode = countryInfo.IsoCode ?? "",
+                                    IsActive = activateCountries
+                                };
+                                await _countryRepository.AddAsync(existingCountry);
+                                stats.Created++;
+                                _logger.LogInformation("Created new country: {Name} ({Code})", existingCountry.Name, existingCountry.Code);
+
+                                // Create CountryProvider mapping for newly created country
+                                var newCountryProvider = new CountryProvider
+                                {
+                                    CountryId = existingCountry.Id,
+                                    ProviderId = providerId,
+                                    ProviderCode = countryInfo.ProviderCode ?? countryInfo.Code,
+                                    ProviderName = countryInfo.Name,
+                                    IsActive = true
+                                };
+                                await _countryProviderRepository.AddAsync(newCountryProvider);
+                                stats.Created++;
+                                _logger.LogDebug("Created country provider mapping for new country {CountryName}", existingCountry.Name);
                                 continue;
                             }
 
                             _logger.LogDebug("Matched provider country {ProviderName} ({ProviderCode}) to DB country {CountryName} ({CountryCode})",
                                 countryInfo.Name, countryInfo.Code, existingCountry.Name, existingCountry.Code);
+
+                            // Update IsoCode if it changed or is empty
+                            var needsIsoUpdate = false;
+                            if (!string.IsNullOrEmpty(countryInfo.IsoCode) &&
+                                existingCountry.IsoCode != countryInfo.IsoCode)
+                            {
+                                var oldIsoCode = existingCountry.IsoCode;
+                                existingCountry.IsoCode = countryInfo.IsoCode;
+                                needsIsoUpdate = true;
+                                _logger.LogInformation("Updating IsoCode for country {Name}: '{OldCode}' -> '{NewCode}'",
+                                    existingCountry.Name, oldIsoCode, countryInfo.IsoCode);
+                            }
 
                             // Handle country activation and mapping creation
                             if (existingCountry.IsActive)
@@ -163,11 +199,40 @@ public class ProviderSyncService : ISyncService
                                 }
                                 else
                                 {
-                                    countryProvider.ProviderCode = countryInfo.ProviderCode ?? countryInfo.Code;
-                                    countryProvider.ProviderName = countryInfo.Name;
-                                    countryProvider.IsActive = true;
-                                    await _countryProviderRepository.UpdateAsync(countryProvider);
-                                    stats.Updated++;
+                                    // Check if mapping data actually changed before updating
+                                    var newProviderCode = countryInfo.ProviderCode ?? countryInfo.Code;
+                                    bool mappingChanged =
+                                        countryProvider.ProviderCode != newProviderCode ||
+                                        countryProvider.ProviderName != countryInfo.Name ||
+                                        countryProvider.IsActive != true;
+
+                                    if (mappingChanged || needsIsoUpdate)
+                                    {
+                                        // Update mapping if it changed
+                                        if (mappingChanged)
+                                        {
+                                            countryProvider.ProviderCode = newProviderCode;
+                                            countryProvider.ProviderName = countryInfo.Name;
+                                            countryProvider.IsActive = true;
+                                            await _countryProviderRepository.UpdateAsync(countryProvider);
+                                            _logger.LogDebug("Updated country provider mapping for {CountryName}", existingCountry.Name);
+                                        }
+
+                                        // Update IsoCode if needed
+                                        if (needsIsoUpdate)
+                                        {
+                                            await _countryRepository.UpdateAsync(existingCountry);
+                                        }
+
+                                        // Count as updated only once even if both mapping and IsoCode changed
+                                        stats.Updated++;
+                                    }
+                                    else
+                                    {
+                                        // No changes detected, skip
+                                        stats.Skipped++;
+                                        _logger.LogDebug("Skipped country provider mapping for {CountryName} (no changes)", existingCountry.Name);
+                                    }
                                 }
                             }
                             else if (activateCountries)
@@ -196,10 +261,20 @@ public class ProviderSyncService : ISyncService
                             }
                             else
                             {
-                                // Country is inactive and auto-activate is disabled - skip
-                                _logger.LogDebug("Country {CountryName} is inactive and auto-activate is disabled, skipping mapping creation",
-                                    existingCountry.Name);
-                                stats.Skipped++;
+                                // Country is inactive and auto-activate is disabled - skip mapping creation
+                                // But still update IsoCode if needed
+                                if (needsIsoUpdate)
+                                {
+                                    await _countryRepository.UpdateAsync(existingCountry);
+                                    stats.Updated++;
+                                    _logger.LogInformation("Updated IsoCode for inactive country {Name}", existingCountry.Name);
+                                }
+                                else
+                                {
+                                    _logger.LogDebug("Country {CountryName} is inactive and auto-activate is disabled, skipping mapping creation",
+                                        existingCountry.Name);
+                                    stats.Skipped++;
+                                }
                             }
                         }
                         catch (Exception ex)
@@ -333,6 +408,45 @@ public class ProviderSyncService : ISyncService
                         {
                             try
                             {
+                                // Validate if league is round-based (not a cup competition)
+                                try
+                                {
+                                    // Calculate previous season for validation
+                                    if (seasonPatterns != null && seasonPatterns.Any())
+                                    {
+                                        var firstPattern = seasonPatterns.First();
+                                        var previousSeason = SeasonHelper.GetPreviousSeasonPattern(firstPattern);
+
+                                        // Validate league structure
+                                        var isRoundBased = await _roundValidator.IsRoundBasedLeagueAsync(
+                                            leagueMetadata.Slug,
+                                            country.Code,
+                                            previousSeason,
+                                            providerId
+                                        );
+
+                                        if (!isRoundBased)
+                                        {
+                                            // Skip cup competitions
+                                            _logger.LogInformation(
+                                                "Skipping cup competition: {Country}/{League} (validated against season {Season})",
+                                                country.Name, leagueMetadata.Name, previousSeason
+                                            );
+                                            stats.Skipped++;
+                                            continue; // Skip this league
+                                        }
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    // Don't fail the entire sync if validation fails
+                                    _logger.LogWarning(ex,
+                                        "Failed to validate {League}, including it anyway",
+                                        leagueMetadata.Name
+                                    );
+                                    // Continue with league creation/update
+                                }
+
                                 // Check if league provider mapping exists
                                 var leagueProvider = await _leagueProviderRepository.GetByProviderAndSlugAsync(
                                     providerId, leagueMetadata.Slug);
@@ -374,16 +488,43 @@ public class ProviderSyncService : ISyncService
                                 }
                                 else
                                 {
-                                    // Mapping exists - update league and mapping
+                                    // Mapping exists - check if data changed before updating
                                     existingLeague = leagueProvider.League!;
-                                    existingLeague.DisplayName = leagueMetadata.DisplayName;
-                                    existingLeague.Priority = leagueMetadata.Priority;
-                                    await _leagueRepository.UpdateAsync(existingLeague);
-                                    stats.Updated++;
 
-                                    // Update provider mapping
-                                    leagueProvider.ProviderName = leagueMetadata.Name;
-                                    await _leagueProviderRepository.UpdateAsync(leagueProvider);
+                                    bool leagueChanged =
+                                        existingLeague.DisplayName != leagueMetadata.DisplayName ||
+                                        existingLeague.Priority != leagueMetadata.Priority;
+
+                                    bool mappingChanged =
+                                        leagueProvider.ProviderName != leagueMetadata.Name;
+
+                                    if (leagueChanged || mappingChanged)
+                                    {
+                                        // Update league if it changed
+                                        if (leagueChanged)
+                                        {
+                                            existingLeague.DisplayName = leagueMetadata.DisplayName;
+                                            existingLeague.Priority = leagueMetadata.Priority;
+                                            await _leagueRepository.UpdateAsync(existingLeague);
+                                            _logger.LogDebug("Updated league {LeagueName} - DisplayName or Priority changed", existingLeague.DisplayName);
+                                        }
+
+                                        // Update provider mapping if it changed
+                                        if (mappingChanged)
+                                        {
+                                            leagueProvider.ProviderName = leagueMetadata.Name;
+                                            await _leagueProviderRepository.UpdateAsync(leagueProvider);
+                                            _logger.LogDebug("Updated league provider mapping for {LeagueName}", existingLeague.DisplayName);
+                                        }
+
+                                        stats.Updated++;
+                                    }
+                                    else
+                                    {
+                                        // No changes detected, skip
+                                        stats.Skipped++;
+                                        _logger.LogDebug("Skipped league {LeagueName} (no changes)", existingLeague.DisplayName);
+                                    }
                                 }
                             }
                             catch (Exception ex)
@@ -564,9 +705,19 @@ public class ProviderSyncService : ISyncService
                     }
                     else
                     {
-                        leagueSeason.IsAvailableOnBetExplorer = true;
-                        await _leagueSeasonRepository.UpdateAsync(leagueSeason);
-                        stats.Updated++;
+                        // Check if data actually changed before updating
+                        if (leagueSeason.IsAvailableOnBetExplorer != true)
+                        {
+                            leagueSeason.IsAvailableOnBetExplorer = true;
+                            await _leagueSeasonRepository.UpdateAsync(leagueSeason);
+                            stats.Updated++;
+                            _logger.LogDebug("Updated league season {SeasonName} - IsAvailableOnBetExplorer changed to true", seasonName);
+                        }
+                        else
+                        {
+                            stats.Skipped++;
+                            _logger.LogDebug("Skipped league season {SeasonName} (no changes)", seasonName);
+                        }
                     }
                 }
                 catch (Exception ex)

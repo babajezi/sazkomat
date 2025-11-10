@@ -13,7 +13,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronRight, Sparkles, X } from "lucide-react";
 import Link from "next/link";
+import { CountryFlag } from "@/components/CountryFlag";
 import type { Round } from "@/lib/api/types";
+import { MatchResult } from "@/lib/api/types";
 
 export default function RoundsPage() {
   const [page, setPage] = useState(0);
@@ -107,7 +109,7 @@ export default function RoundsPage() {
     setPage(0);
   };
 
-  const getWinningOddsClass = (result: string, type: "H" | "D" | "A") => {
+  const getWinningOddsClass = (result: MatchResult, type: MatchResult) => {
     if (result === type) {
       return "bg-green-100 text-green-800 font-bold";
     }
@@ -461,7 +463,7 @@ export default function RoundsPage() {
                               <td
                                 className={`p-4 text-center font-mono font-semibold ${getWinningOddsClass(
                                   match.result,
-                                  "H"
+                                  MatchResult.Home
                                 )}`}
                               >
                                 {match.homeOdds?.toFixed(2) || "-"}
@@ -469,7 +471,7 @@ export default function RoundsPage() {
                               <td
                                 className={`p-4 text-center font-mono font-semibold ${getWinningOddsClass(
                                   match.result,
-                                  "D"
+                                  MatchResult.Draw
                                 )}`}
                               >
                                 {match.drawOdds?.toFixed(2) || "-"}
@@ -477,7 +479,7 @@ export default function RoundsPage() {
                               <td
                                 className={`p-4 text-center font-mono font-semibold ${getWinningOddsClass(
                                   match.result,
-                                  "A"
+                                  MatchResult.Away
                                 )}`}
                               >
                                 {match.awayOdds?.toFixed(2) || "-"}

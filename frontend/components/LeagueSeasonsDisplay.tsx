@@ -15,6 +15,7 @@ import {
 import { ChevronDown, ChevronUp } from "lucide-react";
 import Link from "next/link";
 import type { LeagueSeason } from "@/lib/api/types";
+import { SyncMode } from "@/lib/api/types";
 
 interface LeagueSeasonsDisplayProps {
   leagueId: string;
@@ -106,7 +107,7 @@ function SeasonRow({ season, leagueId, onToggleSync, isToggling }: SeasonRowProp
 
   const handleToggleClick = () => {
     // If enabling sync for a historical season, show warning
-    if (!season.syncEnabled && season.syncMode === "Historical") {
+    if (!season.syncEnabled && season.syncMode === SyncMode.Historical) {
       setShowWarning(true);
     } else {
       onToggleSync(!season.syncEnabled);

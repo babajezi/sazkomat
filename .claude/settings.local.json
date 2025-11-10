@@ -116,7 +116,20 @@
       "Bash(git init:*)",
       "Bash(git remote add:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(git branch:*)",
+      "Bash(git push:*)",
+      "Bash(Select-String \"migration|IsoCode\" -Context 0,2)",
+      "WebSearch",
+      "Bash(npm uninstall:*)",
+      "Bash(docker-compose exec:*)",
+      "Bash(python:*)",
+      "Bash(argentina_leagues.json)",
+      "Bash(Select-String \"error\")",
+      "Bash(del:*)",
+      "Bash(Select-Object -First 30)",
+      "Bash(Select-String \"error\" -Context 0,2)",
+      "Bash(git reset:*)"
     ],
     "additionalDirectories": [
       "c:\\projects\\claude-share"

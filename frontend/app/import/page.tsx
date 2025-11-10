@@ -12,23 +12,20 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { CountryFlag } from "@/components/CountryFlag";
 import type { ImportJob } from "@/lib/api/types";
+import { ImportJobStatus } from "@/lib/api/types";
 
 // Helper function to get status label from enum value
-const getStatusLabel = (status: string | number): string => {
-  const statusMap: Record<string, string> = {
-    "0": "Čeká",
-    "1": "Probíhá",
-    "2": "Dokončeno",
-    "3": "Selhalo",
-    "4": "Částečně úspěšné",
-    "Pending": "Čeká",
-    "Running": "Probíhá",
-    "Completed": "Dokončeno",
-    "Failed": "Selhalo",
-    "PartialSuccess": "Částečně úspěšné"
+const getStatusLabel = (status: ImportJobStatus): string => {
+  const statusMap: Record<ImportJobStatus, string> = {
+    [ImportJobStatus.Pending]: "Čeká",
+    [ImportJobStatus.Running]: "Probíhá",
+    [ImportJobStatus.Completed]: "Dokončeno",
+    [ImportJobStatus.Failed]: "Selhalo",
+    [ImportJobStatus.PartialSuccess]: "Částečně úspěšné"
   };
-  return statusMap[String(status)] || String(status);
+  return statusMap[status] || String(status);
 };
 
 export default function ImportPage() {
@@ -51,9 +48,7 @@ export default function ImportPage() {
     refetchInterval: (query) => {
       const job = query.state.data;
       // Stop polling if job is completed, failed, or has partial success
-      // Handle both string and numeric enum values
-      const status = String(job?.status);
-      if (job && (status === "Completed" || status === "2" || status === "Failed" || status === "3" || status === "PartialSuccess" || status === "4")) {
+      if (job && [ImportJobStatus.Completed, ImportJobStatus.Failed, ImportJobStatus.PartialSuccess].includes(job.status)) {
         return false;
       }
       return 2000; // Poll every 2 seconds
@@ -166,7 +161,10 @@ export default function ImportPage() {
                     {sortedCountries && sortedCountries.map(([countryName, countryLeagues]) => (
                       <div key={countryName}>
                         <h3 className="text-sm font-semibold text-gray-700 mb-2 pb-1 border-b flex items-center gap-2">
-                          {countryLeagues[0]?.country?.flagEmoji} {countryName}
+                          {countryLeagues[0]?.country?.isoCode && (
+                            <CountryFlag isoCode={countryLeagues[0].country.isoCode} className="text-base" />
+                          )}
+                          <span>{countryName}</span>
                           <span className="text-xs font-normal text-gray-500">
                             ({countryLeagues.length} {countryLeagues.length === 1 ? 'liga' : 'lig'})
                           </span>
@@ -305,13 +303,13 @@ export default function ImportPage() {
                       <span className="font-medium">Status:</span>{" "}
                       <span
                         className={`px-2 py-1 rounded text-xs ${
-                          String(currentJob.status) === "Completed" || String(currentJob.status) === "2"
+                          currentJob.status === ImportJobStatus.Completed
                             ? "bg-green-100 text-green-800"
-                            : String(currentJob.status) === "Failed" || String(currentJob.status) === "3"
+                            : currentJob.status === ImportJobStatus.Failed
                             ? "bg-red-100 text-red-800"
-                            : String(currentJob.status) === "Running" || String(currentJob.status) === "1"
+                            : currentJob.status === ImportJobStatus.Running
                             ? "bg-blue-100 text-blue-800"
-                            : String(currentJob.status) === "PartialSuccess" || String(currentJob.status) === "4"
+                            : currentJob.status === ImportJobStatus.PartialSuccess
                             ? "bg-yellow-100 text-yellow-800"
                             : "bg-gray-100 text-gray-800"
                         }`}

@@ -15,6 +15,7 @@ import { useState } from "react";
 import { RefreshCw, Database } from "lucide-react";
 import { SyncDialog } from "@/components/SyncDialog";
 import { PaginationControls } from "@/components/PaginationControls";
+import { ProviderType } from "@/lib/api/types";
 
 interface DataProvider {
   id: string;
@@ -161,7 +162,7 @@ export default function ProvidersPage() {
                   </div>
                   <div>
                     <div className="font-medium text-gray-700">Typ:</div>
-                    <div>{provider.type === 1 ? "Scraper" : provider.type === 2 ? "API" : "Manual"}</div>
+                    <div>{provider.type === ProviderType.Scraper ? "Scraper" : provider.type === ProviderType.API ? "API" : provider.type === ProviderType.Manual ? "Manual" : "Betting Provider"}</div>
                   </div>
                 </div>
 

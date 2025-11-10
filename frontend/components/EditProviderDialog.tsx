@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { DataProvider } from "@/lib/api/types";
+import { ProviderType } from "@/lib/api/types";
 
 interface EditProviderDialogProps {
   provider: DataProvider | null;
@@ -83,7 +84,7 @@ export function EditProviderDialog({
 
   if (!provider) return null;
 
-  const isBettingProvider = provider.type === 4;
+  const isBettingProvider = provider.type === ProviderType.BettingProvider;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

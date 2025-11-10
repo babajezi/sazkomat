@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { LeagueProvider } from "@/lib/api/types";
+import { ProviderType } from "@/lib/api/types";
 
 interface LeagueProviderDialogProps {
   open: boolean;
@@ -140,36 +141,36 @@ export function LeagueProviderDialog({
                 required
               >
                 <option value="">-- Vyberte providera --</option>
-                {providers?.filter(p => p.type === 1).length > 0 && (
+                {providers?.filter(p => p.type === ProviderType.Scraper).length > 0 && (
                   <optgroup label="Scraper">
-                    {providers?.filter(p => p.type === 1).map((provider) => (
+                    {providers?.filter(p => p.type === ProviderType.Scraper).map((provider) => (
                       <option key={provider.id} value={provider.id}>
                         {provider.name} ({provider.code})
                       </option>
                     ))}
                   </optgroup>
                 )}
-                {providers?.filter(p => p.type === 2).length > 0 && (
+                {providers?.filter(p => p.type === ProviderType.API).length > 0 && (
                   <optgroup label="API">
-                    {providers?.filter(p => p.type === 2).map((provider) => (
+                    {providers?.filter(p => p.type === ProviderType.API).map((provider) => (
                       <option key={provider.id} value={provider.id}>
                         {provider.name} ({provider.code})
                       </option>
                     ))}
                   </optgroup>
                 )}
-                {providers?.filter(p => p.type === 3).length > 0 && (
+                {providers?.filter(p => p.type === ProviderType.Manual).length > 0 && (
                   <optgroup label="Manual">
-                    {providers?.filter(p => p.type === 3).map((provider) => (
+                    {providers?.filter(p => p.type === ProviderType.Manual).map((provider) => (
                       <option key={provider.id} value={provider.id}>
                         {provider.name} ({provider.code})
                       </option>
                     ))}
                   </optgroup>
                 )}
-                {providers?.filter(p => p.type === 4).length > 0 && (
+                {providers?.filter(p => p.type === ProviderType.BettingProvider).length > 0 && (
                   <optgroup label="Betting Provider">
-                    {providers?.filter(p => p.type === 4).map((provider) => (
+                    {providers?.filter(p => p.type === ProviderType.BettingProvider).map((provider) => (
                       <option key={provider.id} value={provider.id}>
                         {provider.name} ({provider.code})
                       </option>

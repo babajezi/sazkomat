@@ -13,6 +13,7 @@
 - **.NET 9** s ASP.NET Core Minimal APIs
 - **Entity Framework Core 9** (Code-First)
 - **PostgreSQL 16** (hlavní databáze)
+- **Hangfire** (background job processing s PostgreSQL storage)
 - **Redis 7** (připraveno pro Fázi 2)
 - **Serilog** (strukturované logování)
 - **Polly** (resilience a retry policies)
@@ -64,12 +65,15 @@ src/
 
 **Dvě PostgreSQL schémata:**
 
-1. **configuration** - Katalogy (sports, countries, leagues)
-2. **data_import** - Importovaná data (rounds, import_jobs)
+1. **configuration** - Katalogy (sports, countries, leagues, seasons, league_seasons)
+2. **data_import** - Importovaná data + provider cache
+   - **Import tables**: rounds, import_jobs
+   - **Provider cache**: provider_countries, provider_leagues, provider_seasons
+   - **Job queue**: sync_jobs (Hangfire používá vlastní schéma)
 
 **Konvence:**
 - Snake_case pro názvy sloupců
-- JSONB pro komplexní data
+- JSONB pro komplexní data (metadata, progress, raw provider data)
 - UUID jako primární klíče
 - Auto timestamps (created_at, updated_at)
 
@@ -105,8 +109,69 @@ frontend/
 - `GET /api/import/jobs/{jobId}` - Status importní úlohy
 - `GET /api/import/stats?leagueId=` - Statistiky importu
 
+### Scan (Provider Cache)
+- `POST /api/scan/countries` - Scan zemí z providera do cache
+- `POST /api/scan/leagues` - Scan lig z providera do cache
+- `POST /api/scan/seasons` - Scan sezón z providera do cache
+
+### Jobs (Background Processing)
+- `GET /api/jobs/{jobId}` - Status konkrétního jobu
+- `GET /api/jobs/recent?providerId=&count=` - Seznam posledních jobů
+- `POST /api/jobs/scan` - Zařadit scan job do fronty
+- `POST /api/jobs/import` - Zařadit import job do fronty
+- `POST /api/jobs/livesync` - Zařadit live sync job do fronty
+
+### Live Sync
+- `POST /api/livesync/rounds` - Živá synchronizace kol
+- `POST /api/livesync/rounds/{roundId}` - Synchronizace konkrétního kola
+- `GET /api/livesync/stats?providerId=` - Statistiky live sync
+
 ### Health
 - `GET /health` - Health check
+- `GET /hangfire` - Hangfire Dashboard (job queue monitoring)
+
+## Synchronizační workflow
+
+**3-Step Workflow** pro robustní zpracování dat z providerů:
+
+### Krok 1: SCAN (Load to Cache)
+- **Endpoint**: `/api/scan/{countries|leagues|seasons}`
+- **Účel**: Načte data z providera do cache tabulek (provider_countries, provider_leagues, provider_seasons)
+- **Výhody**:
+  - Oddělení načítání dat od importu
+  - Možnost náhledu před importem
+  - Zachování audit trail (data se nikdy nemažou)
+- **Job Type**: `SyncJobType.Scan`
+
+### Krok 2: IMPORT (Cache to Config)
+- **Service**: `ImportService` (ne public API, voláno interně nebo přes jobs)
+- **Účel**: Importuje vybraná data z cache do hlavních konfiguračních tabulek
+- **Logika**:
+  - Kontroluje duplicity přes `CountryProvider` a `LeagueProvider` mapování
+  - Vytváří/aktualizuje entity v configuration schématu
+  - Zachovává referenční integritu
+- **Job Type**: `SyncJobType.Import`
+
+### Krok 3: LIVE SYNC (Ongoing Updates)
+- **Endpoint**: `/api/livesync/rounds`
+- **Účel**: Průběžná synchronizace aktuálních dat (zápasy, kola)
+- **Použití**:
+  - Běžící sezóny
+  - Real-time aktualizace výsledků
+  - Může být naplánováno rekurentně přes Hangfire
+- **Job Type**: `SyncJobType.LiveSync`
+
+### Job Queue (Hangfire)
+- Všechny operace (scan, import, live sync) běží asynchronně
+- Tracking přes `sync_jobs` tabulku
+- Status: `Pending` → `Running` → `Completed` / `Failed`
+- Monitoring přes `/hangfire` dashboard nebo `/api/jobs/recent`
+- Konfigurace v `appsettings.json` (`Hangfire` sekce)
+
+### Frontend Flow
+- **ScanDialog** komponenta - Spouští scan operace
+- **CacheTablesView** - Náhled cachovaných dat před importem
+- **Jobs Page** (`/jobs`) - Monitoring všech běžících a dokončených jobů
 
 ## Důležité informace pro vývoj
 

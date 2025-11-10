@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { configApi } from "@/lib/api/client";
 import type { Match, MatchFilter } from "@/lib/api/types";
+import { MatchResult, MatchSortBy } from "@/lib/api/types";
 import Link from "next/link";
 import {
   Select,
@@ -29,7 +30,7 @@ export default function MatchesPage() {
   const [viewMode, setViewMode] = useState<"chronological" | "grouped">("grouped");
   const [filters, setFilters] = useState<MatchFilter>({
     take: 50,
-    sortBy: "round",
+    sortBy: MatchSortBy.Round,
     sortDescending: true,
   });
 
@@ -68,13 +69,13 @@ export default function MatchesPage() {
   const resetFilters = () => {
     setFilters({
       take: 50,
-      sortBy: "round",
+      sortBy: MatchSortBy.Round,
       sortDescending: true,
     });
   };
 
   // Helper function to highlight winning odds
-  const getWinningOddsClass = (result: string, type: "H" | "D" | "A") => {
+  const getWinningOddsClass = (result: MatchResult, type: MatchResult) => {
     if (result === type) {
       return "bg-green-100 text-green-800 font-bold";
     }
@@ -234,9 +235,9 @@ export default function MatchesPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Všechny výsledky</SelectItem>
-                  <SelectItem value="H">Domácí výhra</SelectItem>
-                  <SelectItem value="D">Remíza</SelectItem>
-                  <SelectItem value="A">Venkovní výhra</SelectItem>
+                  <SelectItem value={MatchResult.Home}>Domácí výhra</SelectItem>
+                  <SelectItem value={MatchResult.Draw}>Remíza</SelectItem>
+                  <SelectItem value={MatchResult.Away}>Venkovní výhra</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -312,19 +313,19 @@ export default function MatchesPage() {
                       {match.homeScore}:{match.awayScore}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {match.result === "H" ? "Domácí" : match.result === "D" ? "Remíza" : "Venkovní"}
+                      {match.result === MatchResult.Home ? "Domácí" : match.result === MatchResult.Draw ? "Remíza" : "Venkovní"}
                     </div>
                   </div>
                   <div className="w-48">
                     {(match.homeOdds || match.drawOdds || match.awayOdds) ? (
                       <div className="flex gap-1 justify-end font-mono text-sm">
-                        <span className={`min-w-[60px] text-right px-2 py-1 rounded ${getWinningOddsClass(match.result, "H")}`}>
+                        <span className={`min-w-[60px] text-right px-2 py-1 rounded ${getWinningOddsClass(match.result, MatchResult.Home)}`}>
                           {match.homeOdds?.toFixed(2) || "-"}
                         </span>
-                        <span className={`min-w-[60px] text-right px-2 py-1 rounded ${getWinningOddsClass(match.result, "D")}`}>
+                        <span className={`min-w-[60px] text-right px-2 py-1 rounded ${getWinningOddsClass(match.result, MatchResult.Draw)}`}>
                           {match.drawOdds?.toFixed(2) || "-"}
                         </span>
-                        <span className={`min-w-[60px] text-right px-2 py-1 rounded ${getWinningOddsClass(match.result, "A")}`}>
+                        <span className={`min-w-[60px] text-right px-2 py-1 rounded ${getWinningOddsClass(match.result, MatchResult.Away)}`}>
                           {match.awayOdds?.toFixed(2) || "-"}
                         </span>
                       </div>
@@ -377,7 +378,7 @@ export default function MatchesPage() {
                               {match.homeScore}:{match.awayScore}
                             </div>
                             <div className="text-xs text-muted-foreground">
-                              {match.result === "H" ? "Domácí" : match.result === "D" ? "Remíza" : "Venkovní"}
+                              {match.result === MatchResult.Home ? "Domácí" : match.result === MatchResult.Draw ? "Remíza" : "Venkovní"}
                             </div>
                           </div>
                           <div className="w-48">

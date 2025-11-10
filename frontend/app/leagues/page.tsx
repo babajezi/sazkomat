@@ -14,12 +14,15 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import { EditLeagueDialog } from "@/components/LeagueFormDialog";
 import { LeagueSeasonsDisplay } from "@/components/LeagueSeasonsDisplay";
 import { LeagueProviderDialog } from "@/components/LeagueProviderDialog";
 import { PaginationControls } from "@/components/PaginationControls";
+import { CountryFlag } from "@/components/CountryFlag";
 import type { League, LeagueProvider } from "@/lib/api/types";
+import { ProviderType, BooleanFilterValue, HasProvidersFilter } from "@/lib/api/types";
 
 export default function LeaguesPage() {
   const queryClient = useQueryClient();
@@ -33,8 +36,9 @@ export default function LeaguesPage() {
   const [filterCountryId, setFilterCountryId] = useState<string>("");
   const [filterEnabled, setFilterEnabled] = useState<string>("");
   const [filterBettable, setFilterBettable] = useState<string>("");
-  const [filterHasProviders, setFilterHasProviders] = useState<string>("");
+  const [filterHasProviders, setFilterHasProviders] = useState<string>(HasProvidersFilter.All);
   const [filterProviderId, setFilterProviderId] = useState<string>("");
+  const [searchQuery, setSearchQuery] = useState<string>("");
 
   const { data: leagues, isLoading, error } = useQuery({
     queryKey: ["leagues"],
@@ -205,25 +209,32 @@ export default function LeaguesPage() {
     return sports?.find((s) => s.id === sportId)?.name || "Unknown";
   };
 
-  const getCountryInfo = (countryId: string) => {
-    const country = countries?.find((c) => c.id === countryId);
-    return country ? `${country.flagEmoji} ${country.name}` : "Unknown";
+  const getCountry = (countryId: string) => {
+    return countries?.find((c) => c.id === countryId);
   };
 
   // Filter leagues based on selected filters
   const filteredLeagues = leagues?.filter((league) => {
+    // Filtr podle názvu (search query)
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      const matchesDisplayName = league.displayName.toLowerCase().includes(query);
+      const matchesName = league.name.toLowerCase().includes(query);
+      if (!matchesDisplayName && !matchesName) return false;
+    }
+
     if (filterSportId && league.sportId !== filterSportId) return false;
     if (filterCountryId && league.countryId !== filterCountryId) return false;
-    if (filterEnabled === "true" && !league.isSyncEnabled) return false;
-    if (filterEnabled === "false" && league.isSyncEnabled) return false;
-    if (filterBettable === "true" && !league.isBettable) return false;
-    if (filterBettable === "false" && league.isBettable) return false;
+    if (filterEnabled === BooleanFilterValue.True && !league.isSyncEnabled) return false;
+    if (filterEnabled === BooleanFilterValue.False && league.isSyncEnabled) return false;
+    if (filterBettable === BooleanFilterValue.True && !league.isBettable) return false;
+    if (filterBettable === BooleanFilterValue.False && league.isBettable) return false;
 
     // Filtr podle existence providerů
-    if (filterHasProviders === "yes") {
+    if (filterHasProviders === HasProvidersFilter.Yes) {
       if (!league.leagueProviders || league.leagueProviders.length === 0) return false;
     }
-    if (filterHasProviders === "no") {
+    if (filterHasProviders === HasProvidersFilter.No) {
       if (league.leagueProviders && league.leagueProviders.length > 0) return false;
     }
 
@@ -299,9 +310,26 @@ export default function LeaguesPage() {
         {sports && countries && (
           <Card className="mb-6">
             <CardHeader>
-              <CardTitle className="text-lg">Filtry</CardTitle>
+              <CardTitle className="text-lg">Vyhledávání a Filtry</CardTitle>
             </CardHeader>
             <CardContent>
+              <div className="grid grid-cols-1 gap-4 mb-4">
+                {/* Search Bar */}
+                <div className="grid gap-2">
+                  <Label htmlFor="search-query">Vyhledat podle názvu</Label>
+                  <Input
+                    id="search-query"
+                    type="text"
+                    placeholder="Zadejte název ligy..."
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setPage(0);
+                    }}
+                  />
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="filter-sport">Sport</Label>
@@ -345,9 +373,9 @@ export default function LeaguesPage() {
                     onChange={(e) => setFilterEnabled(e.target.value)}
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    <option value="">Vše</option>
-                    <option value="true">Ano</option>
-                    <option value="false">Ne</option>
+                    <option value={BooleanFilterValue.All}>Vše</option>
+                    <option value={BooleanFilterValue.True}>Ano</option>
+                    <option value={BooleanFilterValue.False}>Ne</option>
                   </select>
                 </div>
 
@@ -359,9 +387,9 @@ export default function LeaguesPage() {
                     onChange={(e) => setFilterBettable(e.target.value)}
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    <option value="">Vše</option>
-                    <option value="true">Ano</option>
-                    <option value="false">Ne</option>
+                    <option value={BooleanFilterValue.All}>Vše</option>
+                    <option value={BooleanFilterValue.True}>Ano</option>
+                    <option value={BooleanFilterValue.False}>Ne</option>
                   </select>
                 </div>
 
@@ -373,9 +401,9 @@ export default function LeaguesPage() {
                     onChange={(e) => setFilterHasProviders(e.target.value)}
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    <option value="">Vše</option>
-                    <option value="yes">Ano (≥1 provider)</option>
-                    <option value="no">Ne (0 providerů)</option>
+                    <option value={HasProvidersFilter.All}>Vše</option>
+                    <option value={HasProvidersFilter.Yes}>Ano (≥1 provider)</option>
+                    <option value={HasProvidersFilter.No}>Ne (0 providerů)</option>
                   </select>
                 </div>
 
@@ -388,36 +416,36 @@ export default function LeaguesPage() {
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <option value="">Všichni provideři</option>
-                    {providers?.filter(p => p.type === 1).length > 0 && (
+                    {providers?.filter(p => p.type === ProviderType.Scraper).length > 0 && (
                       <optgroup label="Scraper">
-                        {providers?.filter(p => p.type === 1).map((provider) => (
+                        {providers?.filter(p => p.type === ProviderType.Scraper).map((provider) => (
                           <option key={provider.id} value={provider.id}>
                             {provider.name}
                           </option>
                         ))}
                       </optgroup>
                     )}
-                    {providers?.filter(p => p.type === 2).length > 0 && (
+                    {providers?.filter(p => p.type === ProviderType.API).length > 0 && (
                       <optgroup label="API">
-                        {providers?.filter(p => p.type === 2).map((provider) => (
+                        {providers?.filter(p => p.type === ProviderType.API).map((provider) => (
                           <option key={provider.id} value={provider.id}>
                             {provider.name}
                           </option>
                         ))}
                       </optgroup>
                     )}
-                    {providers?.filter(p => p.type === 3).length > 0 && (
+                    {providers?.filter(p => p.type === ProviderType.Manual).length > 0 && (
                       <optgroup label="Manual">
-                        {providers?.filter(p => p.type === 3).map((provider) => (
+                        {providers?.filter(p => p.type === ProviderType.Manual).map((provider) => (
                           <option key={provider.id} value={provider.id}>
                             {provider.name}
                           </option>
                         ))}
                       </optgroup>
                     )}
-                    {providers?.filter(p => p.type === 4).length > 0 && (
+                    {providers?.filter(p => p.type === ProviderType.BettingProvider).length > 0 && (
                       <optgroup label="Betting Provider">
-                        {providers?.filter(p => p.type === 4).map((provider) => (
+                        {providers?.filter(p => p.type === ProviderType.BettingProvider).map((provider) => (
                           <option key={provider.id} value={provider.id}>
                             {provider.name}
                           </option>
@@ -431,6 +459,7 @@ export default function LeaguesPage() {
                   <Button
                     variant="outline"
                     onClick={() => {
+                      setSearchQuery("");
                       setFilterSportId("");
                       setFilterCountryId("");
                       setFilterEnabled("");
@@ -483,7 +512,14 @@ export default function LeaguesPage() {
                 <div className="flex justify-between items-start">
                   <div>
                     <CardTitle className="flex items-center gap-2">
-                      {getCountryInfo(league.countryId)} {league.displayName}
+                      {getCountry(league.countryId) && (
+                        <>
+                          <CountryFlag isoCode={getCountry(league.countryId)!.isoCode} className="text-xl" />
+                          <span>{getCountry(league.countryId)!.name}</span>
+                        </>
+                      )}
+                      {!getCountry(league.countryId) && <span>Unknown</span>}
+                      {league.displayName}
                       <Badge variant={league.isSyncEnabled ? "default" : "secondary"}>
                         {league.isSyncEnabled ? "Sync povolen" : "Sync zakázán"}
                       </Badge>

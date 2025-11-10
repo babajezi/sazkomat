@@ -12,11 +12,14 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import { EditCountryDialog } from "@/components/CountryFormDialog";
 import { CountryProviderDialog } from "@/components/CountryProviderDialog";
 import { PaginationControls } from "@/components/PaginationControls";
+import { CountryFlag } from "@/components/CountryFlag";
 import type { Country, CountryProvider } from "@/lib/api/types";
+import { ProviderType } from "@/lib/api/types";
 
 export default function CountriesPage() {
   const queryClient = useQueryClient();
@@ -29,6 +32,7 @@ export default function CountriesPage() {
   const [filterActive, setFilterActive] = useState<string>("");
   const [filterProviderId, setFilterProviderId] = useState<string>("");
   const [filterHasProviders, setFilterHasProviders] = useState<string>("");
+  const [searchQuery, setSearchQuery] = useState<string>("");
 
   const { data: countries, isLoading, error } = useQuery({
     queryKey: ["countries"],
@@ -163,6 +167,14 @@ export default function CountriesPage() {
 
   // Filter countries based on selected filters
   const filteredCountries = countries?.filter((country) => {
+    // Filtr podle názvu (search query)
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      const matchesName = country.name.toLowerCase().includes(query);
+      const matchesCode = country.code.toLowerCase().includes(query);
+      if (!matchesName && !matchesCode) return false;
+    }
+
     // Filtr podle stavu
     if (filterActive === "active" && !country.isActive) return false;
     if (filterActive === "inactive" && country.isActive) return false;
@@ -246,9 +258,26 @@ export default function CountriesPage() {
         {/* Filters */}
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle className="text-lg">Filtry</CardTitle>
+            <CardTitle className="text-lg">Vyhledávání a Filtry</CardTitle>
           </CardHeader>
           <CardContent>
+            <div className="grid grid-cols-1 gap-4 mb-4">
+              {/* Search Bar */}
+              <div className="grid gap-2">
+                <Label htmlFor="search-query">Vyhledat podle názvu nebo kódu</Label>
+                <Input
+                  id="search-query"
+                  type="text"
+                  placeholder="Zadejte název země nebo kód..."
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setPage(0);
+                  }}
+                />
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {/* Filtr: Stav */}
               <div className="grid gap-2">
@@ -275,36 +304,36 @@ export default function CountriesPage() {
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <option value="">Všichni provideři</option>
-                  {providers?.filter(p => p.type === 1).length > 0 && (
+                  {providers?.filter(p => p.type === ProviderType.Scraper).length > 0 && (
                     <optgroup label="Scraper">
-                      {providers?.filter(p => p.type === 1).map((provider) => (
+                      {providers?.filter(p => p.type === ProviderType.Scraper).map((provider) => (
                         <option key={provider.id} value={provider.id}>
                           {provider.name}
                         </option>
                       ))}
                     </optgroup>
                   )}
-                  {providers?.filter(p => p.type === 2).length > 0 && (
+                  {providers?.filter(p => p.type === ProviderType.API).length > 0 && (
                     <optgroup label="API">
-                      {providers?.filter(p => p.type === 2).map((provider) => (
+                      {providers?.filter(p => p.type === ProviderType.API).map((provider) => (
                         <option key={provider.id} value={provider.id}>
                           {provider.name}
                         </option>
                       ))}
                     </optgroup>
                   )}
-                  {providers?.filter(p => p.type === 3).length > 0 && (
+                  {providers?.filter(p => p.type === ProviderType.Manual).length > 0 && (
                     <optgroup label="Manual">
-                      {providers?.filter(p => p.type === 3).map((provider) => (
+                      {providers?.filter(p => p.type === ProviderType.Manual).map((provider) => (
                         <option key={provider.id} value={provider.id}>
                           {provider.name}
                         </option>
                       ))}
                     </optgroup>
                   )}
-                  {providers?.filter(p => p.type === 4).length > 0 && (
+                  {providers?.filter(p => p.type === ProviderType.BettingProvider).length > 0 && (
                     <optgroup label="Betting Provider">
-                      {providers?.filter(p => p.type === 4).map((provider) => (
+                      {providers?.filter(p => p.type === ProviderType.BettingProvider).map((provider) => (
                         <option key={provider.id} value={provider.id}>
                           {provider.name}
                         </option>
@@ -334,6 +363,7 @@ export default function CountriesPage() {
                 <Button
                   variant="outline"
                   onClick={() => {
+                    setSearchQuery("");
                     setFilterActive("");
                     setFilterProviderId("");
                     setFilterHasProviders("");
@@ -380,18 +410,8 @@ export default function CountriesPage() {
                 <div className="flex justify-between items-start">
                   <div>
                     <CardTitle className="flex items-center gap-2 text-xl">
-                      <span className="text-3xl">{country.flagEmoji}</span>
+                      <CountryFlag isoCode={country.isoCode} className="text-3xl" />
                       {country.name}
-                      {country.isActive && (
-                        <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
-                          Aktivní
-                        </span>
-                      )}
-                      {!country.isActive && (
-                        <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
-                          Neaktivní
-                        </span>
-                      )}
                     </CardTitle>
                     <CardDescription className="mt-1">
                       Kód: {country.code}
@@ -401,16 +421,15 @@ export default function CountriesPage() {
                     <Button
                       variant={country.isActive ? "default" : "outline"}
                       size="sm"
-                      onClick={() =>
-                        toggleActiveMutation.mutate({
-                          id: country.id,
-                          isActive: !country.isActive,
-                        })
-                      }
+                      onClick={() => handleToggleActive(country, !country.isActive)}
                       disabled={toggleActiveMutation.isPending}
                       title={country.isActive ? "Deaktivovat" : "Aktivovat"}
                     >
-                      {country.isActive ? "✓ Aktivní" : "○ Neaktivní"}
+                      {toggleActiveMutation.isPending
+                        ? "..."
+                        : country.isActive
+                        ? "✓ Aktivní"
+                        : "○ Neaktivní"}
                     </Button>
                     <Button
                       variant="outline"

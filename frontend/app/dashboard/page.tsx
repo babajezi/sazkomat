@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
+import { ImportJobStatus } from "@/lib/api/types";
 
 export default function DashboardPage() {
   const { data: stats, isLoading, error } = useQuery({
@@ -232,11 +233,11 @@ export default function DashboardPage() {
                         <td className="p-2">
                           <span
                             className={`px-2 py-1 rounded text-xs ${
-                              job.status === "Completed"
+                              job.status === ImportJobStatus.Completed
                                 ? "bg-green-100 text-green-800"
-                                : job.status === "Failed"
+                                : job.status === ImportJobStatus.Failed
                                 ? "bg-red-100 text-red-800"
-                                : job.status === "Running"
+                                : job.status === ImportJobStatus.Running
                                 ? "bg-blue-100 text-blue-800"
                                 : "bg-gray-100 text-gray-800"
                             }`}

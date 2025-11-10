@@ -82,6 +82,31 @@ public class MatchRepository : IMatchRepository
         return await query.CountAsync();
     }
 
+    public async Task<Match> CreateAsync(Match match)
+    {
+        _context.Matches.Add(match);
+        await _context.SaveChangesAsync();
+        return match;
+    }
+
+    public async Task<Match> UpdateAsync(Match match)
+    {
+        match.UpdatedAt = DateTime.UtcNow;
+        _context.Matches.Update(match);
+        await _context.SaveChangesAsync();
+        return match;
+    }
+
+    public async Task DeleteAsync(Guid id)
+    {
+        var match = await GetByIdAsync(id);
+        if (match != null)
+        {
+            _context.Matches.Remove(match);
+            await _context.SaveChangesAsync();
+        }
+    }
+
     private IQueryable<Match> ApplyFilter(IQueryable<Match> query, MatchFilter? filter)
     {
         if (filter == null) return query;

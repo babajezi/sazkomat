@@ -2,6 +2,7 @@ using HtmlAgilityPack;
 using Microsoft.Extensions.Logging;
 using Sazkomat.Configuration.Entities;
 using Sazkomat.DataImport.Helpers;
+using System.Text.RegularExpressions;
 
 namespace Sazkomat.DataImport.Scrapers;
 
@@ -75,12 +76,40 @@ public class BetExplorerCountryScraper : ICountryScraper
                         if (countryCode.Length < 3 || IsInvalidCountryCode(countryCode))
                             continue;
 
-                        // Skip league-specific links (they contain hyphens or extra slashes)
+                        // Skip league-specific links (they contain extra slashes)
                         if (parts.Length > 2)
                             continue;
 
-                        // Get ISO code and flag emoji
-                        var isoCode = CountryHelper.GetIsoCountryCode(countryCode);
+                        // Parse ISO code from SVG image URL
+                        // Example: <img src="https://cci.betexplorer.com/gb.svg"> -> ISO code "gb"
+                        string? isoCode = null;
+                        var imgNode = link.SelectSingleNode(".//img[@src]");
+                        if (imgNode != null)
+                        {
+                            var imgSrc = imgNode.GetAttributeValue("src", "");
+                            var match = Regex.Match(imgSrc, @"https://cci\.betexplorer\.com/([a-z]{2})\.svg", RegexOptions.IgnoreCase);
+                            if (match.Success)
+                            {
+                                isoCode = match.Groups[1].Value.ToLowerInvariant();
+                            }
+                        }
+
+                        // Fallback to CountryHelper if SVG parsing fails
+                        if (string.IsNullOrEmpty(isoCode))
+                        {
+                            isoCode = CountryHelper.GetIsoCountryCode(countryCode);
+                        }
+
+                        // Skip entries without valid ISO code
+                        // Real countries have 2-letter ISO codes (gb, us, de, ag for Antigua-Barbuda, etc.)
+                        // Continents, international competitions have numbers or no ISO code
+                        if (string.IsNullOrEmpty(isoCode))
+                        {
+                            _logger.LogDebug("Skipping {CountryCode} ({CountryName}) - no valid ISO code (likely continent or competition)",
+                                countryCode, countryName);
+                            continue;
+                        }
+
                         var flagEmoji = CountryHelper.GetFlagEmoji(isoCode);
 
                         var country = new CountryInfo
@@ -88,7 +117,8 @@ public class BetExplorerCountryScraper : ICountryScraper
                             Code = countryCode,
                             Name = NormalizeCountryName(countryName),
                             ProviderCode = countryCode,
-                            FlagEmoji = flagEmoji
+                            FlagEmoji = flagEmoji,
+                            IsoCode = isoCode ?? ""
                         };
 
                         // Avoid duplicates

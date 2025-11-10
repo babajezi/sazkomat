@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
@@ -25,12 +25,14 @@ import {
   Calendar
 } from "lucide-react";
 import type { SyncResponse } from "@/lib/api/types";
+import { ProviderType, SyncType } from "@/lib/api/types";
 
 interface DataProvider {
   id: string;
   name: string;
   code: string;
   isActive: boolean;
+  type: ProviderType;
 }
 
 interface SyncDialogProps {
@@ -38,8 +40,6 @@ interface SyncDialogProps {
   onOpenChange: (open: boolean) => void;
   provider: DataProvider | null;
 }
-
-type SyncType = "Countries" | "Leagues" | "Seasons";
 
 interface SyncStep {
   type: SyncType;
@@ -62,7 +62,7 @@ export function SyncDialog({ open, onOpenChange, provider }: SyncDialogProps) {
   });
   const [syncSteps, setSyncSteps] = useState<SyncStep[]>([
     {
-      type: "Countries",
+      type: SyncType.Countries,
       label: "Synchronizace zemí",
       description: "Načítání seznamu zemí z poskytovatele",
       icon: <MapPin className="w-5 h-5" />,
@@ -70,7 +70,7 @@ export function SyncDialog({ open, onOpenChange, provider }: SyncDialogProps) {
       running: false,
     },
     {
-      type: "Leagues",
+      type: SyncType.Leagues,
       label: "Synchronizace lig",
       description: "Načítání lig pro aktivní země",
       icon: <Trophy className="w-5 h-5" />,
@@ -78,7 +78,7 @@ export function SyncDialog({ open, onOpenChange, provider }: SyncDialogProps) {
       running: false,
     },
     {
-      type: "Seasons",
+      type: SyncType.Seasons,
       label: "Synchronizace sezón",
       description: "Načítání dostupných sezón pro ligy",
       icon: <Calendar className="w-5 h-5" />,
@@ -86,6 +86,13 @@ export function SyncDialog({ open, onOpenChange, provider }: SyncDialogProps) {
       running: false,
     },
   ]);
+
+  // Auto-check "Activate Countries" for Betting Providers
+  useEffect(() => {
+    if (provider?.type === ProviderType.BettingProvider) {
+      setActivateCountries(true);
+    }
+  }, [provider]);
 
   const resetWorkflowMutation = useMutation({
     mutationFn: async () => {
@@ -118,13 +125,13 @@ export function SyncDialog({ open, onOpenChange, provider }: SyncDialogProps) {
     mutationFn: async ({ providerId, type }: { providerId: string; type: SyncType }) => {
       let endpoint = "";
       switch (type) {
-        case "Countries":
+        case SyncType.Countries:
           endpoint = "/api/sync/countries";
           break;
-        case "Leagues":
+        case SyncType.Leagues:
           endpoint = "/api/sync/leagues";
           break;
-        case "Seasons":
+        case SyncType.Seasons:
           // This will need to be called per league, so we skip it for now
           return { success: true, message: "Seasons sync requires manual trigger per league" } as SyncResponse;
       }
@@ -134,7 +141,7 @@ export function SyncDialog({ open, onOpenChange, provider }: SyncDialogProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           providerId,
-          activateCountries: type === "Countries" ? activateCountries : undefined
+          activateCountries: type === SyncType.Countries ? activateCountries : undefined
         }),
       });
 
@@ -169,7 +176,7 @@ export function SyncDialog({ open, onOpenChange, provider }: SyncDialogProps) {
       // Auto-confirm after successful sync (regardless of counts)
       // This allows workflow to progress to next step
       let confirmSuccess = true;
-      if (variables.type === "Countries") {
+      if (variables.type === SyncType.Countries) {
         try {
           const confirmResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/sync/workflow/confirm-countries`, {
             method: "POST",
@@ -184,7 +191,7 @@ export function SyncDialog({ open, onOpenChange, provider }: SyncDialogProps) {
           console.error("Failed to auto-confirm countries:", error);
           confirmSuccess = false;
         }
-      } else if (variables.type === "Leagues") {
+      } else if (variables.type === SyncType.Leagues) {
         try {
           const confirmResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/sync/workflow/confirm-leagues`, {
             method: "POST",
@@ -355,7 +362,7 @@ export function SyncDialog({ open, onOpenChange, provider }: SyncDialogProps) {
                   <p className="text-sm text-gray-600 mb-2 ml-6">{step.description}</p>
 
                   {/* Activate Countries checkbox - only for Countries step */}
-                  {step.type === "Countries" && !step.completed && (
+                  {step.type === SyncType.Countries && !step.completed && (
                     <div className="ml-6 mt-2 flex items-start gap-2 p-2 bg-blue-50 rounded">
                       <input
                         type="checkbox"

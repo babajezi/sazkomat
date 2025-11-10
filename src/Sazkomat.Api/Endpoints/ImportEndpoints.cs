@@ -373,5 +373,100 @@ public static class ImportEndpoints
         .WithName("GetAvailableSeasons")
         .Produces<AvailableSeasonsResponse>(200)
         .Produces(404);
+
+        // ===== NEW IMPORT FROM CACHE ENDPOINTS =====
+
+        // POST /api/import/countries - Import selected countries from provider cache
+        group.MapPost("/countries", async (
+            [FromBody] ImportCountriesRequest request,
+            IImportService importService) =>
+        {
+            try
+            {
+                var jobId = await importService.ImportCountriesAsync(request.ProviderId, request.ProviderCountryIds);
+                return Results.Ok(new
+                {
+                    jobId,
+                    message = $"Country import started for {request.ProviderCountryIds.Count} countries"
+                });
+            }
+            catch (ArgumentException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+        })
+        .WithName("ImportCountries")
+        .Produces(200)
+        .Produces(400);
+
+        // POST /api/import/leagues - Import selected leagues from provider cache
+        group.MapPost("/leagues", async (
+            [FromBody] ImportLeaguesRequest request,
+            IImportService importService) =>
+        {
+            try
+            {
+                var jobId = await importService.ImportLeaguesAsync(request.ProviderId, request.ProviderLeagueIds);
+                return Results.Ok(new
+                {
+                    jobId,
+                    message = $"League import started for {request.ProviderLeagueIds.Count} leagues"
+                });
+            }
+            catch (ArgumentException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+        })
+        .WithName("ImportLeagues")
+        .Produces(200)
+        .Produces(400);
+
+        // POST /api/import/seasons - Import selected seasons from provider cache
+        group.MapPost("/seasons", async (
+            [FromBody] ImportSeasonsRequest request,
+            IImportService importService) =>
+        {
+            try
+            {
+                var jobId = await importService.ImportSeasonsAsync(request.ProviderId, request.ProviderSeasonIds);
+                return Results.Ok(new
+                {
+                    jobId,
+                    message = $"Season import started for {request.ProviderSeasonIds.Count} seasons"
+                });
+            }
+            catch (ArgumentException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+        })
+        .WithName("ImportSeasons")
+        .Produces(200)
+        .Produces(400);
+
+        // GET /api/import/cache/stats - Get cache vs imported statistics
+        group.MapGet("/cache/stats", async (
+            [FromQuery] Guid providerId,
+            IImportService importService) =>
+        {
+            try
+            {
+                var stats = await importService.GetImportStatsAsync(providerId);
+                return Results.Ok(stats);
+            }
+            catch (ArgumentException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+        })
+        .WithName("GetCacheImportStats")
+        .Produces(200)
+        .Produces(400);
     }
 }
+
+// Request DTOs for cache import endpoints
+public record ImportCountriesRequest(Guid ProviderId, List<Guid> ProviderCountryIds);
+public record ImportLeaguesRequest(Guid ProviderId, List<Guid> ProviderLeagueIds);
+public record ImportSeasonsRequest(Guid ProviderId, List<Guid> ProviderSeasonIds);

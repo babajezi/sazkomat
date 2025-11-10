@@ -43,6 +43,14 @@ public class RoundRepository : IRoundRepository
             .ToListAsync();
     }
 
+    public async Task<List<Round>> GetByLeagueAndSeasonAsync(Guid leagueId, Guid seasonId)
+    {
+        return await _context.Rounds
+            .Where(r => r.LeagueId == leagueId && r.SeasonId == seasonId)
+            .OrderBy(r => r.RoundNumber)
+            .ToListAsync();
+    }
+
     public async Task<Round> CreateAsync(Round round)
     {
         _logger.LogDebug("Creating round {RoundNumber} for league {LeagueId}, season {SeasonId} in database",

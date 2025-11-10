@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { CountryFlag } from "@/components/CountryFlag";
 import type { League, Sport, Country } from "@/lib/api/types";
 
 interface EditLeagueDialogProps {
@@ -75,10 +76,7 @@ export function EditLeagueDialog({
   if (!league) return null;
 
   const getSportName = () => sports.find((s) => s.id === league.sportId)?.name || "Unknown";
-  const getCountryInfo = () => {
-    const country = countries.find((c) => c.id === league.countryId);
-    return country ? `${country.flagEmoji} ${country.name}` : "Unknown";
-  };
+  const getCountry = () => countries.find((c) => c.id === league.countryId);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -102,8 +100,15 @@ export function EditLeagueDialog({
 
             <div className="grid gap-2">
               <Label>Země</Label>
-              <div className="px-3 py-2 bg-gray-50 rounded-md border border-gray-200 text-gray-600">
-                {getCountryInfo()}
+              <div className="px-3 py-2 bg-gray-50 rounded-md border border-gray-200 text-gray-600 flex items-center gap-2">
+                {getCountry() ? (
+                  <>
+                    <CountryFlag isoCode={getCountry()!.isoCode} className="text-base" />
+                    <span>{getCountry()!.name}</span>
+                  </>
+                ) : (
+                  <span>Unknown</span>
+                )}
               </div>
               <p className="text-xs text-gray-500">Země nemůže být změněna po vytvoření ligy</p>
             </div>

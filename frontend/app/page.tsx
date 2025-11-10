@@ -82,7 +82,7 @@ export default function Home() {
               </Card>
             </div>
 
-            <div className="grid gap-6 md:grid-cols-1 mb-6">
+            <div className="grid gap-6 md:grid-cols-2 mb-6">
               <Card>
                 <CardHeader>
                   <CardTitle>🔄 Synchronizace</CardTitle>
@@ -93,6 +93,20 @@ export default function Home() {
                 <CardContent>
                   <Link href="/sync">
                     <Button className="w-full">Spustit synchronizaci</Button>
+                  </Link>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>📋 Job Monitoring</CardTitle>
+                  <CardDescription>
+                    Sledování běžících a dokončených synchronizačních úloh
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Link href="/jobs">
+                    <Button className="w-full">Zobrazit joby</Button>
                   </Link>
                 </CardContent>
               </Card>
@@ -152,6 +166,22 @@ export default function Home() {
                 <CardContent>
                   <Link href="/providers">
                     <Button className="w-full" variant="outline">Správa providerů</Button>
+                  </Link>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mt-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>🔗 Mapování Názvů</CardTitle>
+                  <CardDescription>
+                    Manuální mapování názvů lig mezi providery a BetExplorer
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Link href="/mappings">
+                    <Button className="w-full" variant="outline">Správa mapování</Button>
                   </Link>
                 </CardContent>
               </Card>

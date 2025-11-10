@@ -23,4 +23,5 @@ public class CountryInfo
     public string Name { get; set; } = string.Empty;
     public string? ProviderCode { get; set; }
     public string? FlagEmoji { get; set; }
+    public string? IsoCode { get; set; }
 }

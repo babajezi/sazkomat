@@ -8,6 +8,9 @@ public interface IMatchRepository
     Task<Match?> GetByIdAsync(Guid id);
     Task<List<Match>> GetByRoundIdAsync(Guid roundId);
     Task<int> GetCountAsync(MatchFilter? filter = null);
+    Task<Match> CreateAsync(Match match);
+    Task<Match> UpdateAsync(Match match);
+    Task DeleteAsync(Guid id);
 }
 
 public class MatchFilter

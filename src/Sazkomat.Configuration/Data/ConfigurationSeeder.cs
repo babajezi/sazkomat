@@ -140,7 +140,7 @@ public static class ConfigurationSeeder
         // Save betting providers if any were added
         await context.SaveChangesAsync();
 
-        // Check if already seeded (sports, countries, leagues)
+        // Check if already seeded (sports only - countries and leagues are created through scan/import workflow)
         if (await context.Sports.AnyAsync())
         {
             return;
@@ -155,135 +155,13 @@ public static class ConfigurationSeeder
         };
         context.Sports.Add(football);
 
-        // Create countries
-        var england = new Country
-        {
-            Name = "England",
-            Code = "england",
-            FlagEmoji = "🏴󠁧󠁢󠁥󠁮󠁧󠁿"
-        };
-
-        var spain = new Country
-        {
-            Name = "Spain",
-            Code = "spain",
-            FlagEmoji = "🇪🇸"
-        };
-
-        var germany = new Country
-        {
-            Name = "Germany",
-            Code = "germany",
-            FlagEmoji = "🇩🇪"
-        };
-
-        var italy = new Country
-        {
-            Name = "Italy",
-            Code = "italy",
-            FlagEmoji = "🇮🇹"
-        };
-
-        var france = new Country
-        {
-            Name = "France",
-            Code = "france",
-            FlagEmoji = "🇫🇷"
-        };
-
-        context.Countries.AddRange(england, spain, germany, italy, france);
-
-        // Save to get IDs
         await context.SaveChangesAsync();
 
-        // Create leagues
-        var premierLeague = new League
-        {
-            SportId = football.Id,
-            CountryId = england.Id,
-            Name = "Premier League",
-            DisplayName = "Premier League (England)",
-            BetExplorerSlug = "premier-league",
-            IsSyncEnabled = false,
-            IsBettable = true,
-            Priority = 10
-        };
-
-        var laLiga = new League
-        {
-            SportId = football.Id,
-            CountryId = spain.Id,
-            Name = "La Liga",
-            DisplayName = "La Liga (Spain)",
-            BetExplorerSlug = "laliga",
-            IsSyncEnabled = false,
-            IsBettable = true,
-            Priority = 9
-        };
-
-        var bundesliga = new League
-        {
-            SportId = football.Id,
-            CountryId = germany.Id,
-            Name = "Bundesliga",
-            DisplayName = "Bundesliga (Germany)",
-            BetExplorerSlug = "bundesliga",
-            IsSyncEnabled = false,
-            IsBettable = true,
-            Priority = 8
-        };
-
-        var serieA = new League
-        {
-            SportId = football.Id,
-            CountryId = italy.Id,
-            Name = "Serie A",
-            DisplayName = "Serie A (Italy)",
-            BetExplorerSlug = "serie-a",
-            IsSyncEnabled = false,
-            IsBettable = true,
-            Priority = 7
-        };
-
-        var ligue1 = new League
-        {
-            SportId = football.Id,
-            CountryId = france.Id,
-            Name = "Ligue 1",
-            DisplayName = "Ligue 1 (France)",
-            BetExplorerSlug = "ligue-1",
-            IsSyncEnabled = false,
-            IsBettable = true,
-            Priority = 6
-        };
-
-        context.Leagues.AddRange(premierLeague, laLiga, bundesliga, serieA, ligue1);
-
-        // Save to get IDs
-        await context.SaveChangesAsync();
-
-        // Create CountryProvider mappings for BetExplorer
-        var countryProviders = new[]
-        {
-            new CountryProvider { CountryId = england.Id, ProviderId = betExplorer.Id, ProviderCode = "england", ProviderName = "England", IsActive = true },
-            new CountryProvider { CountryId = spain.Id, ProviderId = betExplorer.Id, ProviderCode = "spain", ProviderName = "Spain", IsActive = true },
-            new CountryProvider { CountryId = germany.Id, ProviderId = betExplorer.Id, ProviderCode = "germany", ProviderName = "Germany", IsActive = true },
-            new CountryProvider { CountryId = italy.Id, ProviderId = betExplorer.Id, ProviderCode = "italy", ProviderName = "Italy", IsActive = true },
-            new CountryProvider { CountryId = france.Id, ProviderId = betExplorer.Id, ProviderCode = "france", ProviderName = "France", IsActive = true }
-        };
-        context.CountryProviders.AddRange(countryProviders);
-
-        // Create LeagueProvider mappings for BetExplorer
-        var leagueProviders = new[]
-        {
-            new LeagueProvider { LeagueId = premierLeague.Id, ProviderId = betExplorer.Id, ProviderSlug = "premier-league", ProviderName = "Premier League", IsActive = false },
-            new LeagueProvider { LeagueId = laLiga.Id, ProviderId = betExplorer.Id, ProviderSlug = "laliga", ProviderName = "La Liga", IsActive = false },
-            new LeagueProvider { LeagueId = bundesliga.Id, ProviderId = betExplorer.Id, ProviderSlug = "bundesliga", ProviderName = "Bundesliga", IsActive = false },
-            new LeagueProvider { LeagueId = serieA.Id, ProviderId = betExplorer.Id, ProviderSlug = "serie-a", ProviderName = "Serie A", IsActive = false },
-            new LeagueProvider { LeagueId = ligue1.Id, ProviderId = betExplorer.Id, ProviderSlug = "ligue-1", ProviderName = "Ligue 1", IsActive = false }
-        };
-        context.LeagueProviders.AddRange(leagueProviders);
-
-        await context.SaveChangesAsync();
+        // NOTE: Countries, Leagues, CountryProviders, and LeagueProviders are NOT seeded.
+        // They are created automatically through:
+        // 1. Scan Countries - loads countries from providers into cache
+        // 2. Import Countries - imports countries from cache (IsActive = false initially)
+        // 3. Scan Leagues - loads leagues from providers, auto-activates countries with leagues
+        // 4. Import Leagues - imports leagues from cache
     }
 }
