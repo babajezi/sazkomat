@@ -19,13 +19,12 @@ import { Loader2, Download, CheckCircle2, AlertCircle, Database, Trash2 } from "
 import type { ProviderCountry, ProviderLeague, ProviderSeason } from "@/lib/api/types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
-const BET_EXPLORER_PROVIDER_ID = "a0000000-0000-0000-0000-000000000001";
 
 interface CacheTablesViewProps {
-  providerId?: string;
+  providerId: string;
 }
 
-export function CacheTablesView({ providerId = BET_EXPLORER_PROVIDER_ID }: CacheTablesViewProps) {
+export function CacheTablesView({ providerId }: CacheTablesViewProps) {
   const queryClient = useQueryClient();
   const [selectedCountries, setSelectedCountries] = useState<Set<string>>(new Set());
   const [selectedLeagues, setSelectedLeagues] = useState<Set<string>>(new Set());

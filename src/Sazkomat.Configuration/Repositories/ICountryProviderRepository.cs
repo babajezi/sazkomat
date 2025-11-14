@@ -8,6 +8,7 @@ public interface ICountryProviderRepository
     Task<CountryProvider?> GetByIdAsync(Guid id);
     Task<IEnumerable<CountryProvider>> GetByCountryIdAsync(Guid countryId);
     Task<CountryProvider?> GetByCountryAndProviderAsync(Guid countryId, Guid providerId);
+    Task<List<CountryProvider>> GetByProviderIdAsync(Guid providerId);
     Task<CountryProvider?> GetActiveByCountryIdAsync(Guid countryId);
     Task AddAsync(CountryProvider countryProvider);
     Task UpdateAsync(CountryProvider countryProvider);

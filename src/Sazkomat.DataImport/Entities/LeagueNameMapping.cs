@@ -43,4 +43,19 @@ public class LeagueNameMapping : Entity
     /// Useful when multiple mappings could match
     /// </summary>
     public int Priority { get; set; } = 0;
+
+    /// <summary>
+    /// When this mapping was last used successfully in enrichment
+    /// </summary>
+    public DateTime? LastUsedAt { get; set; }
+
+    /// <summary>
+    /// Total number of times this mapping has been used
+    /// </summary>
+    public int UsageCount { get; set; } = 0;
+
+    /// <summary>
+    /// ID of the last provider league that used this mapping
+    /// </summary>
+    public Guid? LastProviderLeagueId { get; set; }
 }

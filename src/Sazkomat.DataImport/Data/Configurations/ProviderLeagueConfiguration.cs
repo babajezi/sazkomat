@@ -14,12 +14,14 @@ public class ProviderLeagueConfiguration : IEntityTypeConfiguration<ProviderLeag
 
         builder.Property(pl => pl.Id).HasColumnName("id");
         builder.Property(pl => pl.ProviderId).HasColumnName("provider_id").IsRequired();
-        builder.Property(pl => pl.ProviderCountryId).HasColumnName("provider_country_id").IsRequired();
+        builder.Property(pl => pl.ProviderCountryId).HasColumnName("provider_country_id");  // Nullable for betting providers
+        builder.Property(pl => pl.CountryCode).HasColumnName("country_code").HasMaxLength(50);  // Country slug (e.g. "el-salvador", "faroe-islands")
         builder.Property(pl => pl.ProviderSlug).HasColumnName("provider_slug").IsRequired().HasMaxLength(500);
         builder.Property(pl => pl.ProviderName).HasColumnName("provider_name").IsRequired().HasMaxLength(500);
         builder.Property(pl => pl.DisplayName).HasColumnName("display_name").HasMaxLength(500);
         builder.Property(pl => pl.Priority).HasColumnName("priority").IsRequired();
         builder.Property(pl => pl.IsBettable).HasColumnName("is_bettable").IsRequired();
+        builder.Property(pl => pl.MappingStatus).HasColumnName("mapping_status").IsRequired();
         builder.Property(pl => pl.ScrapedAt).HasColumnName("scraped_at").IsRequired();
         builder.Property(pl => pl.RawData).HasColumnName("raw_data").HasColumnType("jsonb");
 
@@ -39,7 +41,9 @@ public class ProviderLeagueConfiguration : IEntityTypeConfiguration<ProviderLeag
         // Indexes
         builder.HasIndex(pl => pl.ProviderId);
         builder.HasIndex(pl => pl.ProviderCountryId);
+        builder.HasIndex(pl => pl.CountryCode);
         builder.HasIndex(pl => pl.ProviderSlug);
+        builder.HasIndex(pl => pl.MappingStatus);
         builder.HasIndex(pl => pl.IsImported);
         builder.HasIndex(pl => pl.LeagueId);
         builder.HasIndex(pl => pl.ScrapedAt);

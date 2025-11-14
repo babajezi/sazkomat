@@ -90,6 +90,33 @@ docker-compose exec frontend sh
 docker-compose exec postgres psql -U sazkomat -d sazkomat_db
 ```
 
+### Přístup do databáze
+
+#### Přes pgAdmin (webové rozhraní)
+
+1. Otevři http://localhost:3004
+2. Přihlaš se (admin@sazkomat.local / admin123)
+3. Přidej server:
+   - **Name:** Sazkomat PostgreSQL (libovolný název)
+   - **Host:** `postgres` (název služby v Docker Compose)
+   - **Port:** `5432` (interní port kontejneru)
+   - **Maintenance database:** `sazkomat_db`
+   - **Username:** `sazkomat`
+   - **Password:** `sazkomat123`
+
+#### Přes příkazovou řádku (psql)
+
+```bash
+docker exec -it sazkomat-postgres psql -U sazkomat -d sazkomat_db
+
+# Užitečné SQL příkazy:
+\dt configuration.*     # Seznam tabulek v configuration schématu
+\dt data_import.*       # Seznam tabulek v data_import schématu
+SELECT * FROM configuration.leagues;
+SELECT * FROM configuration.sports;
+SELECT * FROM data_import.rounds;
+```
+
 ### Entity Framework migrace
 
 ```bash

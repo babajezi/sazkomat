@@ -9,26 +9,53 @@ namespace Sazkomat.DataImport.Services;
 public interface IImportService
 {
     /// <summary>
-    /// Imports selected provider countries into the Configuration.Countries table.
+    /// Imports provider countries from cache into the Configuration.Countries table.
+    /// Creates a SyncJob with status=Pending, then executes the import asynchronously.
     /// Updates ProviderCountry.IsImported and ProviderCountry.CountryId.
-    /// Creates a SyncJob with type=Import and entity_type=Countries.
+    /// If providerCountryIds is null, imports all cached countries for the provider.
+    /// Returns the SyncJob ID for tracking.
     /// </summary>
-    Task<Guid> ImportCountriesAsync(Guid providerId, List<Guid> providerCountryIds);
+    Task<Guid> ImportCountriesFromCacheAsync(Guid providerId, List<Guid>? providerCountryIds = null);
 
     /// <summary>
-    /// Imports selected provider leagues into the Configuration.Leagues table.
-    /// Creates League and LeagueSeason entities, links them via LeagueProvider.
+    /// Imports provider leagues from cache into the Configuration.Leagues table.
+    /// Creates a SyncJob with status=Pending, then executes the import asynchronously.
+    /// Creates League and LeagueProvider entities with proper mappings.
     /// Updates ProviderLeague.IsImported and ProviderLeague.LeagueId.
-    /// Creates a SyncJob with type=Import and entity_type=Leagues.
+    /// If providerLeagueIds is null, imports all cached leagues for the provider.
+    /// Returns the SyncJob ID for tracking.
     /// </summary>
-    Task<Guid> ImportLeaguesAsync(Guid providerId, List<Guid> providerLeagueIds);
+    Task<Guid> ImportLeaguesFromCacheAsync(Guid providerId, List<Guid>? providerLeagueIds = null);
 
     /// <summary>
-    /// Imports selected provider seasons into the Configuration.Seasons/LeagueSeasons tables.
+    /// Imports provider seasons from cache into the Configuration.Seasons/LeagueSeasons tables.
+    /// Creates a SyncJob with status=Pending, then executes the import asynchronously.
     /// Updates ProviderSeason.IsImported and ProviderSeason.SeasonId.
-    /// Creates a SyncJob with type=Import and entity_type=Seasons.
+    /// If providerSeasonIds is null, imports all cached seasons for the provider.
+    /// Returns the SyncJob ID for tracking.
     /// </summary>
-    Task<Guid> ImportSeasonsAsync(Guid providerId, List<Guid> providerSeasonIds);
+    Task<Guid> ImportSeasonsFromCacheAsync(Guid providerId, List<Guid>? providerSeasonIds = null);
+
+    /// <summary>
+    /// Internal method: Executes countries import for an existing SyncJob.
+    /// Should only be called by SyncJobProcessor with an existing jobId and the CountryIds to import.
+    /// Handles all status updates and resilient error handling.
+    /// </summary>
+    Task ImportCountriesFromCacheInternalAsync(Guid jobId, List<Guid> providerCountryIds);
+
+    /// <summary>
+    /// Internal method: Executes leagues import for an existing SyncJob.
+    /// Should only be called by SyncJobProcessor with an existing jobId and the LeagueIds to import.
+    /// Handles all status updates and resilient error handling.
+    /// </summary>
+    Task ImportLeaguesFromCacheInternalAsync(Guid jobId, List<Guid> providerLeagueIds);
+
+    /// <summary>
+    /// Internal method: Executes seasons import for an existing SyncJob.
+    /// Should only be called by SyncJobProcessor with an existing jobId and the SeasonIds to import.
+    /// Handles all status updates and resilient error handling.
+    /// </summary>
+    Task ImportSeasonsFromCacheInternalAsync(Guid jobId, List<Guid> providerSeasonIds);
 
     /// <summary>
     /// Gets import statistics for a provider showing cached vs imported counts.

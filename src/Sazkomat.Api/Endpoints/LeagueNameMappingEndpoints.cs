@@ -176,6 +176,29 @@ public static class LeagueNameMappingEndpoints
         .WithName("DeleteLeagueNameMapping")
         .Produces(204)
         .Produces(404);
+
+        // POST /api/mappings/{id}/toggle - Toggle IsActive status
+        group.MapPost("/{id:guid}/toggle", async (
+            Guid id,
+            ILeagueNameMappingRepository repository) =>
+        {
+            var mapping = await repository.GetByIdAsync(id);
+
+            if (mapping == null)
+            {
+                return Results.NotFound(new { error = $"Mapping with ID {id} not found" });
+            }
+
+            mapping.IsActive = !mapping.IsActive;
+            mapping.UpdatedAt = DateTime.UtcNow;
+
+            var updated = await repository.UpdateAsync(mapping);
+
+            return Results.Ok(updated);
+        })
+        .WithName("ToggleLeagueNameMappingActive")
+        .Produces<LeagueNameMapping>(200)
+        .Produces(404);
     }
 }
 

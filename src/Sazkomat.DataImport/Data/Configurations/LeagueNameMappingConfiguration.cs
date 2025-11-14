@@ -58,6 +58,17 @@ public class LeagueNameMappingConfiguration : IEntityTypeConfiguration<LeagueNam
             .HasColumnName("updated_at")
             .IsRequired();
 
+        builder.Property(m => m.LastUsedAt)
+            .HasColumnName("last_used_at");
+
+        builder.Property(m => m.UsageCount)
+            .HasColumnName("usage_count")
+            .IsRequired()
+            .HasDefaultValue(0);
+
+        builder.Property(m => m.LastProviderLeagueId)
+            .HasColumnName("last_provider_league_id");
+
         // Indexes for performance
         builder.HasIndex(m => new { m.ProviderCode, m.CountryCode, m.ProviderLeagueName, m.IsActive })
             .HasDatabaseName("ix_league_name_mappings_lookup");

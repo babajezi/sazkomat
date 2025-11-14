@@ -58,7 +58,37 @@ public class CountryRepository : ICountryRepository
     public async Task<Country> UpdateAsync(Country country)
     {
         _logger.LogDebug("Updating country {CountryId} in database", country.Id);
-        _context.Countries.Update(country);
+
+        // Detach any tracked entities to avoid conflicts
+        var trackedEntries = _context.ChangeTracker.Entries<Country>()
+            .Where(e => e.Entity.Id == country.Id)
+            .ToList();
+
+        foreach (var entry in trackedEntries)
+        {
+            entry.State = EntityState.Detached;
+        }
+
+        // Also detach any tracked DataProvider entities that might conflict
+        var trackedProviders = _context.ChangeTracker.Entries()
+            .Where(e => e.Entity.GetType().Name == "DataProvider")
+            .ToList();
+
+        foreach (var entry in trackedProviders)
+        {
+            entry.State = EntityState.Detached;
+        }
+
+        // Attach the entity and mark only scalar properties as modified
+        var entry1 = _context.Attach(country);
+        entry1.State = EntityState.Modified;
+
+        // Don't track navigation properties - only update scalar properties
+        foreach (var navigation in entry1.Navigations)
+        {
+            navigation.IsModified = false;
+        }
+
         await _context.SaveChangesAsync();
         _logger.LogDebug("Successfully updated country {CountryId} in database", country.Id);
         return country;

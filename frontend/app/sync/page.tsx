@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,10 +9,33 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ArrowLeft, Database, ScanLine, Download, Activity, Info } from "lucide-react";
 import { ScanDialog } from "@/components/ScanDialog";
 import { CacheTablesView } from "@/components/CacheTablesView";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
-const BET_EXPLORER_PROVIDER_ID = "a0000000-0000-0000-0000-000000000001";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const BETANO_PROVIDER_ID = "b0000000-0000-0000-0000-000000000001";
 
 export default function SyncPage() {
+  const [selectedProviderId, setSelectedProviderId] = useState<string>(BETANO_PROVIDER_ID);
+
+  // Fetch all providers
+  const { data: providers = [] } = useQuery({
+    queryKey: ["providers"],
+    queryFn: async () => {
+      const res = await fetch(`${API_URL}/api/config/providers`);
+      if (!res.ok) throw new Error("Failed to fetch providers");
+      return res.json();
+    },
+  });
+
+  const activeProviders = providers.filter((p: any) => p.isActive);
+  const selectedProvider = providers.find((p: any) => p.id === selectedProviderId);
+
   return (
     <div className="container mx-auto py-8 space-y-6">
       {/* Header */}
@@ -44,6 +69,30 @@ export default function SyncPage() {
           </Link>
         </div>
       </div>
+
+      {/* Provider Selector */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Vybrat Provider</CardTitle>
+          <CardDescription>
+            Vyber který provider chceš scanovat a synchronizovat
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Select value={selectedProviderId} onValueChange={setSelectedProviderId}>
+            <SelectTrigger className="w-full md:w-[400px]">
+              <SelectValue placeholder="Vyber providera..." />
+            </SelectTrigger>
+            <SelectContent>
+              {activeProviders.map((provider: any) => (
+                <SelectItem key={provider.id} value={provider.id}>
+                  {provider.name} ({provider.code}) - {provider.type}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </CardContent>
+      </Card>
 
       {/* Workflow Info */}
       <Alert>
@@ -141,12 +190,13 @@ export default function SyncPage() {
               <CardTitle>Krok 2 & 3: Preview a Import</CardTitle>
               <CardDescription>
                 Zkontroluj nascanovaná data a vyber co chceš importovat
+                {selectedProvider && ` (${selectedProvider.name})`}
               </CardDescription>
             </div>
           </div>
         </CardHeader>
         <CardContent>
-          <CacheTablesView providerId={BET_EXPLORER_PROVIDER_ID} />
+          <CacheTablesView providerId={selectedProviderId} />
         </CardContent>
       </Card>
 

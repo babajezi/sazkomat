@@ -11,6 +11,7 @@ public class ProviderLeague : Entity
 {
     public Guid ProviderId { get; set; }
     public Guid? ProviderCountryId { get; set; }  // Nullable - betting providers don't have ProviderCountry, they use configuration countries
+    public string? CountryCode { get; set; }  // ISO country code (for betting providers) - used during import to link to configuration.countries
     public string ProviderSlug { get; set; } = string.Empty;  // Provider's URL slug (e.g., "premier-league")
     public string ProviderName { get; set; } = string.Empty;  // Provider's display name
     public string? DisplayName { get; set; }
@@ -18,6 +19,9 @@ public class ProviderLeague : Entity
     public bool IsBettable { get; set; } = true;
     public DateTime ScrapedAt { get; set; } = DateTime.UtcNow;
     public string? RawData { get; set; }  // JSONB - full provider response
+
+    // Mapping tracking
+    public MappingStatus MappingStatus { get; set; } = MappingStatus.Unmapped;
 
     // Import tracking
     public bool IsImported { get; set; } = false;

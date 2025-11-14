@@ -27,6 +27,24 @@ public interface IScanService
     Task<Guid> ScanSeasonsAsync(Guid providerId, List<Guid>? leagueIds = null);
 
     /// <summary>
+    /// Internal method: Scans countries using an existing job.
+    /// Called by SyncJobProcessor to avoid duplicate job creation.
+    /// </summary>
+    Task ScanCountriesInternalAsync(Guid providerId, Guid jobId);
+
+    /// <summary>
+    /// Internal method: Scans leagues using an existing job.
+    /// Called by SyncJobProcessor to avoid duplicate job creation.
+    /// </summary>
+    Task ScanLeaguesInternalAsync(Guid providerId, List<Guid> countryIds, Guid jobId);
+
+    /// <summary>
+    /// Internal method: Scans seasons using an existing job.
+    /// Called by SyncJobProcessor to avoid duplicate job creation.
+    /// </summary>
+    Task ScanSeasonsInternalAsync(Guid providerId, List<Guid> leagueIds, Guid jobId);
+
+    /// <summary>
     /// Gets all unimported (cached but not yet imported) countries for a provider.
     /// </summary>
     Task<List<ProviderCountry>> GetUnimportedCountriesAsync(Guid providerId);

@@ -20,9 +20,9 @@ Otevři: **http://localhost:3000**
 | Dokument | Popis |
 |----------|-------|
 | **[QUICK_START.md](QUICK_START.md)** | Rychlý start po restartu - 3 kroky |
-| **[RESTART_INSTRUCTIONS.md](RESTART_INSTRUCTIONS.md)** | Detailní návod pro navázání práce |
-| **[IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md)** | Přehled implementace Phase 1 |
-| **[DOCKER.md](DOCKER.md)** | Docker dokumentace |
+| **[CLAUDE.md](CLAUDE.md)** | Kompletní projektová dokumentace pro AI asistenta |
+| **[DOCKER.md](DOCKER.md)** | Docker dokumentace a příkazy |
+| **[docs/testing/](docs/testing/)** | Test výsledky a testovací dokumentace |
 
 ---
 
@@ -57,22 +57,23 @@ frontend/
 
 ---
 
-## ✨ Features (Phase 1)
+## ✨ Features (Phase 1) - 100% Complete
 
-### ✅ Implementováno
-- **Konfigurace Lig** - Správa sportů, zemí a lig
-- **Historický Import** - Scraping dat z BetExplorer
-- **Background Jobs** - Fire-and-forget import processing
+### ✅ Kompletně implementováno a otestováno
+- **Konfigurace Lig** - Plný CRUD pro sporty, země a ligy
+- **Historický Import** - Production-ready scraping z BetExplorer (testováno na 3,272 zápasech)
+- **Multi-League & Multi-Season Import** - Paralelní zpracování
+- **Background Jobs** - Robust job queue s error handling
 - **Auto Migration** - Automatické DB migrace při startu
 - **Seed Data** - 5 top evropských lig předpřipraveno
-- **REST API** - 12 endpoints (8 config + 4 import)
-- **TypeScript Frontend** - Responzivní UI s React Query
-- **Docker Stack** - Kompletní orchestrace
-
-### ⚠️ Potřebuje dokončení
-- **HTML Parsing** - Scraper má pouze placeholder
-- **Unit Tests** - Struktura připravena
-- **CRUD UI** - Frontend má pouze read operace
+- **REST API** - 12+ endpoints (config + import + sync + jobs)
+- **TypeScript Frontend** - Kompletní CRUD UI s React Query
+- **Real-time Monitoring** - Job status polling
+- **Dashboard** - Grafy a statistiky (Recharts)
+- **Unit Tests** - 21 testů, všechny prochází
+- **Docker Stack** - Kompletní orchestrace s health checks
+- **Foreign Keys** - Databázová integrita zajištěna
+- **Error Handling** - Validace a error recovery
 
 ---
 
@@ -183,11 +184,13 @@ curl -X PATCH http://localhost:3001/api/config/leagues/{ID} \
 Sazkomat/
 ├── 📄 README.md                    # Tento soubor
 ├── 📄 QUICK_START.md               # Rychlý start
-├── 📄 RESTART_INSTRUCTIONS.md      # Detailní návod
-├── 📄 IMPLEMENTATION_SUMMARY.md    # Přehled implementace
+├── 📄 CLAUDE.md                    # Kompletní dokumentace pro AI
 ├── 📄 DOCKER.md                    # Docker dokumentace
 ├── 🐳 docker-compose.yml           # Docker orchestrace
 ├── 📦 Sazkomat.sln                 # .NET solution
+├── docs/
+│   ├── archive/sessions/          # ✅ Archivované session soubory
+│   └── testing/                    # ✅ Test výsledky a dokumentace
 ├── src/
 │   ├── Sazkomat.Core/             # ✅ Core entities
 │   ├── Sazkomat.Configuration/    # ✅ Config module + migrations
@@ -195,7 +198,7 @@ Sazkomat/
 │   ├── Sazkomat.Strategy/         # 🚧 Phase 2
 │   └── Sazkomat.Api/              # ✅ REST API
 ├── tests/
-│   └── Sazkomat.Tests/            # 🚧 Unit tests
+│   └── Sazkomat.Tests/            # ✅ Unit tests (21 testů)
 └── frontend/
     ├── app/                        # ✅ Next.js pages
     ├── components/                 # ✅ UI components
@@ -247,14 +250,22 @@ dotnet ef database update \
 
 ## 📈 Roadmap
 
-### Phase 1 (Aktuální) ✅
+### Phase 1 🎉 KOMPLETNĚ DOKONČENO
 - [x] Konfigurace lig
-- [x] Historický import (infrastruktura)
+- [x] Historický import (plně funkční)
 - [x] PostgreSQL persistence
-- [x] Basic frontend
-- [ ] Skutečný HTML parsing
-- [ ] Unit testy
-- [ ] Kompletní CRUD UI
+- [x] Frontend s kompletním CRUD
+- [x] HTML parsing scraper (production-tested na 3,272 zápasech)
+- [x] Unit testy (21 testů - všechny prochází)
+- [x] Multi-league & multi-season import
+- [x] Real-time job monitoring
+- [x] Dashboard s grafy a statistikami
+- [x] Docker configuration
+- [x] Foreign key constraints
+- [x] Error handling a validace
+
+**Status:** Production Ready - 100% Complete
+**Test Report:** `docs/testing/PRIORITY_1_TEST_RESULTS.md`
 
 ### Phase 2 (Plánováno)
 - [ ] Strategy module
@@ -269,18 +280,9 @@ dotnet ef database update \
 
 ## 🐛 Known Issues
 
-1. **Scraper Placeholder**
-   - `FootballBetExplorerScraper.cs` má pouze placeholder
-   - Potřebuje implementovat skutečný HTML parsing
-   - TODO komentáře označují, co doplnit
+**Žádné kritické problémy! 🎉**
 
-2. **Foreign Keys**
-   - DataImport migrace neobsahuje FK constraints na configuration.leagues
-   - Lze přidat ručně v PostgreSQL
-
-3. **Frontend CRUD**
-   - League management má pouze READ operace
-   - CREATE, UPDATE, DELETE potřebují UI implementaci
+Phase 1 je kompletně funkční a otestovaná. Pro detailní test výsledky viz `docs/testing/PRIORITY_1_TEST_RESULTS.md`.
 
 ---
 

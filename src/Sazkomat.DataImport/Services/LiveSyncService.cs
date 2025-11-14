@@ -42,6 +42,9 @@ public class LiveSyncService : ILiveSyncService
         _logger = logger;
     }
 
+    /// <summary>
+    /// Public wrapper for live syncing multiple rounds. Creates a new SyncJob and returns jobId.
+    /// </summary>
     public async Task<Guid> LiveSyncRoundsAsync(Guid providerId, List<Guid>? leagueIds = null, bool forceRefresh = false)
     {
         _logger.LogInformation("Starting live sync for provider {ProviderId}, leagues: {LeagueIds}, forceRefresh: {ForceRefresh}",
@@ -58,12 +61,34 @@ public class LiveSyncService : ILiveSyncService
             ProviderId = providerId,
             Type = SyncJobType.LiveUpdate,
             EntityType = SyncEntityType.Rounds,
-            Status = SyncJobStatus.Running,
-            StartedAt = DateTime.UtcNow,
+            Status = SyncJobStatus.Pending,
             LeagueIds = leagueIds ?? new List<Guid>(),
             Priority = 10 // High priority for live updates
         };
         syncJob = await _syncJobRepo.CreateAsync(syncJob);
+
+        // Delegate to internal implementation with jobId
+        await LiveSyncRoundsInternalAsync(syncJob.Id, providerId, leagueIds, forceRefresh);
+
+        return syncJob.Id;
+    }
+
+    /// <summary>
+    /// Internal implementation that loads and processes an existing SyncJob.
+    /// </summary>
+    public async Task LiveSyncRoundsInternalAsync(Guid jobId, Guid providerId, List<Guid>? leagueIds = null, bool forceRefresh = false)
+    {
+        // Load the existing job
+        var syncJob = await _syncJobRepo.GetByIdAsync(jobId);
+        if (syncJob == null)
+        {
+            throw new ArgumentException($"Sync job {jobId} not found", nameof(jobId));
+        }
+
+        // Update job status to Running
+        syncJob.Status = SyncJobStatus.Running;
+        syncJob.StartedAt = DateTime.UtcNow;
+        await _syncJobRepo.UpdateAsync(syncJob);
 
         try
         {
@@ -214,20 +239,50 @@ public class LiveSyncService : ILiveSyncService
             _logger.LogInformation(
                 "Live sync completed. Total rounds: {TotalRounds}, Created: {Created}, Updated: {Updated}, Skipped: {Skipped}, Matches: {Matches}",
                 totalRounds, roundsCreated, roundsUpdated, roundsSkipped, totalMatches);
-
-            return syncJob.Id;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Live sync failed");
+            _logger.LogError(ex, "Live sync failed for job {JobId}", jobId);
+
             syncJob.Status = SyncJobStatus.Failed;
             syncJob.CompletedAt = DateTime.UtcNow;
             syncJob.ErrorMessage = ex.Message;
-            await _syncJobRepo.UpdateAsync(syncJob);
+
+            // Resilient status update with retry logic to prevent jobs stuck in Running status
+            bool statusUpdated = false;
+            for (int attempt = 1; attempt <= 3 && !statusUpdated; attempt++)
+            {
+                try
+                {
+                    await _syncJobRepo.UpdateAsync(syncJob);
+                    statusUpdated = true;
+                    _logger.LogInformation("Successfully updated job {JobId} to Failed status", syncJob.Id);
+                }
+                catch (Exception updateEx)
+                {
+                    if (attempt == 3)
+                    {
+                        _logger.LogCritical(updateEx,
+                            "CRITICAL: Failed to update job {JobId} to Failed status after 3 attempts. " +
+                            "Job will remain in Running status. Original error: {OriginalError}",
+                            syncJob.Id, ex.Message);
+                    }
+                    else
+                    {
+                        _logger.LogWarning(updateEx,
+                            "Attempt {Attempt}/3 to update job status failed, retrying...", attempt);
+                        await Task.Delay(500 * attempt); // Exponential backoff
+                    }
+                }
+            }
+
             throw;
         }
     }
 
+    /// <summary>
+    /// Public wrapper for live syncing a specific round. Creates a new SyncJob and returns jobId.
+    /// </summary>
     public async Task<Guid> LiveSyncRoundAsync(Guid providerId, Guid roundId)
     {
         _logger.LogInformation("Starting live sync for specific round {RoundId}", roundId);
@@ -249,14 +304,42 @@ public class LiveSyncService : ILiveSyncService
             ProviderId = providerId,
             Type = SyncJobType.LiveUpdate,
             EntityType = SyncEntityType.Rounds,
-            Status = SyncJobStatus.Running,
-            StartedAt = DateTime.UtcNow,
+            Status = SyncJobStatus.Pending,
             Priority = 10 // High priority for live updates
         };
         syncJob = await _syncJobRepo.CreateAsync(syncJob);
 
+        // Delegate to internal implementation with jobId
+        await LiveSyncRoundInternalAsync(syncJob.Id, providerId, roundId);
+
+        return syncJob.Id;
+    }
+
+    /// <summary>
+    /// Internal implementation that loads and processes an existing SyncJob for a specific round.
+    /// </summary>
+    public async Task LiveSyncRoundInternalAsync(Guid jobId, Guid providerId, Guid roundId)
+    {
+        // Load the existing job
+        var syncJob = await _syncJobRepo.GetByIdAsync(jobId);
+        if (syncJob == null)
+        {
+            throw new ArgumentException($"Sync job {jobId} not found", nameof(jobId));
+        }
+
+        // Update job status to Running
+        syncJob.Status = SyncJobStatus.Running;
+        syncJob.StartedAt = DateTime.UtcNow;
+        await _syncJobRepo.UpdateAsync(syncJob);
+
         try
         {
+            var round = await _roundRepo.GetByIdAsync(roundId);
+            if (round == null)
+            {
+                throw new ArgumentException($"Round {roundId} not found");
+            }
+
             var league = await _leagueRepo.GetByIdAsync(round.LeagueId);
             if (league == null)
             {
@@ -325,16 +408,43 @@ public class LiveSyncService : ILiveSyncService
 
             _logger.LogInformation("Live sync completed for round {RoundNumber}. Updated {MatchCount} matches",
                 round.RoundNumber, matchCount);
-
-            return syncJob.Id;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Live sync failed for round {RoundId}", roundId);
+
             syncJob.Status = SyncJobStatus.Failed;
             syncJob.CompletedAt = DateTime.UtcNow;
             syncJob.ErrorMessage = ex.Message;
-            await _syncJobRepo.UpdateAsync(syncJob);
+
+            // Resilient status update with retry logic to prevent jobs stuck in Running status
+            bool statusUpdated = false;
+            for (int attempt = 1; attempt <= 3 && !statusUpdated; attempt++)
+            {
+                try
+                {
+                    await _syncJobRepo.UpdateAsync(syncJob);
+                    statusUpdated = true;
+                    _logger.LogInformation("Successfully updated job {JobId} to Failed status", syncJob.Id);
+                }
+                catch (Exception updateEx)
+                {
+                    if (attempt == 3)
+                    {
+                        _logger.LogCritical(updateEx,
+                            "CRITICAL: Failed to update job {JobId} to Failed status after 3 attempts. " +
+                            "Job will remain in Running status. Original error: {OriginalError}",
+                            syncJob.Id, ex.Message);
+                    }
+                    else
+                    {
+                        _logger.LogWarning(updateEx,
+                            "Attempt {Attempt}/3 to update job status failed, retrying...", attempt);
+                        await Task.Delay(500 * attempt); // Exponential backoff
+                    }
+                }
+            }
+
             throw;
         }
     }

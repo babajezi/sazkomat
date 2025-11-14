@@ -383,7 +383,7 @@ public static class ImportEndpoints
         {
             try
             {
-                var jobId = await importService.ImportCountriesAsync(request.ProviderId, request.ProviderCountryIds);
+                var jobId = await importService.ImportCountriesFromCacheAsync(request.ProviderId, request.ProviderCountryIds);
                 return Results.Ok(new
                 {
                     jobId,
@@ -406,7 +406,7 @@ public static class ImportEndpoints
         {
             try
             {
-                var jobId = await importService.ImportLeaguesAsync(request.ProviderId, request.ProviderLeagueIds);
+                var jobId = await importService.ImportLeaguesFromCacheAsync(request.ProviderId, request.ProviderLeagueIds);
                 return Results.Ok(new
                 {
                     jobId,
@@ -429,7 +429,7 @@ public static class ImportEndpoints
         {
             try
             {
-                var jobId = await importService.ImportSeasonsAsync(request.ProviderId, request.ProviderSeasonIds);
+                var jobId = await importService.ImportSeasonsFromCacheAsync(request.ProviderId, request.ProviderSeasonIds);
                 return Results.Ok(new
                 {
                     jobId,

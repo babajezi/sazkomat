@@ -12,8 +12,8 @@ using Sazkomat.DataImport.Data;
 namespace Sazkomat.DataImport.Migrations
 {
     [DbContext(typeof(DataImportDbContext))]
-    [Migration("20251110180809_MakeProviderCountryIdNullable")]
-    partial class MakeProviderCountryIdNullable
+    [Migration("20251111223537_UpdateProviderLeagueConstraints")]
+    partial class UpdateProviderLeagueConstraints
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -334,6 +334,11 @@ namespace Sazkomat.DataImport.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<string>("CountryCode")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("country_code");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -359,11 +364,15 @@ namespace Sazkomat.DataImport.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("league_id");
 
+                    b.Property<int>("MappingStatus")
+                        .HasColumnType("integer")
+                        .HasColumnName("mapping_status");
+
                     b.Property<int>("Priority")
                         .HasColumnType("integer")
                         .HasColumnName("priority");
 
-                    b.Property<Guid>("ProviderCountryId")
+                    b.Property<Guid?>("ProviderCountryId")
                         .HasColumnType("uuid")
                         .HasColumnName("provider_country_id");
 
@@ -397,9 +406,13 @@ namespace Sazkomat.DataImport.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CountryCode");
+
                     b.HasIndex("IsImported");
 
                     b.HasIndex("LeagueId");
+
+                    b.HasIndex("MappingStatus");
 
                     b.HasIndex("ProviderCountryId");
 

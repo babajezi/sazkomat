@@ -16,6 +16,7 @@ public class ScanService : IScanService
     private readonly IDataProviderRepository _dataProviderRepo;
     private readonly ISportRepository _sportRepo;
     private readonly ICountryRepository _countryRepo;
+    private readonly ICountryProviderRepository _countryProviderRepo;
     private readonly ILeagueRepository _leagueRepo;
     private readonly IEnumerable<ICountryScraper> _countryScrapers;
     private readonly IEnumerable<ILeagueMetadataScraper> _leagueScrapers;
@@ -31,6 +32,7 @@ public class ScanService : IScanService
         IDataProviderRepository dataProviderRepo,
         ISportRepository sportRepo,
         ICountryRepository countryRepo,
+        ICountryProviderRepository countryProviderRepo,
         ILeagueRepository leagueRepo,
         IEnumerable<ICountryScraper> countryScrapers,
         IEnumerable<ILeagueMetadataScraper> leagueScrapers,
@@ -45,6 +47,7 @@ public class ScanService : IScanService
         _dataProviderRepo = dataProviderRepo;
         _sportRepo = sportRepo;
         _countryRepo = countryRepo;
+        _countryProviderRepo = countryProviderRepo;
         _leagueRepo = leagueRepo;
         _countryScrapers = countryScrapers;
         _leagueScrapers = leagueScrapers;
@@ -64,24 +67,50 @@ public class ScanService : IScanService
             throw new ArgumentException($"Provider {providerId} not found", nameof(providerId));
         }
 
-        // Get default sport (Football) for country scraping
-        var sports = await _sportRepo.GetAllAsync();
-        var defaultSport = sports.FirstOrDefault(s => s.Name == "Football") ?? sports.First();
-
         // Create sync job
         var syncJob = new SyncJob
         {
             ProviderId = providerId,
             Type = SyncJobType.Scan,
             EntityType = SyncEntityType.Countries,
-            Status = SyncJobStatus.Running,
-            StartedAt = DateTime.UtcNow,
+            Status = SyncJobStatus.Pending,
             Priority = 1
         };
         syncJob = await _syncJobRepo.CreateAsync(syncJob);
 
+        // Delegate to internal implementation
+        await ScanCountriesInternalAsync(providerId, syncJob.Id);
+
+        return syncJob.Id;
+    }
+
+    public async Task ScanCountriesInternalAsync(Guid providerId, Guid jobId)
+    {
+        // Load job
+        var syncJob = await _syncJobRepo.GetByIdAsync(jobId);
+        if (syncJob == null)
+        {
+            throw new ArgumentException($"Sync job {jobId} not found", nameof(jobId));
+        }
+
+        // Update status to Running
+        syncJob.Status = SyncJobStatus.Running;
+        syncJob.StartedAt = DateTime.UtcNow;
+        await _syncJobRepo.UpdateAsync(syncJob);
+
         try
         {
+            // Validate provider exists
+            var provider = await _dataProviderRepo.GetByIdAsync(providerId);
+            if (provider == null)
+            {
+                throw new ArgumentException($"Provider {providerId} not found", nameof(providerId));
+            }
+
+            // Get default sport (Football) for country scraping
+            var sports = await _sportRepo.GetAllAsync();
+            var defaultSport = sports.FirstOrDefault(s => s.Name == "Football") ?? sports.First();
+
             // Select the appropriate scraper for this provider
             var countryScraper = _countryScrapers.FirstOrDefault(s => s.CanHandle(provider));
             if (countryScraper == null)
@@ -151,12 +180,10 @@ public class ScanService : IScanService
 
             _logger.LogInformation("Country scan completed. New: {New}, Updated: {Updated}",
                 newCount, updatedCount);
-
-            return syncJob.Id;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Country scan failed for provider {ProviderId}", providerId);
+            _logger.LogError(ex, "Country scan failed for job {JobId}", jobId);
 
             syncJob.Status = SyncJobStatus.Failed;
             syncJob.CompletedAt = DateTime.UtcNow;
@@ -178,25 +205,53 @@ public class ScanService : IScanService
             throw new ArgumentException($"Provider {providerId} not found", nameof(providerId));
         }
 
-        // Get default sport (Football) for league scraping
-        var sports = await _sportRepo.GetAllAsync();
-        var defaultSport = sports.FirstOrDefault(s => s.Name == "Football") ?? sports.First();
-
         // Create sync job
         var syncJob = new SyncJob
         {
             ProviderId = providerId,
             Type = SyncJobType.Scan,
             EntityType = SyncEntityType.Leagues,
-            Status = SyncJobStatus.Running,
-            StartedAt = DateTime.UtcNow,
+            Status = SyncJobStatus.Pending,
             CountryIds = countryIds ?? new List<Guid>(),
             Priority = 2
         };
         syncJob = await _syncJobRepo.CreateAsync(syncJob);
 
+        // Delegate to internal implementation
+        await ScanLeaguesInternalAsync(providerId, countryIds ?? new List<Guid>(), syncJob.Id);
+
+        return syncJob.Id;
+    }
+
+    public async Task ScanLeaguesInternalAsync(Guid providerId, List<Guid> countryIds, Guid jobId)
+    {
+        // Load job
+        var syncJob = await _syncJobRepo.GetByIdAsync(jobId);
+        if (syncJob == null)
+        {
+            throw new ArgumentException($"Sync job {jobId} not found", nameof(jobId));
+        }
+
+        // Update status to Running
+        syncJob.Status = SyncJobStatus.Running;
+        syncJob.StartedAt = DateTime.UtcNow;
+        await _syncJobRepo.UpdateAsync(syncJob);
+
         try
         {
+            // providerId and countryIds are passed as parameters
+
+            // Validate provider exists
+            var provider = await _dataProviderRepo.GetByIdAsync(providerId);
+            if (provider == null)
+            {
+                throw new ArgumentException($"Provider {providerId} not found", nameof(providerId));
+            }
+
+            // Get default sport (Football) for league scraping
+            var sports = await _sportRepo.GetAllAsync();
+            var defaultSport = sports.FirstOrDefault(s => s.Name == "Football") ?? sports.First();
+
             // Select the appropriate league scraper for this provider
             var leagueScraper = _leagueScrapers.FirstOrDefault(s => s.CanHandle(provider));
             if (leagueScraper == null)
@@ -217,21 +272,36 @@ public class ScanService : IScanService
 
             if (provider.Type == Configuration.Entities.ProviderType.BettingProvider)
             {
-                // Betting providers: use configuration countries directly
+                // Betting providers: use countries with active CountryProvider mapping
                 if (countryIds != null && countryIds.Any())
                 {
-                    // Specific countries selected - interpret as configuration country IDs
+                    // Specific countries selected - validate they have provider mapping
                     countriesToScan = new List<Configuration.Entities.Country>();
                     foreach (var countryId in countryIds)
                     {
-                        var country = await _countryRepo.GetByIdAsync(countryId);
-                        if (country != null) countriesToScan.Add(country);
+                        var countryProvider = await _countryProviderRepo.GetByCountryAndProviderAsync(countryId, providerId);
+                        if (countryProvider != null && countryProvider.IsActive && countryProvider.Country != null)
+                        {
+                            countriesToScan.Add(countryProvider.Country);
+                        }
+                        else
+                        {
+                            _logger.LogWarning("Country {CountryId} is not mapped to provider {ProviderId} or mapping is inactive",
+                                countryId, providerId);
+                        }
                     }
                 }
                 else
                 {
-                    // No countries specified - use all active countries from configuration
-                    countriesToScan = (await _countryRepo.GetAllAsync()).ToList();
+                    // No countries specified - use all countries with active provider mapping
+                    var countryProviders = await _countryProviderRepo.GetByProviderIdAsync(providerId);
+                    countriesToScan = countryProviders
+                        .Where(cp => cp.Country != null)
+                        .Select(cp => cp.Country!)
+                        .ToList();
+
+                    _logger.LogInformation("Found {Count} countries with active provider mapping for provider {ProviderId}",
+                        countriesToScan.Count, providerId);
                 }
             }
             else
@@ -401,12 +471,10 @@ public class ScanService : IScanService
 
             _logger.LogInformation("League scan completed. New: {New}, Updated: {Updated}",
                 newCount, updatedCount);
-
-            return syncJob.Id;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "League scan failed for provider {ProviderId}", providerId);
+            _logger.LogError(ex, "League scan failed for job {JobId}", jobId);
 
             syncJob.Status = SyncJobStatus.Failed;
             syncJob.CompletedAt = DateTime.UtcNow;
@@ -434,15 +502,43 @@ public class ScanService : IScanService
             ProviderId = providerId,
             Type = SyncJobType.Scan,
             EntityType = SyncEntityType.Seasons,
-            Status = SyncJobStatus.Running,
-            StartedAt = DateTime.UtcNow,
+            Status = SyncJobStatus.Pending,
             LeagueIds = leagueIds ?? new List<Guid>(),
             Priority = 3
         };
         syncJob = await _syncJobRepo.CreateAsync(syncJob);
 
+        // Delegate to internal implementation
+        await ScanSeasonsInternalAsync(providerId, leagueIds ?? new List<Guid>(), syncJob.Id);
+
+        return syncJob.Id;
+    }
+
+    public async Task ScanSeasonsInternalAsync(Guid providerId, List<Guid> leagueIds, Guid jobId)
+    {
+        // Load job
+        var syncJob = await _syncJobRepo.GetByIdAsync(jobId);
+        if (syncJob == null)
+        {
+            throw new ArgumentException($"Sync job {jobId} not found", nameof(jobId));
+        }
+
+        // Update status to Running
+        syncJob.Status = SyncJobStatus.Running;
+        syncJob.StartedAt = DateTime.UtcNow;
+        await _syncJobRepo.UpdateAsync(syncJob);
+
         try
         {
+            // providerId and leagueIds are passed as parameters
+
+            // Validate provider exists
+            var provider = await _dataProviderRepo.GetByIdAsync(providerId);
+            if (provider == null)
+            {
+                throw new ArgumentException($"Provider {providerId} not found", nameof(providerId));
+            }
+
             // Select the appropriate season scraper for this provider
             var seasonScraper = _seasonScrapers.FirstOrDefault(s => s.CanHandle(provider));
             if (seasonScraper == null)
@@ -569,12 +665,10 @@ public class ScanService : IScanService
 
             _logger.LogInformation("Season scan completed. New: {New}, Updated: {Updated}",
                 newCount, updatedCount);
-
-            return syncJob.Id;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Season scan failed for provider {ProviderId}", providerId);
+            _logger.LogError(ex, "Season scan failed for job {JobId}", jobId);
 
             syncJob.Status = SyncJobStatus.Failed;
             syncJob.CompletedAt = DateTime.UtcNow;

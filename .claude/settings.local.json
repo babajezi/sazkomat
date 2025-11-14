@@ -129,7 +129,15 @@
       "Bash(del:*)",
       "Bash(Select-Object -First 30)",
       "Bash(Select-String \"error\" -Context 0,2)",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "Bash(betano_leagues.json)",
+      "Bash(dotnet clean:*)",
+      "Bash(powershell -Command \"Stop-Process -Name ''dotnet'' -Force -ErrorAction SilentlyContinue; Get-Process -Name ''dotnet'' | Stop-Process -Force -ErrorAction SilentlyContinue\")",
+      "Bash(git checkout:*)",
+      "Bash(if not exist docs mkdir docs)",
+      "Bash(if not exist docsarchive mkdir docsarchive)",
+      "Bash(if not exist docsarchivesessions mkdir docsarchivesessions)",
+      "Bash(if not exist docstesting mkdir docstesting)"
     ],
     "additionalDirectories": [
       "c:\\projects\\claude-share"

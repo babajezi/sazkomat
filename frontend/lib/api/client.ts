@@ -393,6 +393,13 @@ export const mappingApi = {
   deleteMapping: async (id: string): Promise<void> => {
     await apiClient.delete(`/mappings/${id}`);
   },
+
+  toggleMappingActive: async (id: string): Promise<LeagueNameMapping> => {
+    const { data } = await apiClient.post<LeagueNameMapping>(
+      `/mappings/${id}/toggle`
+    );
+    return data;
+  },
 };
 
 export default apiClient;

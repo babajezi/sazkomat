@@ -9,4 +9,5 @@ public interface ISyncJobProcessor
     Task ProcessLiveSyncJobAsync(Guid jobId);
     Task<SyncJob?> GetJobStatusAsync(Guid jobId);
     Task<List<SyncJob>> GetRecentJobsAsync(Guid providerId, int count = 20);
+    Task<bool> CancelJobAsync(Guid jobId);
 }

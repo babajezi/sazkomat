@@ -29,6 +29,18 @@ public interface ILiveSyncService
     Task<Guid> LiveSyncRoundAsync(Guid providerId, Guid roundId);
 
     /// <summary>
+    /// Internal method: Synchronizes rounds using an existing job.
+    /// Called by SyncJobProcessor to avoid duplicate job creation.
+    /// </summary>
+    Task LiveSyncRoundsInternalAsync(Guid jobId, Guid providerId, List<Guid>? leagueIds = null, bool forceRefresh = false);
+
+    /// <summary>
+    /// Internal method: Synchronizes a specific round using an existing job.
+    /// Called by SyncJobProcessor to avoid duplicate job creation.
+    /// </summary>
+    Task LiveSyncRoundInternalAsync(Guid jobId, Guid providerId, Guid roundId);
+
+    /// <summary>
     /// Gets statistics about rounds that need live sync.
     /// Returns counts of leagues with active seasons and rounds needing updates.
     /// </summary>

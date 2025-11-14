@@ -92,6 +92,21 @@ public static class JobEndpoints
         })
         .WithName("EnqueueLiveSyncJob")
         .Produces(200);
+
+        // Cancel job
+        group.MapDelete("/{jobId:guid}", async (
+            Guid jobId,
+            ISyncJobProcessor jobProcessor) =>
+        {
+            var result = await jobProcessor.CancelJobAsync(jobId);
+            if (!result)
+                return Results.NotFound(new { message = "Job not found or cannot be cancelled" });
+
+            return Results.Ok(new { message = "Job cancelled successfully" });
+        })
+        .WithName("CancelJob")
+        .Produces(200)
+        .Produces(404);
     }
 }
 

@@ -44,24 +44,20 @@ public class SyncJobProcessor : ISyncJobProcessor
             return;
         }
 
-        // Update status to Running
-        job.Status = SyncJobStatus.Running;
-        job.StartedAt = DateTime.UtcNow;
-        await _syncJobRepo.UpdateAsync(job);
-
+        // Note: ScanService internal methods will handle status updates (Pending -> Running -> Completed/PartiallyCompleted/Failed)
         try
         {
-            // Process based on entity type
+            // Process based on entity type using internal methods that expect the job already created
             switch (job.EntityType)
             {
                 case SyncEntityType.Countries:
-                    await _scanService.ScanCountriesAsync(job.ProviderId);
+                    await _scanService.ScanCountriesInternalAsync(job.ProviderId, job.Id);
                     break;
 
                 case SyncEntityType.Leagues:
                     if (job.CountryIds != null && job.CountryIds.Any())
                     {
-                        await _scanService.ScanLeaguesAsync(job.ProviderId, job.CountryIds);
+                        await _scanService.ScanLeaguesInternalAsync(job.ProviderId, job.CountryIds, job.Id);
                     }
                     else
                     {
@@ -72,7 +68,7 @@ public class SyncJobProcessor : ISyncJobProcessor
                 case SyncEntityType.Seasons:
                     if (job.LeagueIds != null && job.LeagueIds.Any())
                     {
-                        await _scanService.ScanSeasonsAsync(job.ProviderId, job.LeagueIds);
+                        await _scanService.ScanSeasonsInternalAsync(job.ProviderId, job.LeagueIds, job.Id);
                     }
                     else
                     {
@@ -84,10 +80,15 @@ public class SyncJobProcessor : ISyncJobProcessor
                     throw new InvalidOperationException($"Unsupported entity type for scan: {job.EntityType}");
             }
 
-            // Update status to Completed
-            job.Status = SyncJobStatus.Completed;
-            job.CompletedAt = DateTime.UtcNow;
-            await _syncJobRepo.UpdateAsync(job);
+            // Internal methods handle status updates, so we just verify completion
+            job = await _syncJobRepo.GetByIdAsync(jobId);
+            if (job != null && job.Status != SyncJobStatus.Completed && job.Status != SyncJobStatus.PartiallyCompleted && job.Status != SyncJobStatus.Failed)
+            {
+                // If for some reason the job is still in Running status, mark as completed
+                job.Status = SyncJobStatus.Completed;
+                job.CompletedAt = DateTime.UtcNow;
+                await _syncJobRepo.UpdateAsync(job);
+            }
 
             _logger.LogInformation("Scan job {JobId} completed successfully", jobId);
         }
@@ -98,7 +99,34 @@ public class SyncJobProcessor : ISyncJobProcessor
             job.Status = SyncJobStatus.Failed;
             job.CompletedAt = DateTime.UtcNow;
             job.ErrorMessage = ex.Message;
-            await _syncJobRepo.UpdateAsync(job);
+
+            // Resilient status update with retry logic to prevent jobs stuck in Running status
+            bool statusUpdated = false;
+            for (int attempt = 1; attempt <= 3 && !statusUpdated; attempt++)
+            {
+                try
+                {
+                    await _syncJobRepo.UpdateAsync(job);
+                    statusUpdated = true;
+                    _logger.LogInformation("Successfully updated job {JobId} to Failed status", job.Id);
+                }
+                catch (Exception updateEx)
+                {
+                    if (attempt == 3)
+                    {
+                        _logger.LogCritical(updateEx,
+                            "CRITICAL: Failed to update job {JobId} to Failed status after 3 attempts. " +
+                            "Job will remain in Running status. Original error: {OriginalError}",
+                            job.Id, ex.Message);
+                    }
+                    else
+                    {
+                        _logger.LogWarning(updateEx,
+                            "Attempt {Attempt}/3 to update job status failed, retrying...", attempt);
+                        await Task.Delay(500 * attempt); // Exponential backoff
+                    }
+                }
+            }
 
             throw;
         }
@@ -122,34 +150,30 @@ public class SyncJobProcessor : ISyncJobProcessor
             return;
         }
 
-        // Update status to Running
-        job.Status = SyncJobStatus.Running;
-        job.StartedAt = DateTime.UtcNow;
-        await _syncJobRepo.UpdateAsync(job);
-
+        // Note: ImportService internal methods will handle status updates (Pending -> Running -> Completed/PartiallyCompleted/Failed)
         try
         {
-            // Process based on entity type
+            // Process based on entity type using internal methods that expect the job already created
             switch (job.EntityType)
             {
                 case SyncEntityType.Countries:
                     if (job.CountryIds != null && job.CountryIds.Any())
                     {
-                        await _importService.ImportCountriesAsync(job.ProviderId, job.CountryIds);
+                        await _importService.ImportCountriesFromCacheInternalAsync(job.Id, job.CountryIds);
                     }
                     break;
 
                 case SyncEntityType.Leagues:
                     if (job.LeagueIds != null && job.LeagueIds.Any())
                     {
-                        await _importService.ImportLeaguesAsync(job.ProviderId, job.LeagueIds);
+                        await _importService.ImportLeaguesFromCacheInternalAsync(job.Id, job.LeagueIds);
                     }
                     break;
 
                 case SyncEntityType.Seasons:
                     if (job.SeasonIds != null && job.SeasonIds.Any())
                     {
-                        await _importService.ImportSeasonsAsync(job.ProviderId, job.SeasonIds);
+                        await _importService.ImportSeasonsFromCacheInternalAsync(job.Id, job.SeasonIds);
                     }
                     break;
 
@@ -157,10 +181,15 @@ public class SyncJobProcessor : ISyncJobProcessor
                     throw new InvalidOperationException($"Unsupported entity type for import: {job.EntityType}");
             }
 
-            // Update status to Completed
-            job.Status = SyncJobStatus.Completed;
-            job.CompletedAt = DateTime.UtcNow;
-            await _syncJobRepo.UpdateAsync(job);
+            // Internal methods handle status updates, so we just verify completion
+            job = await _syncJobRepo.GetByIdAsync(jobId);
+            if (job != null && job.Status != SyncJobStatus.Completed && job.Status != SyncJobStatus.PartiallyCompleted && job.Status != SyncJobStatus.Failed)
+            {
+                // If for some reason the job is still in Running status, mark as completed
+                job.Status = SyncJobStatus.Completed;
+                job.CompletedAt = DateTime.UtcNow;
+                await _syncJobRepo.UpdateAsync(job);
+            }
 
             _logger.LogInformation("Import job {JobId} completed successfully", jobId);
         }
@@ -171,7 +200,34 @@ public class SyncJobProcessor : ISyncJobProcessor
             job.Status = SyncJobStatus.Failed;
             job.CompletedAt = DateTime.UtcNow;
             job.ErrorMessage = ex.Message;
-            await _syncJobRepo.UpdateAsync(job);
+
+            // Resilient status update with retry logic to prevent jobs stuck in Running status
+            bool statusUpdated = false;
+            for (int attempt = 1; attempt <= 3 && !statusUpdated; attempt++)
+            {
+                try
+                {
+                    await _syncJobRepo.UpdateAsync(job);
+                    statusUpdated = true;
+                    _logger.LogInformation("Successfully updated job {JobId} to Failed status", job.Id);
+                }
+                catch (Exception updateEx)
+                {
+                    if (attempt == 3)
+                    {
+                        _logger.LogCritical(updateEx,
+                            "CRITICAL: Failed to update job {JobId} to Failed status after 3 attempts. " +
+                            "Job will remain in Running status. Original error: {OriginalError}",
+                            job.Id, ex.Message);
+                    }
+                    else
+                    {
+                        _logger.LogWarning(updateEx,
+                            "Attempt {Attempt}/3 to update job status failed, retrying...", attempt);
+                        await Task.Delay(500 * attempt); // Exponential backoff
+                    }
+                }
+            }
 
             throw;
         }
@@ -195,11 +251,7 @@ public class SyncJobProcessor : ISyncJobProcessor
             return;
         }
 
-        // Update status to Running
-        job.Status = SyncJobStatus.Running;
-        job.StartedAt = DateTime.UtcNow;
-        await _syncJobRepo.UpdateAsync(job);
-
+        // Note: LiveSyncService internal methods will handle status updates (Pending -> Running -> Completed/PartiallyCompleted/Failed)
         try
         {
             // Only Rounds are supported for live sync
@@ -208,17 +260,22 @@ public class SyncJobProcessor : ISyncJobProcessor
                 throw new InvalidOperationException($"Unsupported entity type for live sync: {job.EntityType}");
             }
 
-            // LiveSyncService creates its own job, so we just invoke it
-            // and it will handle the job lifecycle
-            await _liveSyncService.LiveSyncRoundsAsync(
+            // Use internal method to avoid duplicate job creation
+            await _liveSyncService.LiveSyncRoundsInternalAsync(
+                job.Id,
                 job.ProviderId,
                 job.LeagueIds,
-                forceRefresh: false);
+                false);
 
-            // The LiveSyncService already created a job, so we mark this one as completed
-            job.Status = SyncJobStatus.Completed;
-            job.CompletedAt = DateTime.UtcNow;
-            await _syncJobRepo.UpdateAsync(job);
+            // Internal methods handle status updates, so we just verify completion
+            job = await _syncJobRepo.GetByIdAsync(jobId);
+            if (job != null && job.Status != SyncJobStatus.Completed && job.Status != SyncJobStatus.PartiallyCompleted && job.Status != SyncJobStatus.Failed)
+            {
+                // If for some reason the job is still in Running status, mark as completed
+                job.Status = SyncJobStatus.Completed;
+                job.CompletedAt = DateTime.UtcNow;
+                await _syncJobRepo.UpdateAsync(job);
+            }
 
             _logger.LogInformation("Live sync job {JobId} completed successfully", jobId);
         }
@@ -229,7 +286,34 @@ public class SyncJobProcessor : ISyncJobProcessor
             job.Status = SyncJobStatus.Failed;
             job.CompletedAt = DateTime.UtcNow;
             job.ErrorMessage = ex.Message;
-            await _syncJobRepo.UpdateAsync(job);
+
+            // Resilient status update with retry logic to prevent jobs stuck in Running status
+            bool statusUpdated = false;
+            for (int attempt = 1; attempt <= 3 && !statusUpdated; attempt++)
+            {
+                try
+                {
+                    await _syncJobRepo.UpdateAsync(job);
+                    statusUpdated = true;
+                    _logger.LogInformation("Successfully updated job {JobId} to Failed status", job.Id);
+                }
+                catch (Exception updateEx)
+                {
+                    if (attempt == 3)
+                    {
+                        _logger.LogCritical(updateEx,
+                            "CRITICAL: Failed to update job {JobId} to Failed status after 3 attempts. " +
+                            "Job will remain in Running status. Original error: {OriginalError}",
+                            job.Id, ex.Message);
+                    }
+                    else
+                    {
+                        _logger.LogWarning(updateEx,
+                            "Attempt {Attempt}/3 to update job status failed, retrying...", attempt);
+                        await Task.Delay(500 * attempt); // Exponential backoff
+                    }
+                }
+            }
 
             throw;
         }
@@ -243,5 +327,34 @@ public class SyncJobProcessor : ISyncJobProcessor
     public async Task<List<SyncJob>> GetRecentJobsAsync(Guid providerId, int count = 20)
     {
         return await _syncJobRepo.GetRecentJobsAsync(providerId, count);
+    }
+
+    public async Task<bool> CancelJobAsync(Guid jobId)
+    {
+        _logger.LogInformation("Attempting to cancel job {JobId}", jobId);
+
+        var job = await _syncJobRepo.GetByIdAsync(jobId);
+        if (job == null)
+        {
+            _logger.LogWarning("Job {JobId} not found", jobId);
+            return false;
+        }
+
+        // Only running or pending jobs can be cancelled
+        if (job.Status != SyncJobStatus.Running && job.Status != SyncJobStatus.Pending)
+        {
+            _logger.LogWarning("Job {JobId} cannot be cancelled. Current status: {Status}",
+                jobId, job.Status);
+            return false;
+        }
+
+        // Update job status to Failed with cancellation message
+        job.Status = SyncJobStatus.Failed;
+        job.CompletedAt = DateTime.UtcNow;
+        job.ErrorMessage = "Job cancelled by user";
+        await _syncJobRepo.UpdateAsync(job);
+
+        _logger.LogInformation("Job {JobId} cancelled successfully", jobId);
+        return true;
     }
 }

@@ -53,7 +53,7 @@ public class ImportService : IImportService
         _logger = logger;
     }
 
-    public async Task<Guid> ImportCountriesAsync(Guid providerId, List<Guid> providerCountryIds)
+    public async Task<Guid> ImportCountriesFromCacheAsync(Guid providerId, List<Guid>? providerCountryIds = null)
     {
         _logger.LogInformation("Starting country import for provider {ProviderId}", providerId);
 
@@ -64,8 +64,14 @@ public class ImportService : IImportService
             throw new ArgumentException($"Provider {providerId} not found", nameof(providerId));
         }
 
+        // If providerCountryIds not provided, use all cached countries for this provider
+        List<Guid> countryIdsToImport = providerCountryIds ??
+            (await _providerCountryRepo.GetByProviderIdAsync(providerId))
+                .Select(pc => pc.Id)
+                .ToList();
+
         // Validate providerCountryIds not empty
-        if (providerCountryIds == null || !providerCountryIds.Any())
+        if (!countryIdsToImport.Any())
         {
             throw new ArgumentException("No provider country IDs provided", nameof(providerCountryIds));
         }
@@ -75,12 +81,30 @@ public class ImportService : IImportService
             ProviderId = providerId,
             Type = SyncJobType.Import,
             EntityType = SyncEntityType.Countries,
-            Status = SyncJobStatus.Running,
-            StartedAt = DateTime.UtcNow,
-            CountryIds = providerCountryIds,
+            Status = SyncJobStatus.Pending,
+            CountryIds = countryIdsToImport,
             Priority = 1
         };
         syncJob = await _syncJobRepo.CreateAsync(syncJob);
+
+        await ImportCountriesFromCacheInternalAsync(syncJob.Id, countryIdsToImport);
+
+        return syncJob.Id;
+    }
+
+    public async Task ImportCountriesFromCacheInternalAsync(Guid jobId, List<Guid> providerCountryIds)
+    {
+        // Load job
+        var syncJob = await _syncJobRepo.GetByIdAsync(jobId);
+        if (syncJob == null)
+        {
+            throw new ArgumentException($"Sync job {jobId} not found", nameof(jobId));
+        }
+
+        // Update status to Running
+        syncJob.Status = SyncJobStatus.Running;
+        syncJob.StartedAt = DateTime.UtcNow;
+        await _syncJobRepo.UpdateAsync(syncJob);
 
         try
         {
@@ -143,14 +167,14 @@ public class ImportService : IImportService
 
                     // Create or update CountryProvider mapping
                     var existingMapping = await _countryProviderRepo.GetByCountryAndProviderAsync(
-                        country.Id, providerId);
+                        country.Id, syncJob.ProviderId);
 
                     if (existingMapping == null)
                     {
                         var countryProvider = new CountryProvider
                         {
                             CountryId = country.Id,
-                            ProviderId = providerId,
+                            ProviderId = syncJob.ProviderId,
                             ProviderCode = providerCountry.ProviderCode,
                             ProviderName = providerCountry.ProviderName,
                             IsActive = true,
@@ -158,7 +182,7 @@ public class ImportService : IImportService
                         };
                         await _countryProviderRepo.AddAsync(countryProvider);
                         _logger.LogInformation("Created CountryProvider mapping for Country {CountryId} and Provider {ProviderId}",
-                            country.Id, providerId);
+                            country.Id, syncJob.ProviderId);
                     }
                     else
                     {
@@ -188,8 +212,8 @@ public class ImportService : IImportService
                 }
             }
 
-            // Update sync job as completed
-            syncJob.Status = errorCount > 0 ? SyncJobStatus.Failed : SyncJobStatus.Completed;
+            // Update sync job as completed - use PartiallyCompleted if there were some errors
+            syncJob.Status = errorCount > 0 ? SyncJobStatus.PartiallyCompleted : SyncJobStatus.Completed;
             syncJob.CompletedAt = DateTime.UtcNow;
             syncJob.ProgressData = JsonSerializer.Serialize(new
             {
@@ -206,8 +230,6 @@ public class ImportService : IImportService
 
             _logger.LogInformation("Country import completed. Imported: {Imported}, Skipped: {Skipped}, Errors: {Errors}",
                 importedCount, skippedCount, errorCount);
-
-            return syncJob.Id;
         }
         catch (Exception ex)
         {
@@ -215,12 +237,40 @@ public class ImportService : IImportService
             syncJob.Status = SyncJobStatus.Failed;
             syncJob.CompletedAt = DateTime.UtcNow;
             syncJob.ErrorMessage = ex.Message;
-            await _syncJobRepo.UpdateAsync(syncJob);
+
+            // Resilient status update with retry logic to prevent jobs stuck in Running status
+            bool statusUpdated = false;
+            for (int attempt = 1; attempt <= 3 && !statusUpdated; attempt++)
+            {
+                try
+                {
+                    await _syncJobRepo.UpdateAsync(syncJob);
+                    statusUpdated = true;
+                    _logger.LogInformation("Successfully updated job {JobId} to Failed status", syncJob.Id);
+                }
+                catch (Exception updateEx)
+                {
+                    if (attempt == 3)
+                    {
+                        _logger.LogCritical(updateEx,
+                            "CRITICAL: Failed to update job {JobId} to Failed status after 3 attempts. " +
+                            "Job will remain in Running status. Original error: {OriginalError}",
+                            syncJob.Id, ex.Message);
+                    }
+                    else
+                    {
+                        _logger.LogWarning(updateEx,
+                            "Attempt {Attempt}/3 to update job status failed, retrying...", attempt);
+                        await Task.Delay(500 * attempt); // Exponential backoff
+                    }
+                }
+            }
+
             throw;
         }
     }
 
-    public async Task<Guid> ImportLeaguesAsync(Guid providerId, List<Guid> providerLeagueIds)
+    public async Task<Guid> ImportLeaguesFromCacheAsync(Guid providerId, List<Guid>? providerLeagueIds = null)
     {
         _logger.LogInformation("Starting league import for provider {ProviderId}", providerId);
 
@@ -231,8 +281,14 @@ public class ImportService : IImportService
             throw new ArgumentException($"Provider {providerId} not found", nameof(providerId));
         }
 
+        // If providerLeagueIds not provided, use all cached leagues for this provider
+        List<Guid> leagueIdsToImport = providerLeagueIds ??
+            (await _providerLeagueRepo.GetByProviderIdAsync(providerId))
+                .Select(pl => pl.Id)
+                .ToList();
+
         // Validate providerLeagueIds not empty
-        if (providerLeagueIds == null || !providerLeagueIds.Any())
+        if (!leagueIdsToImport.Any())
         {
             throw new ArgumentException("No provider league IDs provided", nameof(providerLeagueIds));
         }
@@ -242,12 +298,30 @@ public class ImportService : IImportService
             ProviderId = providerId,
             Type = SyncJobType.Import,
             EntityType = SyncEntityType.Leagues,
-            Status = SyncJobStatus.Running,
-            StartedAt = DateTime.UtcNow,
-            LeagueIds = providerLeagueIds,
+            Status = SyncJobStatus.Pending,
+            LeagueIds = leagueIdsToImport,
             Priority = 2
         };
         syncJob = await _syncJobRepo.CreateAsync(syncJob);
+
+        await ImportLeaguesFromCacheInternalAsync(syncJob.Id, leagueIdsToImport);
+
+        return syncJob.Id;
+    }
+
+    public async Task ImportLeaguesFromCacheInternalAsync(Guid jobId, List<Guid> providerLeagueIds)
+    {
+        // Load job
+        var syncJob = await _syncJobRepo.GetByIdAsync(jobId);
+        if (syncJob == null)
+        {
+            throw new ArgumentException($"Sync job {jobId} not found", nameof(jobId));
+        }
+
+        // Update status to Running
+        syncJob.Status = SyncJobStatus.Running;
+        syncJob.StartedAt = DateTime.UtcNow;
+        await _syncJobRepo.UpdateAsync(syncJob);
 
         try
         {
@@ -259,6 +333,9 @@ public class ImportService : IImportService
             int skippedCount = 0;
             int errorCount = 0;
             var errors = new List<string>();
+
+            // Get provider once for later use
+            var provider = await _dataProviderRepo.GetByIdAsync(syncJob.ProviderId);
 
             foreach (var providerLeagueId in providerLeagueIds)
             {
@@ -305,25 +382,45 @@ public class ImportService : IImportService
                     }
                     else
                     {
-                        // Betting providers: country should be in league mapping or determined from league name
-                        // This is handled after finding the league below
-                        // For now, skip explicit country lookup
+                        // Betting providers: get country via CountryCode
+                        if (!string.IsNullOrEmpty(providerLeague.CountryCode))
+                        {
+                            var countries = await _countryRepo.GetAllAsync();
+                            country = countries.FirstOrDefault(c => c.Code.Equals(providerLeague.CountryCode, StringComparison.OrdinalIgnoreCase));
+
+                            if (country == null)
+                            {
+                                _logger.LogWarning("Country with code {CountryCode} not found for ProviderLeague {LeagueId}, skipping",
+                                    providerLeague.CountryCode, providerLeagueId);
+                                skippedCount++;
+                                errors.Add($"Country {providerLeague.CountryCode} not found");
+                                continue;
+                            }
+                        }
                     }
 
-                    // For betting providers, import is not supported - they use cache only
-                    // Only BetExplorer (scrapers) should use import workflow
-                    if (!providerLeague.ProviderCountryId.HasValue || country == null)
+                    // Skip unmapped leagues (only import successfully mapped leagues)
+                    if (providerLeague.MappingStatus == MappingStatus.Unmapped)
                     {
-                        _logger.LogWarning("Skipping ProviderLeague {LeagueId} - Import is only supported for scraper providers (BetExplorer), not betting providers",
-                            providerLeagueId);
+                        _logger.LogDebug("Skipping unmapped ProviderLeague {LeagueId} ({Name}) - no BetExplorer mapping",
+                            providerLeagueId, providerLeague.ProviderName);
                         skippedCount++;
-                        errors.Add($"Betting provider leagues cannot be imported - use cache workflow instead");
+                        continue;
+                    }
+
+                    // Validate country is available
+                    if (country == null)
+                    {
+                        _logger.LogWarning("Skipping ProviderLeague {LeagueId} ({Name}) - country not found",
+                            providerLeagueId, providerLeague.ProviderName);
+                        skippedCount++;
+                        errors.Add($"Country not found for league {providerLeague.ProviderName}");
                         continue;
                     }
 
                     // Check if League with same ProviderSlug already exists (via LeagueProvider mapping)
                     var existingLeagueProvider = await _leagueProviderRepo.GetByProviderAndSlugAsync(
-                        providerId, providerLeague.ProviderSlug);
+                        syncJob.ProviderId, providerLeague.ProviderSlug);
 
                     League? league = null;
                     if (existingLeagueProvider != null)
@@ -348,7 +445,7 @@ public class ImportService : IImportService
                             IsBettable = providerLeague.IsBettable,
                             IsActive = false,
                             Priority = providerLeague.Priority,
-                            Notes = $"Imported from provider {provider.Name}"
+                            Notes = $"Imported from provider {provider?.Name}"
                         };
                         league = await _leagueRepo.CreateAsync(league);
                         _logger.LogInformation("Created new League {LeagueId} ({Name})",
@@ -371,7 +468,7 @@ public class ImportService : IImportService
                         var leagueProvider = new LeagueProvider
                         {
                             LeagueId = league.Id,
-                            ProviderId = providerId,
+                            ProviderId = syncJob.ProviderId,
                             ProviderSlug = providerLeague.ProviderSlug,
                             ProviderName = providerLeague.ProviderName,
                             IsActive = true,
@@ -379,7 +476,7 @@ public class ImportService : IImportService
                         };
                         await _leagueProviderRepo.AddAsync(leagueProvider);
                         _logger.LogInformation("Created LeagueProvider mapping for League {LeagueId} and Provider {ProviderId}",
-                            league.Id, providerId);
+                            league.Id, syncJob.ProviderId);
                     }
                     else
                     {
@@ -409,8 +506,8 @@ public class ImportService : IImportService
                 }
             }
 
-            // Update sync job
-            syncJob.Status = errorCount > 0 ? SyncJobStatus.Failed : SyncJobStatus.Completed;
+            // Update sync job - use PartiallyCompleted if there were some errors
+            syncJob.Status = errorCount > 0 ? SyncJobStatus.PartiallyCompleted : SyncJobStatus.Completed;
             syncJob.CompletedAt = DateTime.UtcNow;
             syncJob.ProgressData = JsonSerializer.Serialize(new
             {
@@ -427,21 +524,47 @@ public class ImportService : IImportService
 
             _logger.LogInformation("League import completed. Imported: {Imported}, Skipped: {Skipped}, Errors: {Errors}",
                 importedCount, skippedCount, errorCount);
-
-            return syncJob.Id;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "League import failed for provider {ProviderId}", providerId);
+            _logger.LogError(ex, "League import failed for provider {ProviderId}", syncJob.ProviderId);
             syncJob.Status = SyncJobStatus.Failed;
             syncJob.CompletedAt = DateTime.UtcNow;
             syncJob.ErrorMessage = ex.Message;
-            await _syncJobRepo.UpdateAsync(syncJob);
+
+            // Resilient status update with retry logic to prevent jobs stuck in Running status
+            bool statusUpdated = false;
+            for (int attempt = 1; attempt <= 3 && !statusUpdated; attempt++)
+            {
+                try
+                {
+                    await _syncJobRepo.UpdateAsync(syncJob);
+                    statusUpdated = true;
+                    _logger.LogInformation("Successfully updated job {JobId} to Failed status", syncJob.Id);
+                }
+                catch (Exception updateEx)
+                {
+                    if (attempt == 3)
+                    {
+                        _logger.LogCritical(updateEx,
+                            "CRITICAL: Failed to update job {JobId} to Failed status after 3 attempts. " +
+                            "Job will remain in Running status. Original error: {OriginalError}",
+                            syncJob.Id, ex.Message);
+                    }
+                    else
+                    {
+                        _logger.LogWarning(updateEx,
+                            "Attempt {Attempt}/3 to update job status failed, retrying...", attempt);
+                        await Task.Delay(500 * attempt); // Exponential backoff
+                    }
+                }
+            }
+
             throw;
         }
     }
 
-    public async Task<Guid> ImportSeasonsAsync(Guid providerId, List<Guid> providerSeasonIds)
+    public async Task<Guid> ImportSeasonsFromCacheAsync(Guid providerId, List<Guid>? providerSeasonIds = null)
     {
         _logger.LogInformation("Starting season import for provider {ProviderId}", providerId);
 
@@ -452,8 +575,14 @@ public class ImportService : IImportService
             throw new ArgumentException($"Provider {providerId} not found", nameof(providerId));
         }
 
+        // If providerSeasonIds not provided, use all cached seasons for this provider
+        List<Guid> seasonIdsToImport = providerSeasonIds ??
+            (await _providerSeasonRepo.GetByProviderIdAsync(providerId))
+                .Select(ps => ps.Id)
+                .ToList();
+
         // Validate providerSeasonIds not empty
-        if (providerSeasonIds == null || !providerSeasonIds.Any())
+        if (!seasonIdsToImport.Any())
         {
             throw new ArgumentException("No provider season IDs provided", nameof(providerSeasonIds));
         }
@@ -463,12 +592,30 @@ public class ImportService : IImportService
             ProviderId = providerId,
             Type = SyncJobType.Import,
             EntityType = SyncEntityType.Seasons,
-            Status = SyncJobStatus.Running,
-            StartedAt = DateTime.UtcNow,
-            SeasonIds = providerSeasonIds,
+            Status = SyncJobStatus.Pending,
+            SeasonIds = seasonIdsToImport,
             Priority = 3
         };
         syncJob = await _syncJobRepo.CreateAsync(syncJob);
+
+        await ImportSeasonsFromCacheInternalAsync(syncJob.Id, seasonIdsToImport);
+
+        return syncJob.Id;
+    }
+
+    public async Task ImportSeasonsFromCacheInternalAsync(Guid jobId, List<Guid> providerSeasonIds)
+    {
+        // Load job
+        var syncJob = await _syncJobRepo.GetByIdAsync(jobId);
+        if (syncJob == null)
+        {
+            throw new ArgumentException($"Sync job {jobId} not found", nameof(jobId));
+        }
+
+        // Update status to Running
+        syncJob.Status = SyncJobStatus.Running;
+        syncJob.StartedAt = DateTime.UtcNow;
+        await _syncJobRepo.UpdateAsync(syncJob);
 
         try
         {
@@ -601,8 +748,8 @@ public class ImportService : IImportService
                 }
             }
 
-            // Update sync job
-            syncJob.Status = errorCount > 0 ? SyncJobStatus.Failed : SyncJobStatus.Completed;
+            // Update sync job - use PartiallyCompleted if there were some errors
+            syncJob.Status = errorCount > 0 ? SyncJobStatus.PartiallyCompleted : SyncJobStatus.Completed;
             syncJob.CompletedAt = DateTime.UtcNow;
             syncJob.ProgressData = JsonSerializer.Serialize(new
             {
@@ -619,16 +766,42 @@ public class ImportService : IImportService
 
             _logger.LogInformation("Season import completed. Imported: {Imported}, Skipped: {Skipped}, Errors: {Errors}",
                 importedCount, skippedCount, errorCount);
-
-            return syncJob.Id;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Season import failed for provider {ProviderId}", providerId);
+            _logger.LogError(ex, "Season import failed for provider {ProviderId}", syncJob.ProviderId);
             syncJob.Status = SyncJobStatus.Failed;
             syncJob.CompletedAt = DateTime.UtcNow;
             syncJob.ErrorMessage = ex.Message;
-            await _syncJobRepo.UpdateAsync(syncJob);
+
+            // Resilient status update with retry logic to prevent jobs stuck in Running status
+            bool statusUpdated = false;
+            for (int attempt = 1; attempt <= 3 && !statusUpdated; attempt++)
+            {
+                try
+                {
+                    await _syncJobRepo.UpdateAsync(syncJob);
+                    statusUpdated = true;
+                    _logger.LogInformation("Successfully updated job {JobId} to Failed status", syncJob.Id);
+                }
+                catch (Exception updateEx)
+                {
+                    if (attempt == 3)
+                    {
+                        _logger.LogCritical(updateEx,
+                            "CRITICAL: Failed to update job {JobId} to Failed status after 3 attempts. " +
+                            "Job will remain in Running status. Original error: {OriginalError}",
+                            syncJob.Id, ex.Message);
+                    }
+                    else
+                    {
+                        _logger.LogWarning(updateEx,
+                            "Attempt {Attempt}/3 to update job status failed, retrying...", attempt);
+                        await Task.Delay(500 * attempt); // Exponential backoff
+                    }
+                }
+            }
+
             throw;
         }
     }

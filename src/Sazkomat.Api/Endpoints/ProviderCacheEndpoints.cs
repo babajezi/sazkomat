@@ -54,14 +54,15 @@ public static class ProviderCacheEndpoints
                 {
                     id = pl.Id.ToString(),
                     providerId = pl.ProviderId.ToString(),
-                    providerCountryId = pl.ProviderCountryId.ToString(),
+                    providerCountryId = pl.ProviderCountryId != null ? pl.ProviderCountryId.ToString() : null,
+                    countryCode = pl.CountryCode ?? (pl.ProviderCountry != null ? pl.ProviderCountry.ProviderCode : null),
                     providerSlug = pl.ProviderSlug,
                     providerName = pl.ProviderName,
                     displayName = pl.DisplayName,
-                    countryCode = pl.ProviderCountry.ProviderCode,
                     sportCode = "football", // Default for now, can be enhanced later
                     priority = pl.Priority,
                     isBettable = pl.IsBettable,
+                    mappingStatus = pl.MappingStatus.ToString(),
                     data = pl.RawData,
                     scannedAt = pl.ScrapedAt,
                     createdAt = pl.CreatedAt,
@@ -179,8 +180,67 @@ public static class ProviderCacheEndpoints
         .WithName("DeleteCachedSeasons")
         .Produces(200)
         .Produces(404);
+
+        // Apply manual mapping to a league
+        group.MapPatch("/leagues/{id}/apply-mapping", async (
+            Guid id,
+            [FromBody] ApplyMappingRequest request,
+            DataImportDbContext context) =>
+        {
+            // Get the ProviderLeague
+            var providerLeague = await context.ProviderLeagues
+                .Include(pl => pl.Provider)
+                .FirstOrDefaultAsync(pl => pl.Id == id);
+
+            if (providerLeague == null)
+            {
+                return Results.NotFound(new { error = $"ProviderLeague {id} not found" });
+            }
+
+            // Get the LeagueNameMapping
+            var mapping = await context.LeagueNameMappings
+                .FirstOrDefaultAsync(m => m.Id == Guid.Parse(request.MappingId));
+
+            if (mapping == null)
+            {
+                return Results.NotFound(new { error = $"Mapping {request.MappingId} not found" });
+            }
+
+            // Validate mapping matches provider and league
+            if (!mapping.ProviderCode.Equals(providerLeague.Provider.Code, StringComparison.OrdinalIgnoreCase))
+            {
+                return Results.BadRequest(new { error = $"Mapping provider '{mapping.ProviderCode}' does not match league provider '{providerLeague.Provider.Code}'" });
+            }
+
+            if (!string.IsNullOrEmpty(providerLeague.CountryCode) &&
+                !mapping.CountryCode.Equals(providerLeague.CountryCode, StringComparison.OrdinalIgnoreCase))
+            {
+                return Results.BadRequest(new { error = $"Mapping country '{mapping.CountryCode}' does not match league country '{providerLeague.CountryCode}'" });
+            }
+
+            // Apply the mapping
+            providerLeague.ProviderSlug = mapping.BetExplorerSlug;
+            providerLeague.MappingStatus = DataImport.Entities.MappingStatus.ManualMapped;
+
+            await context.SaveChangesAsync();
+
+            return Results.Ok(new
+            {
+                id = providerLeague.Id.ToString(),
+                providerSlug = providerLeague.ProviderSlug,
+                mappingStatus = providerLeague.MappingStatus.ToString(),
+                message = $"Manual mapping applied: {providerLeague.ProviderName} → {mapping.BetExplorerSlug}"
+            });
+        })
+        .WithName("ApplyManualMapping")
+        .Produces(200)
+        .Produces(400)
+        .Produces(404);
     }
 }
 
 // Request DTO for delete operations
 public record DeleteCacheRequest(List<string> Ids);
+
+// Request DTO for apply mapping operation
+public record ApplyMappingRequest(string MappingId);

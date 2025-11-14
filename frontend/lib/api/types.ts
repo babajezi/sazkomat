@@ -2,10 +2,10 @@
 
 // Enums
 export enum ProviderType {
-  Scraper = 1,
-  API = 2,
-  Manual = 3,
-  BettingProvider = 4
+  Scraper = "Scraper",
+  API = "API",
+  Manual = "Manual",
+  BettingProvider = "BettingProvider"
 }
 
 export enum MatchResult {
@@ -524,20 +524,29 @@ export interface UpdateLeagueProviderRequest {
 export enum SyncJobType {
   Scan = "Scan",
   Import = "Import",
-  LiveSync = "LiveSync"
+  LiveUpdate = "LiveUpdate"  // Backend uses LiveUpdate, not LiveSync
 }
 
 export enum SyncJobStatus {
   Pending = "Pending",
   Running = "Running",
   Completed = "Completed",
-  Failed = "Failed"
+  PartiallyCompleted = "PartiallyCompleted",
+  Failed = "Failed",
+  Cancelled = "Cancelled"
 }
 
 export enum SyncEntityType {
   Countries = "Countries",
   Leagues = "Leagues",
-  Seasons = "Seasons"
+  Seasons = "Seasons",
+  Rounds = "Rounds"
+}
+
+export enum MappingStatus {
+  Unmapped = "Unmapped",
+  AutoMapped = "AutoMapped",
+  ManualMapped = "ManualMapped"
 }
 
 export interface ProviderCountry {
@@ -558,6 +567,7 @@ export interface ProviderLeague {
   displayName: string | null;
   countryCode: string;
   sportCode: string;
+  mappingStatus: MappingStatus;
   data: any;
   scannedAt: string;
   createdAt: string;
@@ -634,6 +644,9 @@ export interface LeagueNameMapping {
   isActive: boolean;
   notes: string | null;
   priority: number;
+  lastUsedAt: string | null;
+  usageCount: number;
+  lastProviderLeagueId: string | null;
   createdAt: string;
   updatedAt: string;
 }

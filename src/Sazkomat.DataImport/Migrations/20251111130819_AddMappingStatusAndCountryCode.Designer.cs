@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Sazkomat.DataImport.Data;
@@ -11,9 +12,11 @@ using Sazkomat.DataImport.Data;
 namespace Sazkomat.DataImport.Migrations
 {
     [DbContext(typeof(DataImportDbContext))]
-    partial class DataImportDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251111130819_AddMappingStatusAndCountryCode")]
+    partial class AddMappingStatusAndCountryCode
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -117,14 +120,6 @@ namespace Sazkomat.DataImport.Migrations
                         .HasDefaultValue(true)
                         .HasColumnName("is_active");
 
-                    b.Property<Guid?>("LastProviderLeagueId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("last_provider_league_id");
-
-                    b.Property<DateTime?>("LastUsedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("last_used_at");
-
                     b.Property<string>("Notes")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)")
@@ -151,12 +146,6 @@ namespace Sazkomat.DataImport.Migrations
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
-
-                    b.Property<int>("UsageCount")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasDefaultValue(0)
-                        .HasColumnName("usage_count");
 
                     b.HasKey("Id");
 
@@ -346,9 +335,7 @@ namespace Sazkomat.DataImport.Migrations
                         .HasColumnName("id");
 
                     b.Property<string>("CountryCode")
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
-                        .HasColumnName("country_code");
+                        .HasColumnType("text");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -376,14 +363,13 @@ namespace Sazkomat.DataImport.Migrations
                         .HasColumnName("league_id");
 
                     b.Property<int>("MappingStatus")
-                        .HasColumnType("integer")
-                        .HasColumnName("mapping_status");
+                        .HasColumnType("integer");
 
                     b.Property<int>("Priority")
                         .HasColumnType("integer")
                         .HasColumnName("priority");
 
-                    b.Property<Guid?>("ProviderCountryId")
+                    b.Property<Guid>("ProviderCountryId")
                         .HasColumnType("uuid")
                         .HasColumnName("provider_country_id");
 
@@ -417,13 +403,9 @@ namespace Sazkomat.DataImport.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CountryCode");
-
                     b.HasIndex("IsImported");
 
                     b.HasIndex("LeagueId");
-
-                    b.HasIndex("MappingStatus");
 
                     b.HasIndex("ProviderCountryId");
 

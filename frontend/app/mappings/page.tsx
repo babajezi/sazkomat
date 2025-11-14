@@ -42,6 +42,14 @@ export default function MappingsPage() {
     },
   });
 
+  // Toggle mutation
+  const toggleMutation = useMutation({
+    mutationFn: (id: string) => mappingApi.toggleMappingActive(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["mappings"] });
+    },
+  });
+
   // Filter mappings
   const filteredMappings = (mappings || []).filter((m) => {
     if (providerFilter && m.providerCode !== providerFilter) return false;
@@ -265,6 +273,8 @@ export default function MappingsPage() {
                     <th className="px-4 py-3 text-left text-sm font-medium">BetExplorer Slug</th>
                     <th className="px-4 py-3 text-center text-sm font-medium">Aktivní</th>
                     <th className="px-4 py-3 text-center text-sm font-medium">Priorita</th>
+                    <th className="px-4 py-3 text-center text-sm font-medium">Naposledy použito</th>
+                    <th className="px-4 py-3 text-center text-sm font-medium">Počet použití</th>
                     <th className="px-4 py-3 text-right text-sm font-medium">Akce</th>
                   </tr>
                 </thead>
@@ -276,13 +286,31 @@ export default function MappingsPage() {
                       <td className="px-4 py-3 text-sm">{mapping.providerLeagueName}</td>
                       <td className="px-4 py-3 text-sm font-mono text-xs">{mapping.betExplorerSlug}</td>
                       <td className="px-4 py-3 text-center">
-                        {mapping.isActive ? (
-                          <Check className="h-4 w-4 text-green-600 mx-auto" />
-                        ) : (
-                          <X className="h-4 w-4 text-red-600 mx-auto" />
-                        )}
+                        <Button
+                          variant={mapping.isActive ? "default" : "secondary"}
+                          size="sm"
+                          onClick={() => toggleMutation.mutate(mapping.id)}
+                          disabled={toggleMutation.isPending}
+                          className="h-7 px-2"
+                        >
+                          {mapping.isActive ? (
+                            <Check className="h-4 w-4" />
+                          ) : (
+                            <X className="h-4 w-4" />
+                          )}
+                        </Button>
                       </td>
                       <td className="px-4 py-3 text-center text-sm">{mapping.priority}</td>
+                      <td className="px-4 py-3 text-center text-sm">
+                        {mapping.lastUsedAt ? (
+                          <span className="text-xs">{new Date(mapping.lastUsedAt).toLocaleDateString()}</span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Nikdy</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-center text-sm">
+                        {mapping.usageCount}
+                      </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex justify-end gap-2">
                           <Button

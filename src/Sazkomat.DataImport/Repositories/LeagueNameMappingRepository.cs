@@ -73,4 +73,19 @@ public class LeagueNameMappingRepository : ILeagueNameMappingRepository
             await _context.SaveChangesAsync();
         }
     }
+
+    public async Task TrackUsageAsync(Guid mappingId, Guid providerLeagueId)
+    {
+        var mapping = await GetByIdAsync(mappingId);
+        if (mapping != null)
+        {
+            mapping.LastUsedAt = DateTime.UtcNow;
+            mapping.UsageCount++;
+            mapping.LastProviderLeagueId = providerLeagueId;
+            mapping.UpdatedAt = DateTime.UtcNow;
+
+            _context.LeagueNameMappings.Update(mapping);
+            await _context.SaveChangesAsync();
+        }
+    }
 }

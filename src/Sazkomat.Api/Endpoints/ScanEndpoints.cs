@@ -16,36 +16,81 @@ public static class ScanEndpoints
             [FromBody] ScanCountriesRequest request,
             IScanService scanService) =>
         {
-            var jobId = await scanService.ScanCountriesAsync(request.ProviderId);
-            return Results.Ok(new { jobId, message = "Country scan started" });
+            try
+            {
+                var jobId = await scanService.ScanCountriesAsync(request.ProviderId);
+                return Results.Ok(new { jobId, message = "Country scan started" });
+            }
+            catch (ArgumentException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return Results.Problem(
+                    detail: ex.Message,
+                    statusCode: 500,
+                    title: "Internal server error");
+            }
         })
         .WithName("ScanCountries")
         .Produces(200)
-        .Produces(400);
+        .Produces(400)
+        .Produces(500);
 
         // Scan leagues from provider
         group.MapPost("/leagues", async (
             [FromBody] ScanLeaguesRequest request,
             IScanService scanService) =>
         {
-            var jobId = await scanService.ScanLeaguesAsync(request.ProviderId, request.CountryIds);
-            return Results.Ok(new { jobId, message = $"League scan started for {request.CountryIds.Count} countries" });
+            try
+            {
+                var jobId = await scanService.ScanLeaguesAsync(request.ProviderId, request.CountryIds);
+                return Results.Ok(new { jobId, message = $"League scan started for {request.CountryIds.Count} countries" });
+            }
+            catch (ArgumentException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return Results.Problem(
+                    detail: ex.Message,
+                    statusCode: 500,
+                    title: "Internal server error");
+            }
         })
         .WithName("ScanLeagues")
         .Produces(200)
-        .Produces(400);
+        .Produces(400)
+        .Produces(500);
 
         // Scan seasons from provider
         group.MapPost("/seasons", async (
             [FromBody] ScanSeasonsRequest request,
             IScanService scanService) =>
         {
-            var jobId = await scanService.ScanSeasonsAsync(request.ProviderId, request.LeagueIds);
-            return Results.Ok(new { jobId, message = $"Season scan started for {request.LeagueIds.Count} leagues" });
+            try
+            {
+                var jobId = await scanService.ScanSeasonsAsync(request.ProviderId, request.LeagueIds);
+                return Results.Ok(new { jobId, message = $"Season scan started for {request.LeagueIds.Count} leagues" });
+            }
+            catch (ArgumentException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return Results.Problem(
+                    detail: ex.Message,
+                    statusCode: 500,
+                    title: "Internal server error");
+            }
         })
         .WithName("ScanSeasons")
         .Produces(200)
-        .Produces(400);
+        .Produces(400)
+        .Produces(500);
 
     }
 }

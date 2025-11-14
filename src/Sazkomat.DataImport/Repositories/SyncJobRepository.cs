@@ -83,7 +83,7 @@ public class SyncJobRepository : ISyncJobRepository
     {
         return await _context.SyncJobs
             .Where(sj => sj.ProviderId == providerId)
-            .OrderByDescending(sj => sj.StartedAt)
+            .OrderByDescending(sj => sj.CreatedAt)  // Use CreatedAt instead of StartedAt to include Pending jobs
             .Take(count)
             .ToListAsync();
     }

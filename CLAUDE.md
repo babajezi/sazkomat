@@ -442,6 +442,18 @@ dotnet test
 4. **Logování přes Serilog** - Strukturované logy s kontextem
 5. **Type-safe API klient** - Frontend používá typované rozhraní z `lib/api/types.ts`
 
+6. **⚠️ KRITICKÉ PRAVIDLO - TypeScript API Types:**
+   - **VŽDY ZKONTROLUJ** backend enum serializaci před vytvořením TypeScript typů
+   - Backend používá `JsonStringEnumConverter` (Program.cs:49) - všechny enums jsou **STRINGY**, ne čísla
+   - **POVINNÝ WORKFLOW při přidání/změně enum:**
+     1. Zjisti hodnoty backendu (zavolej API endpoint, zkontroluj C# enum definici)
+     2. Ověř serializaci - spusť `curl` nebo `Invoke-RestMethod` na endpoint
+     3. Vytvoř TypeScript enum se **STRINGOVÝMI** hodnotami odpovídajícími backendu
+     4. Zkontroluj naming - backend může mít jiný název (např. `LiveUpdate` vs `LiveSync`)
+     5. Zkontroluj všechny hodnoty - backend může mít více hodnot než očekáváš (např. `Cancelled`, `Rounds`)
+   - **NIKDY NEPŘEDPOKLÁDEJ** numerické hodnoty nebo názvy - VŽDY OVĚŘ NA REÁLNÝCH DATECH
+   - Chybné enum types způsobují tiché selhání ve filtrovacích komponentách a business logice
+
 ### Při přidávání nových features
 
 1. **Entita** - Vytvořit v `Entities/`

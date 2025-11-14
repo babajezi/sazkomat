@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,27 +24,72 @@ import {
   ArrowLeft,
   Clock,
   Activity,
+  X,
 } from "lucide-react";
 import type { SyncJob, SyncJobStatus, SyncJobType } from "@/lib/api/types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
-const BET_EXPLORER_PROVIDER_ID = "a0000000-0000-0000-0000-000000000001";
+
+// Provider IDs
+const PROVIDER_IDS = {
+  BetExplorer: "a0000000-0000-0000-0000-000000000001",
+  Betano: "b0000000-0000-0000-0000-000000000001",
+  Chance: "b0000000-0000-0000-0000-000000000002",
+  Fortuna: "b0000000-0000-0000-0000-000000000003",
+  Tipsport: "b0000000-0000-0000-0000-000000000004",
+  Kingsbet: "b0000000-0000-0000-0000-000000000005",
+} as const;
 
 export default function JobsPage() {
   const [selectedJob, setSelectedJob] = useState<string | null>(null);
+  const [selectedProvider, setSelectedProvider] = useState<string>("all");
+  const queryClient = useQueryClient();
 
-  // Fetch recent jobs
-  const { data: jobs = [], isLoading: loadingJobs } = useQuery<SyncJob[]>({
-    queryKey: ["sync-jobs", BET_EXPLORER_PROVIDER_ID],
-    queryFn: async () => {
-      const res = await fetch(
-        `${API_URL}/api/jobs/recent?providerId=${BET_EXPLORER_PROVIDER_ID}&count=50`
-      );
-      if (!res.ok) throw new Error("Failed to fetch jobs");
+  // Cancel job mutation
+  const cancelJobMutation = useMutation({
+    mutationFn: async (jobId: string) => {
+      const res = await fetch(`${API_URL}/api/jobs/${jobId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("Failed to cancel job");
       return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["all-sync-jobs"] });
+      if (selectedJob) {
+        queryClient.invalidateQueries({ queryKey: ["sync-job", selectedJob] });
+      }
+    },
+  });
+
+  // Fetch all jobs for all providers
+  const { data: allJobsData = [], isLoading: loadingJobs } = useQuery<{provider: string, jobs: SyncJob[]}[]>({
+    queryKey: ["all-sync-jobs"],
+    queryFn: async () => {
+      const results = await Promise.all(
+        Object.entries(PROVIDER_IDS).map(async ([name, id]) => {
+          try {
+            const res = await fetch(`${API_URL}/api/jobs/recent?providerId=${id}&count=50`);
+            if (!res.ok) return { provider: name, jobs: [] };
+            const jobs = await res.json();
+            return { provider: name, jobs };
+          } catch {
+            return { provider: name, jobs: [] };
+          }
+        })
+      );
+      return results;
     },
     refetchInterval: 5000, // Poll every 5 seconds
   });
+
+  // Flatten and filter jobs
+  const jobs = allJobsData
+    .flatMap(({ provider, jobs }) =>
+      jobs.map((job: SyncJob) => ({ ...job, providerName: provider }))
+    )
+    .filter((job) => selectedProvider === "all" || job.providerName === selectedProvider)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   // Fetch selected job details
   const { data: jobDetails } = useQuery<SyncJob>({
@@ -57,8 +102,8 @@ export default function JobsPage() {
     },
     enabled: !!selectedJob,
     refetchInterval: (data) => {
-      // Stop polling if job is completed or failed
-      return data?.status === "Completed" || data?.status === "Failed" ? false : 2000;
+      // Stop polling if job is completed, partially completed, or failed
+      return data?.status === "Completed" || data?.status === "PartiallyCompleted" || data?.status === "Failed" ? false : 2000;
     },
   });
 
@@ -70,6 +115,8 @@ export default function JobsPage() {
         return <Loader2 className="h-4 w-4 text-blue-600 animate-spin" />;
       case "Completed":
         return <CheckCircle2 className="h-4 w-4 text-green-600" />;
+      case "PartiallyCompleted":
+        return <AlertCircle className="h-4 w-4 text-yellow-600" />;
       case "Failed":
         return <XCircle className="h-4 w-4 text-red-600" />;
       default:
@@ -82,9 +129,21 @@ export default function JobsPage() {
       Pending: "outline",
       Running: "default",
       Completed: "secondary",
+      PartiallyCompleted: "outline", // Yellow/warning badge
       Failed: "destructive",
     };
-    return <Badge variant={variants[status]}>{status}</Badge>;
+    const colors: Record<SyncJobStatus, string> = {
+      Pending: "",
+      Running: "",
+      Completed: "",
+      PartiallyCompleted: "text-yellow-700 border-yellow-400",
+      Failed: "",
+    };
+    return (
+      <Badge variant={variants[status]} className={colors[status]}>
+        {status === "PartiallyCompleted" ? "Částečně dokončeno" : status}
+      </Badge>
+    );
   };
 
   const getJobTypeLabel = (type: SyncJobType) => {
@@ -132,6 +191,7 @@ export default function JobsPage() {
 
   const runningJobs = jobs.filter((j) => j.status === "Running");
   const completedJobs = jobs.filter((j) => j.status === "Completed");
+  const partiallyCompletedJobs = jobs.filter((j) => j.status === "PartiallyCompleted");
   const failedJobs = jobs.filter((j) => j.status === "Failed");
   const pendingJobs = jobs.filter((j) => j.status === "Pending");
 
@@ -155,7 +215,7 @@ export default function JobsPage() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Běžící</CardTitle>
@@ -188,6 +248,16 @@ export default function JobsPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Částečné</CardTitle>
+            <AlertCircle className="h-4 w-4 text-yellow-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{partiallyCompletedJobs.length}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Chybné</CardTitle>
             <XCircle className="h-4 w-4 text-red-600" />
           </CardHeader>
@@ -210,10 +280,32 @@ export default function JobsPage() {
       {/* Jobs Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Poslední úlohy (50)</CardTitle>
-          <CardDescription>
-            Automatická aktualizace každých 5 sekund
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Poslední úlohy (50)</CardTitle>
+              <CardDescription>
+                Automatická aktualizace každých 5 sekund
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              <label htmlFor="provider-filter" className="text-sm font-medium">
+                Provider:
+              </label>
+              <select
+                id="provider-filter"
+                value={selectedProvider}
+                onChange={(e) => setSelectedProvider(e.target.value)}
+                className="border rounded px-3 py-1.5 text-sm"
+              >
+                <option value="all">Všichni</option>
+                {Object.keys(PROVIDER_IDS).map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {jobs.length === 0 ? (
@@ -226,6 +318,7 @@ export default function JobsPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-12"></TableHead>
+                    <TableHead>Provider</TableHead>
                     <TableHead>Typ</TableHead>
                     <TableHead>Entita</TableHead>
                     <TableHead>Status</TableHead>
@@ -234,16 +327,22 @@ export default function JobsPage() {
                     <TableHead>Konec</TableHead>
                     <TableHead>Trvání</TableHead>
                     <TableHead className="w-24">ID</TableHead>
+                    <TableHead className="w-20"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {jobs.map((job) => (
+                  {jobs.map((job: any) => (
                     <TableRow
                       key={job.id}
                       className={`cursor-pointer ${selectedJob === job.id ? "bg-muted" : ""}`}
                       onClick={() => setSelectedJob(job.id)}
                     >
                       <TableCell>{getStatusIcon(job.status)}</TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" className="text-xs">
+                          {job.providerName}
+                        </Badge>
+                      </TableCell>
                       <TableCell className="font-medium">
                         {getJobTypeLabel(job.jobType)}
                       </TableCell>
@@ -265,6 +364,25 @@ export default function JobsPage() {
                       </TableCell>
                       <TableCell className="text-xs font-mono">
                         {job.id.slice(0, 8)}...
+                      </TableCell>
+                      <TableCell>
+                        {(job.status === "Running" || job.status === "Pending") && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              cancelJobMutation.mutate(job.id);
+                            }}
+                            disabled={cancelJobMutation.isPending}
+                          >
+                            {cancelJobMutation.isPending && cancelJobMutation.variables === job.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <X className="h-4 w-4" />
+                            )}
+                          </Button>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}

@@ -80,6 +80,43 @@ docker exec -it sazkomat-postgres psql -U sazkomat -d sazkomat_db
 
 ---
 
+## Testování aplikace
+
+### 1. Ověření Frontendu
+Otevři http://localhost:3000
+
+Měl by se zobrazit dashboard se 2 kartami:
+- **Konfigurace Lig** - zobrazí předpřipravené ligy
+- **Import Dat** - umožní spustit historický import
+
+### 2. Test API Endpoints
+```bash
+# Health check
+curl http://localhost:3001/health
+
+# Získat všechny ligy
+curl http://localhost:3001/api/config/leagues
+
+# Získat sporty
+curl http://localhost:3001/api/config/sports
+```
+
+### 3. Průzkum databáze
+```bash
+# Připojit se přes psql
+docker exec -it sazkomat-postgres psql -U sazkomat -d sazkomat_db
+
+# Zobrazit tabulky
+\dt configuration.*
+\dt data_import.*
+
+# Dotazy
+SELECT * FROM configuration.leagues;
+SELECT * FROM configuration.sports;
+```
+
+---
+
 ## Co najdeš v aplikaci
 
 ### Home (localhost:3000)
@@ -125,6 +162,6 @@ docker exec -it sazkomat-postgres psql -U sazkomat -d sazkomat_db
 
 ## Další informace
 
-📄 Detailní návod: `RESTART_INSTRUCTIONS.md`
-📄 Implementace overview: `IMPLEMENTATION_SUMMARY.md`
+📄 Kompletní dokumentace: `CLAUDE.md`
 📄 Docker dokumentace: `DOCKER.md`
+📄 Test výsledky: `docs/testing/PRIORITY_1_TEST_RESULTS.md`

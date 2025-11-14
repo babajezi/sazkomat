@@ -11,4 +11,5 @@ public interface ILeagueNameMappingRepository
     Task<LeagueNameMapping> CreateAsync(LeagueNameMapping mapping);
     Task<LeagueNameMapping> UpdateAsync(LeagueNameMapping mapping);
     Task DeleteAsync(Guid id);
+    Task TrackUsageAsync(Guid mappingId, Guid providerLeagueId);
 }

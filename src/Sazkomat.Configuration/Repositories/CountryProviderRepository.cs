@@ -48,6 +48,14 @@ public class CountryProviderRepository : ICountryProviderRepository
             .FirstOrDefaultAsync(cp => cp.CountryId == countryId && cp.ProviderId == providerId);
     }
 
+    public async Task<List<CountryProvider>> GetByProviderIdAsync(Guid providerId)
+    {
+        return await _context.CountryProviders
+            .Include(cp => cp.Country)
+            .Where(cp => cp.ProviderId == providerId && cp.IsActive)
+            .ToListAsync();
+    }
+
     public async Task<CountryProvider?> GetActiveByCountryIdAsync(Guid countryId)
     {
         return await _context.CountryProviders
