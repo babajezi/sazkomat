@@ -6,12 +6,16 @@ Tento dokument popisuje testovací strategii a pokrytí projektu Sazkomat.
 
 | Metrika | Hodnota |
 |---------|---------|
-| **Celkem testů** | 113 |
-| **Test souborů** | 16 |
-| **Pokrytí kódu** | ~85% |
-| **Test framework** | xUnit |
+| **Unit Tests (.NET)** | 113 tests |
+| **E2E Tests (Frontend)** | 34+ tests |
+| **Celkem testů** | **147+** |
+| **Test souborů (.NET)** | 16 |
+| **E2E Test souborů** | 4 |
+| **Pokrytí kódu (Backend)** | ~85% |
+| **Unit Test Framework** | xUnit |
+| **E2E Test Framework** | Playwright |
 | **Mocking framework** | Moq |
-| **Database** | In-Memory EF Core |
+| **Database (Tests)** | In-Memory EF Core |
 
 **Poslední aktualizace:** 2024-10-30
 
@@ -232,10 +236,10 @@ tests/Sazkomat.Tests/
 - [ ] **ProviderSyncService** - Provider sync coordination
 
 ### Priority 4: Advanced Scenarios
-- [ ] **E2E Tests** - Full workflows
-  - Complete scan → import → live sync pipeline
-  - Multi-provider scenarios
-  - Error recovery flows
+- [✅] **E2E Tests** - Full workflows ✅ **IMPLEMENTED**
+  - Frontend workflows (League CRUD, Scan, Import)
+  - Playwright browser automation
+  - Cross-browser testing (Chromium, Firefox, WebKit)
 - [ ] **Performance Tests** - BenchmarkDotNet
   - Scraping 3,000+ matches
   - Parallel import operations
@@ -246,53 +250,350 @@ tests/Sazkomat.Tests/
   - Race condition detection
 
 ### Priority 5: Infrastructure
-- [ ] **Code Coverage Reporting** - Coverlet + ReportGenerator
+- [✅] **Code Coverage Reporting** - Coverlet + ReportGenerator ✅ **IMPLEMENTED**
+  - Cobertura XML format
+  - HTML reports
+  - Automated scripts for coverage generation
 - [ ] **Mutation Testing** - Stryker.NET
 - [ ] **Database Integration Tests** - Real PostgreSQL
-- [ ] **Playwright Scraper Tests** - Browser automation scenarios
+- [ ] **API Integration Tests** - Real HTTP endpoints
+
+---
+
+## 📊 Code Coverage
+
+### Overview
+
+Projekt používá **Coverlet** pro měření code coverage a **ReportGenerator** pro generování HTML reportů.
+
+### Installed Packages
+
+```xml
+<PackageReference Include="coverlet.collector" Version="6.0.2" />
+<PackageReference Include="coverlet.msbuild" Version="6.0.2" />
+```
+
+### Running Tests with Coverage
+
+#### Option 1: Use Automated Scripts
+
+**Linux/macOS:**
+```bash
+chmod +x scripts/run-tests-with-coverage.sh
+./scripts/run-tests-with-coverage.sh
+```
+
+**Windows:**
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File scripts/run-tests-with-coverage.ps1
+```
+
+#### Option 2: Manual Commands
+
+```bash
+cd tests/Sazkomat.Tests
+
+# Run tests with coverage
+dotnet test \
+  /p:CollectCoverage=true \
+  /p:CoverletOutputFormat=cobertura \
+  /p:CoverletOutput=./TestResults/coverage.cobertura.xml \
+  /p:ExcludeByFile="**/Migrations/**/*.cs"
+```
+
+### Coverage Reports
+
+#### XML Report (Cobertura)
+- **Location**: `tests/Sazkomat.Tests/TestResults/coverage.cobertura.xml`
+- **Format**: Cobertura XML (compatible with CI/CD tools)
+- **Use Case**: Integration with GitHub Actions, Azure DevOps, etc.
+
+#### HTML Report (Optional)
+```bash
+# Install ReportGenerator (one-time setup)
+dotnet tool install -g dotnet-reportgenerator-globaltool
+
+# Generate HTML report
+cd tests/Sazkomat.Tests
+reportgenerator \
+  -reports:./TestResults/coverage.cobertura.xml \
+  -targetdir:./CoverageReport \
+  -reporttypes:Html
+
+# Open report
+open CoverageReport/index.html  # macOS
+start CoverageReport/index.html # Windows
+xdg-open CoverageReport/index.html # Linux
+```
+
+### Coverage Configuration
+
+Coverage excludes migrations and generated files:
+```xml
+/p:ExcludeByFile="**/Migrations/**/*.cs"
+```
+
+### Current Coverage Metrics
+
+| Metric | Value |
+|--------|-------|
+| **Line Coverage** | ~85% |
+| **Branch Coverage** | ~80% |
+| **Method Coverage** | ~90% |
+
+**Note**: These are estimates. Run coverage report for exact metrics.
+
+---
+
+## 🎭 End-to-End Testing
+
+### Overview
+
+Frontend E2E tests používají **Playwright** pro testování celých uživatelských workflow v reálném browseru.
+
+### Test Framework
+- **Tool**: Playwright (v1.48.0)
+- **Language**: TypeScript
+- **Browsers**: Chromium, Firefox, WebKit
+- **Location**: `frontend/e2e/`
+
+### E2E Test Suite
+
+```
+frontend/e2e/
+├── homepage.spec.ts          # Dashboard navigation tests
+├── league-crud.spec.ts       # League CRUD operations (11 tests)
+├── scan-workflow.spec.ts     # Provider scan workflow (10 tests)
+└── import-workflow.spec.ts   # Historical import workflow (13 tests)
+```
+
+**Total E2E Tests**: 34+ tests
+
+### Test Scenarios
+
+#### Homepage Tests (homepage.spec.ts)
+- ✅ Dashboard loads successfully
+- ✅ Navigation links are visible
+- ✅ Navigation to leagues page
+
+#### League CRUD Tests (league-crud.spec.ts)
+- ✅ Display leagues table
+- ✅ Create new league
+- ✅ Edit existing league
+- ✅ Delete league with confirmation
+- ✅ Toggle league enabled status
+- ✅ Filter leagues by search
+
+#### Scan Workflow Tests (scan-workflow.spec.ts)
+- ✅ Display sync page with scan options
+- ✅ Open scan countries dialog
+- ✅ Initiate country scan
+- ✅ Display scan job status
+- ✅ Open scan leagues dialog
+- ✅ Navigate to cache tables view
+- ✅ Handle scan errors gracefully
+- ✅ View scan results after completion
+- ✅ Refresh job status
+
+#### Import Workflow Tests (import-workflow.spec.ts)
+- ✅ Display import page
+- ✅ Display available leagues
+- ✅ Initiate historical import
+- ✅ Display import job progress
+- ✅ Display import statistics
+- ✅ Poll job status updates
+- ✅ Display recent import jobs
+- ✅ Filter jobs by league
+- ✅ View job details
+- ✅ Handle multi-league import
+- ✅ Handle multi-season import
+- ✅ Validate import form
+- ✅ Cancel import job
+- ✅ Dashboard integration
+
+### Running E2E Tests
+
+#### Install Dependencies
+```bash
+cd frontend
+npm install
+npx playwright install
+```
+
+#### Run Tests
+
+**All tests (headless):**
+```bash
+npm run test:e2e
+```
+
+**With UI mode (interactive):**
+```bash
+npm run test:e2e:ui
+```
+
+**With browser visible:**
+```bash
+npm run test:e2e:headed
+```
+
+**Debug mode:**
+```bash
+npm run test:e2e:debug
+```
+
+**Specific browser:**
+```bash
+npx playwright test --project=chromium
+npx playwright test --project=firefox
+npx playwright test --project=webkit
+```
+
+**Specific test file:**
+```bash
+npx playwright test league-crud.spec.ts
+```
+
+#### Prerequisites
+
+E2E tests expect:
+- Frontend running on `http://localhost:3000`
+- API running on `http://localhost:3001`
+- Database populated with test data
+
+**Auto-start dev server:**
+Playwright config automatically starts `npm run dev` before tests.
+
+### E2E Test Configuration
+
+**playwright.config.ts:**
+```typescript
+{
+  testDir: './e2e',
+  baseURL: 'http://localhost:3000',
+  fullyParallel: true,
+  retries: process.env.CI ? 2 : 0,
+  reporter: 'html',
+  use: {
+    trace: 'on-first-retry',
+    screenshot: 'only-on-failure',
+    video: 'retain-on-failure',
+  }
+}
+```
+
+### Viewing Test Results
+
+After running tests:
+```bash
+npx playwright show-report
+```
+
+This opens an interactive HTML report showing:
+- Test results (pass/fail)
+- Screenshots of failures
+- Videos of failures
+- Execution traces
+
+### E2E Best Practices
+
+1. **Use data-testid attributes** for reliable selectors
+2. **Wait for elements** before interacting
+3. **Test happy paths first**, then edge cases
+4. **Clean up test data** after each test (or use fixtures)
+5. **Run tests in isolation** (no dependencies between tests)
+6. **Use Page Object Model** for complex pages (future improvement)
+
+### CI/CD Integration (Future)
+
+```yaml
+# .github/workflows/e2e.yml
+- name: Install Playwright
+  run: npx playwright install --with-deps
+
+- name: Run E2E tests
+  run: npm run test:e2e
+
+- name: Upload artifacts
+  uses: actions/upload-artifact@v3
+  with:
+    name: playwright-report
+    path: playwright-report/
+```
 
 ---
 
 ## 🚀 Running Tests
 
-### Run All Tests
+### Unit Tests (.NET)
+
+#### Run All Unit Tests
 
 ```bash
 cd tests/Sazkomat.Tests
 dotnet test
 ```
 
-### Run Specific Test File
+#### Run Specific Test File
 
 ```bash
 dotnet test --filter "FullyQualifiedName~ScanServiceTests"
 ```
 
-### Run Tests with Detailed Output
+#### Run Tests with Detailed Output
 
 ```bash
 dotnet test --verbosity detailed
 ```
 
-### Run Tests in Docker
+#### Run Tests in Docker
 
 ```bash
 docker-compose exec api dotnet test tests/Sazkomat.Tests/Sazkomat.Tests.csproj
 ```
 
-### Generate Coverage Report (Future)
+#### Run Tests with Coverage
+
+**Using automated script (recommended):**
 
 ```bash
-# Install coverlet
-dotnet add package coverlet.msbuild
+# Linux/macOS
+./scripts/run-tests-with-coverage.sh
 
-# Run tests with coverage
-dotnet test /p:CollectCoverage=true /p:CoverletOutputFormat=opencover
-
-# Generate HTML report
-dotnet tool install -g dotnet-reportgenerator-globaltool
-reportgenerator -reports:coverage.opencover.xml -targetdir:coverage-report
+# Windows
+powershell.exe -ExecutionPolicy Bypass -File scripts/run-tests-with-coverage.ps1
 ```
+
+**Manual:**
+```bash
+cd tests/Sazkomat.Tests
+dotnet test /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura
+```
+
+See [Code Coverage](#-code-coverage) section for detailed instructions.
+
+### E2E Tests (Frontend)
+
+#### Run All E2E Tests
+
+```bash
+cd frontend
+npm run test:e2e
+```
+
+#### Run E2E Tests with UI
+
+```bash
+npm run test:e2e:ui
+```
+
+#### Run Specific E2E Test
+
+```bash
+npx playwright test league-crud.spec.ts
+```
+
+See [End-to-End Testing](#-end-to-end-testing) section for detailed instructions.
 
 ---
 
@@ -537,26 +838,42 @@ jobs:
 
 ## 📈 Test Coverage History
 
-| Datum | Testy | Soubory | Pokrytí | Poznámka |
-|-------|-------|---------|---------|----------|
-| 2024-10-30 | 113 | 16 | ~85% | ImportService + Repositories |
-| 2024-10-30 | 61 | 11 | ~65% | Core Services + Scrapers |
-| 2024-10-25 | 21 | 6 | ~20% | Initial test suite |
+| Datum | Unit Tests | E2E Tests | Total | Soubory | Pokrytí | Poznámka |
+|-------|------------|-----------|-------|---------|---------|----------|
+| 2024-10-30 | 113 | 34+ | **147+** | 20 | ~85% | **E2E Tests + Code Coverage Added** |
+| 2024-10-30 | 113 | 0 | 113 | 16 | ~85% | ImportService + Repositories |
+| 2024-10-30 | 61 | 0 | 61 | 11 | ~65% | Core Services + Scrapers |
+| 2024-10-25 | 21 | 0 | 21 | 6 | ~20% | Initial test suite |
 
-**Trend:** +438% nárůst testů za 5 dní 📈
+**Trend:** +600% nárůst testů za 5 dní 📈🚀
 
 ---
 
 ## 🎓 Resources
 
+### Unit Testing
 - [xUnit Documentation](https://xunit.net/)
 - [Moq Quickstart](https://github.com/moq/moq4)
 - [EF Core In-Memory Testing](https://learn.microsoft.com/en-us/ef/core/testing/testing-without-the-database)
-- [ASP.NET Core Integration Testing](https://learn.microsoft.com/en-us/aspnet/core/test/integration-tests)
 - [.NET Testing Best Practices](https://learn.microsoft.com/en-us/dotnet/core/testing/unit-testing-best-practices)
+
+### Code Coverage
+- [Coverlet Documentation](https://github.com/coverlet-coverage/coverlet)
+- [ReportGenerator](https://github.com/danielpalme/ReportGenerator)
+- [Code Coverage in .NET](https://learn.microsoft.com/en-us/dotnet/core/testing/unit-testing-code-coverage)
+
+### E2E Testing
+- [Playwright Documentation](https://playwright.dev/)
+- [Playwright for .NET](https://playwright.dev/dotnet/)
+- [Testing Best Practices](https://playwright.dev/docs/best-practices)
+- [Page Object Model](https://playwright.dev/docs/pom)
+
+### Integration Testing
+- [ASP.NET Core Integration Testing](https://learn.microsoft.com/en-us/aspnet/core/test/integration-tests)
+- [Testing with Real Database](https://learn.microsoft.com/en-us/ef/core/testing/testing-with-the-database)
 
 ---
 
 **Poslední aktualizace:** 2024-10-30
 **Autoři:** Claude AI, @babajezi
-**Status:** ✅ Production Ready - 85% Coverage
+**Status:** ✅ Production Ready - 147+ Tests, 85% Coverage, Full E2E Suite

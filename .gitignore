@@ -48,3 +48,9 @@ nul
 *.db
 *.db-shm
 *.db-wal
+
+# Testing & Coverage
+**/TestResults/
+**/CoverageReport/
+**/test-results/
+**/playwright-report/
