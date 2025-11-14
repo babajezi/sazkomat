@@ -218,6 +218,7 @@ C:\projects\private\Sazkomat/
 ├── QUICK_START.md                  # Quick start (3 kroky)
 ├── RESTART_INSTRUCTIONS.md         # Detailní restart instrukce
 ├── IMPLEMENTATION_SUMMARY.md       # Souhrn Fáze 1
+├── TESTING.md                      # Kompletní test dokumentace
 ├── DOCKER.md                       # Docker dokumentace
 ├── docker-compose.yml              # Docker orchestrace
 ├── Sazkomat.sln                    # .NET solution
@@ -295,11 +296,13 @@ Phase 1 infrastruktury je kompletně implementována a otestována na reálných
   - CASCADE delete pro automatické čištění
   - Umístění: `src/Sazkomat.DataImport/Migrations/20251022232856_AddForeignKeyConstraints.cs`
 
-- ✅ **Unit Testy** - Komprehensivní test coverage
-  - **21 testů celkem - všechny prochází ✓**
-  - Configuration module: 7 testů (LeagueRepository + ConfigurationService)
-  - DataImport module: 14 testů (RoundRepository + ImportJobRepository)
-  - Používá In-Memory database a Moq
+- ✅ **Unit Testy** - Komprehensivní test coverage (~85% critical paths)
+  - **113 testů celkem - všechny prochází ✓**
+  - Service Layer: 63 testů (ScanService, LiveSyncService, ImportService, SyncWorkflowService, SeasonService)
+  - Repository Layer: 39 testů (všechny repositories včetně SyncJob, Match, ProviderLeague)
+  - Scraper Layer: 11 testů (FootballBetExplorerScraper, ResilientHttpClient)
+  - Používá xUnit, In-Memory database a Moq
+  - **Detailní dokumentace:** `TESTING.md` (coverage report, best practices, příklady)
   - Umístění: `tests/Sazkomat.Tests/`
 
 - ✅ **Integration Testing** - Plně otestováno na produkčních datech
@@ -408,7 +411,15 @@ docker-compose down -v         # Úplný reset
 ```bash
 cd tests/Sazkomat.Tests
 dotnet test
+
+# Detailní výstup s verbose mode
+dotnet test --verbosity detailed
+
+# Spustit konkrétní test file
+dotnet test --filter "FullyQualifiedName~ScanServiceTests"
 ```
+
+**Dokumentace:** Viz `TESTING.md` pro kompletní přehled testů, coverage report a best practices
 
 ## Důležité soubory
 
@@ -528,8 +539,10 @@ docker-compose restart postgres
 - Real-time job monitoring s polling (2s interval)
 - Dashboard s grafy a statistikami (Recharts)
 - Docker configuration s standalone mode
-- Unit testy (21 testů - všechny prochází)
+- Unit testy (113 testů - všechny prochází, ~85% coverage kritických cest)
 - Foreign key constraints a databázová integrita
 - Error handling a validace
 
-**Test Report:** Viz `PRIORITY_1_TEST_RESULTS.md` pro detailní výsledky testování
+**Test Reports:**
+- `TESTING.md` - Kompletní test dokumentace (coverage, best practices, příklady)
+- `PRIORITY_1_TEST_RESULTS.md` - Výsledky produkčního testování
