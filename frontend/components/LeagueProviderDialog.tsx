@@ -141,7 +141,7 @@ export function LeagueProviderDialog({
                 required
               >
                 <option value="">-- Vyberte providera --</option>
-                {providers?.filter(p => p.type === ProviderType.Scraper).length > 0 && (
+                {(providers?.filter(p => p.type === ProviderType.Scraper) || []).length > 0 && (
                   <optgroup label="Scraper">
                     {providers?.filter(p => p.type === ProviderType.Scraper).map((provider) => (
                       <option key={provider.id} value={provider.id}>
@@ -150,7 +150,7 @@ export function LeagueProviderDialog({
                     ))}
                   </optgroup>
                 )}
-                {providers?.filter(p => p.type === ProviderType.API).length > 0 && (
+                {(providers?.filter(p => p.type === ProviderType.API) || []).length > 0 && (
                   <optgroup label="API">
                     {providers?.filter(p => p.type === ProviderType.API).map((provider) => (
                       <option key={provider.id} value={provider.id}>
@@ -159,7 +159,7 @@ export function LeagueProviderDialog({
                     ))}
                   </optgroup>
                 )}
-                {providers?.filter(p => p.type === ProviderType.Manual).length > 0 && (
+                {(providers?.filter(p => p.type === ProviderType.Manual) || []).length > 0 && (
                   <optgroup label="Manual">
                     {providers?.filter(p => p.type === ProviderType.Manual).map((provider) => (
                       <option key={provider.id} value={provider.id}>
@@ -168,7 +168,7 @@ export function LeagueProviderDialog({
                     ))}
                   </optgroup>
                 )}
-                {providers?.filter(p => p.type === ProviderType.BettingProvider).length > 0 && (
+                {(providers?.filter(p => p.type === ProviderType.BettingProvider) || []).length > 0 && (
                   <optgroup label="Betting Provider">
                     {providers?.filter(p => p.type === ProviderType.BettingProvider).map((provider) => (
                       <option key={provider.id} value={provider.id}>

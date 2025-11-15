@@ -132,10 +132,10 @@ public class BetanoScraper : IBettingProviderScraper
     {
         return sportCode.ToLowerInvariant() switch
         {
-            "football" => "/sport/fotbal/liga/",
-            "basketball" => "/sport/basketbal/liga/",
-            "tennis" => "/sport/tenis/liga/",
-            "hockey" => "/sport/hokej/liga/",
+            "football" => "/sport/fotbal/",
+            "basketball" => "/sport/basketbal/",
+            "tennis" => "/sport/tenis/",
+            "hockey" => "/sport/hokej/",
             _ => null
         };
     }

@@ -216,17 +216,15 @@ export default function ImportConfigPage() {
                 <p className="text-sm text-gray-500 mb-4">
                   Podporován pouze JSON formát
                 </p>
-                <Button variant="outline" asChild>
-                  <label className="cursor-pointer">
-                    Vybrat soubor
-                    <input
-                      type="file"
-                      accept=".json"
-                      className="hidden"
-                      onChange={handleFileInput}
-                    />
-                  </label>
-                </Button>
+                <label className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 cursor-pointer">
+                  Vybrat soubor
+                  <input
+                    type="file"
+                    accept=".json"
+                    className="hidden"
+                    onChange={handleFileInput}
+                  />
+                </label>
               </div>
             </CardContent>
           </Card>
@@ -493,9 +491,12 @@ export default function ImportConfigPage() {
                 <Button onClick={handleReset} variant="outline">
                   Importovat další soubor
                 </Button>
-                <Button asChild>
-                  <Link href="/">Zpět na hlavní stránku</Link>
-                </Button>
+                <Link
+                  href="/"
+                  className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
+                >
+                  Zpět na hlavní stránku
+                </Link>
               </div>
             </CardContent>
           </Card>

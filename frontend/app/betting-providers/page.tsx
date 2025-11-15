@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { EditProviderDialog } from "@/components/EditProviderDialog";
-import type { DataProvider } from "@/lib/api/types";
+import { ProviderType, type DataProvider } from "@/lib/api/types";
 
 export default function BettingProvidersPage() {
   const queryClient = useQueryClient();
@@ -79,12 +79,12 @@ export default function BettingProvidersPage() {
     }
   };
 
-  const getProviderTypeName = (type: number) => {
+  const getProviderTypeName = (type: ProviderType) => {
     switch (type) {
-      case 1: return "Scraper";
-      case 2: return "API";
-      case 3: return "Manual";
-      case 4: return "Betting Provider";
+      case ProviderType.Scraper: return "Scraper";
+      case ProviderType.API: return "API";
+      case ProviderType.Manual: return "Manual";
+      case ProviderType.BettingProvider: return "Betting Provider";
       default: return "Unknown";
     }
   };

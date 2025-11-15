@@ -447,6 +447,24 @@ public class ScanService : IScanService
                             await _countryRepo.UpdateAsync(country);
                             _logger.LogInformation("Auto-activated country {CountryId} ({CountryName}) - betting provider {Provider} has {Count} leagues",
                                 country.Id, country.Name, provider.Name, leaguesToCache.Count);
+
+                            // Create CountryProvider mapping for newly activated country
+                            // This ensures the country will be scanned in future league scans
+                            var existingMapping = await _countryProviderRepo.GetByCountryAndProviderAsync(country.Id, providerId);
+                            if (existingMapping == null)
+                            {
+                                var countryProvider = new Configuration.Entities.CountryProvider
+                                {
+                                    CountryId = country.Id,
+                                    ProviderId = providerId,
+                                    ProviderCode = country.Code,  // For betting providers, use standard country code
+                                    ProviderName = country.Name,  // For betting providers, use standard country name
+                                    IsActive = true
+                                };
+                                await _countryProviderRepo.AddAsync(countryProvider);
+                                _logger.LogInformation("Created CountryProvider mapping for auto-activated country {CountryId} ({CountryName}) and provider {ProviderId} ({ProviderName})",
+                                    country.Id, country.Name, providerId, provider.Name);
+                            }
                         }
                     }
                 }

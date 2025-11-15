@@ -15,18 +15,7 @@ import { useState } from "react";
 import { RefreshCw, Database } from "lucide-react";
 import { SyncDialog } from "@/components/SyncDialog";
 import { PaginationControls } from "@/components/PaginationControls";
-import { ProviderType } from "@/lib/api/types";
-
-interface DataProvider {
-  id: string;
-  name: string;
-  code: string;
-  baseUrl: string;
-  isActive: boolean;
-  priority: number;
-  type: number;
-  notes: string | null;
-}
+import { ProviderType, type DataProvider } from "@/lib/api/types";
 
 export default function ProvidersPage() {
   const queryClient = useQueryClient();

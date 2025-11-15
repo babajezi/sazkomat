@@ -28,6 +28,11 @@ RUN dotnet build -c Release -o /app/build
 FROM build AS publish
 RUN dotnet publish -c Release -o /app/publish /p:UseAppHost=false
 
+# Install Playwright in build stage
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN dotnet tool install --global Microsoft.Playwright.CLI && \
+    /root/.dotnet/tools/playwright install chromium --with-deps
+
 # Runtime Stage
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS runtime
 WORKDIR /app
@@ -58,13 +63,9 @@ RUN apt-get update && \
 # Copy published app
 COPY --from=publish /app/publish .
 
-# Install Playwright browsers
+# Copy Playwright browsers from build stage
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
-RUN pwsh bin/Debug/net9.0/playwright.ps1 install chromium --with-deps || \
-    (apt-get update && apt-get install -y dotnet-sdk-9.0 && \
-    dotnet tool install --global Microsoft.Playwright.CLI && \
-    /root/.dotnet/tools/playwright install chromium --with-deps && \
-    rm -rf /var/lib/apt/lists/*)
+COPY --from=publish /ms-playwright /ms-playwright
 
 # Create logs directory
 RUN mkdir -p /app/logs

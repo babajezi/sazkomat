@@ -101,8 +101,9 @@ export default function JobsPage() {
       return res.json();
     },
     enabled: !!selectedJob,
-    refetchInterval: (data) => {
+    refetchInterval: (query) => {
       // Stop polling if job is completed, partially completed, or failed
+      const data = query.state.data;
       return data?.status === "Completed" || data?.status === "PartiallyCompleted" || data?.status === "Failed" ? false : 2000;
     },
   });
@@ -131,6 +132,7 @@ export default function JobsPage() {
       Completed: "secondary",
       PartiallyCompleted: "outline", // Yellow/warning badge
       Failed: "destructive",
+      Cancelled: "outline",
     };
     const colors: Record<SyncJobStatus, string> = {
       Pending: "",
@@ -138,6 +140,7 @@ export default function JobsPage() {
       Completed: "",
       PartiallyCompleted: "text-yellow-700 border-yellow-400",
       Failed: "",
+      Cancelled: "text-gray-500",
     };
     return (
       <Badge variant={variants[status]} className={colors[status]}>
@@ -152,8 +155,8 @@ export default function JobsPage() {
         return "Scan";
       case "Import":
         return "Import";
-      case "LiveSync":
-        return "Live Sync";
+      case "LiveUpdate":
+        return "Live Update";
       default:
         return type;
     }

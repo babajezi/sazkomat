@@ -84,7 +84,7 @@ export function ResetDatabaseDialog({
             />
             {title}
           </DialogTitle>
-          <DialogDescription className="text-left">
+          <DialogDescription>
             {description}
           </DialogDescription>
         </DialogHeader>

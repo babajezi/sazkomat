@@ -143,6 +143,21 @@ frontend/
   - Zachování audit trail (data se nikdy nemažou)
 - **Job Type**: `SyncJobType.Scan`
 
+#### Auto-Activation Workflow (Betting Providers)
+Pro betting providery (Betano, Fortuna, atd.) existuje speciální auto-aktivační logika:
+
+- **Problém**: Země začínají jako neaktivní (`IsActive = false`) a aktivují se automaticky, když betting provider najde ligy v dané zemi
+- **Řešení**: Když ScanService aktivuje zemi, automaticky vytvoří i `CountryProvider` mapping
+- **Důvod**: Bez `CountryProvider` mappingu by se země neskenovaly v budoucích league scans (circular dependency)
+- **Implementace**: `ScanService.cs:440-469` - Po aktivaci země se vytvoří `CountryProvider` s:
+  - `CountryId` = ID aktivované země
+  - `ProviderId` = ID betting providera
+  - `ProviderCode` = standardní kód země (např. "CZ")
+  - `ProviderName` = standardní název země
+  - `IsActive` = true
+- **Bug Fix**: Opraveno 2025-11-14 - Dříve se vytvářelo jen `country.IsActive = true`, ale chybělo vytvoření mappingu
+- **Test**: `ScanServiceTests.cs:431` - `ScanLeaguesAsync_BettingProvider_AutoActivatesCountryAndCreatesMapping()`
+
 ### Krok 2: IMPORT (Cache to Config)
 - **Service**: `ImportService` (ne public API, voláno interně nebo přes jobs)
 - **Účel**: Importuje vybraná data z cache do hlavních konfiguračních tabulek

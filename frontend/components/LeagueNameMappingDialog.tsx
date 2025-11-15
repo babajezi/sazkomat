@@ -237,8 +237,8 @@ export function LeagueNameMappingDialog({
               <Checkbox
                 id="isActive"
                 checked={formData.isActive}
-                onCheckedChange={(checked) =>
-                  setFormData({ ...formData, isActive: checked as boolean })
+                onChange={(e) =>
+                  setFormData({ ...formData, isActive: e.target.checked })
                 }
               />
               <Label

@@ -428,6 +428,101 @@ public class ScanServiceTests
         _mockProviderLeagueRepo.Verify(r => r.CreateAsync(It.IsAny<ProviderLeague>()), Times.Once);
     }
 
+    [Fact]
+    public async Task ScanLeaguesAsync_BettingProvider_AutoActivatesCountryAndCreatesMapping()
+    {
+        // Arrange
+        var bettingProvider = new DataProvider
+        {
+            Id = Guid.NewGuid(),
+            Name = "Betano",
+            Code = "betano",
+            Type = ProviderType.BettingProvider,
+            BaseUrl = "https://www.betano.cz",
+            IsActive = true
+        };
+
+        var jobId = Guid.NewGuid();
+        var syncJob = new SyncJob
+        {
+            Id = jobId,
+            ProviderId = bettingProvider.Id,
+            Type = SyncJobType.Scan,
+            EntityType = SyncEntityType.Leagues,
+            Status = SyncJobStatus.Pending
+        };
+
+        // CRITICAL: Country starts INACTIVE
+        var country = new Country
+        {
+            Id = Guid.NewGuid(),
+            Name = "Czech Republic",
+            Code = "CZ",
+            IsActive = false  // Start INACTIVE - this is the key test scenario
+        };
+
+        var countryProvider = new CountryProvider
+        {
+            Id = Guid.NewGuid(),
+            CountryId = country.Id,
+            ProviderId = bettingProvider.Id,
+            ProviderCountryCode = "czech-republic",
+            IsActive = true,
+            Country = country
+        };
+
+        var scrapedLeagues = new List<LeagueMetadata>
+        {
+            new() { Name = "Czech Liga", Slug = "czech-republic/1-liga", DisplayName = "Czech Liga", Priority = 1, IsBettable = true }
+        };
+
+        _mockSyncJobRepo.Setup(r => r.GetByIdAsync(jobId))
+            .ReturnsAsync(syncJob);
+
+        _mockDataProviderRepo.Setup(r => r.GetByIdAsync(bettingProvider.Id))
+            .ReturnsAsync(bettingProvider);
+
+        _mockSportRepo.Setup(r => r.GetAllAsync())
+            .ReturnsAsync(new List<Sport> { _footballSport });
+
+        _mockLeagueScraper.Setup(s => s.CanHandle(bettingProvider))
+            .Returns(true);
+
+        _mockCountryProviderRepo.Setup(r => r.GetByProviderIdAsync(bettingProvider.Id))
+            .ReturnsAsync(new List<CountryProvider> { countryProvider });
+
+        // CRITICAL: No mapping exists initially
+        _mockCountryProviderRepo.Setup(r => r.GetByCountryAndProviderAsync(country.Id, bettingProvider.Id))
+            .ReturnsAsync((CountryProvider?)null);
+
+        _mockLeagueScraper.Setup(s => s.ScrapeLeaguesAsync(_footballSport, country))
+            .ReturnsAsync(scrapedLeagues);
+
+        _mockEnrichmentService.Setup(s => s.EnrichLeagueAsync(It.IsAny<LeagueMetadata>(), country, bettingProvider.Code))
+            .ReturnsAsync((LeagueMetadata league, Country c, string code) => league);
+
+        _mockProviderLeagueRepo.Setup(r => r.GetByProviderSlugAsync(bettingProvider.Id, It.IsAny<string>()))
+            .ReturnsAsync((ProviderLeague?)null);
+
+        // Act
+        await _service.ScanLeaguesInternalAsync(bettingProvider.Id, new List<Guid>(), jobId);
+
+        // Assert
+        Assert.Equal(SyncJobStatus.Completed, syncJob.Status);
+
+        // Verify country was activated
+        _mockCountryRepo.Verify(r => r.UpdateAsync(It.Is<Country>(c =>
+            c.Id == country.Id && c.IsActive == true)), Times.Once);
+
+        // Verify CountryProvider mapping was created
+        _mockCountryProviderRepo.Verify(r => r.AddAsync(It.Is<CountryProvider>(cp =>
+            cp.CountryId == country.Id &&
+            cp.ProviderId == bettingProvider.Id &&
+            cp.ProviderCode == country.Code &&
+            cp.ProviderName == country.Name &&
+            cp.IsActive == true)), Times.Once);
+    }
+
     #endregion
 
     #region ScanSeasons Tests

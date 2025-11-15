@@ -38,9 +38,20 @@ public class BetanoCountryScraper : ICountryScraper
             return new List<CountryInfo>();
         }
 
-        // Extract unique countries from league data
+        // Blacklist of international tournaments/competitions that should not be treated as countries
+        var excludedCodes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "champions-league", "europa-league", "conference-league",
+            "copa-libertadores", "copa-sudamericana",
+            "euro", "default", "esoccer",
+            "world", "international", "friendly"
+        };
+
+        // Extract unique countries from league data, excluding tournaments
         var countries = result.Value!
-            .Where(l => !string.IsNullOrEmpty(l.CountryCode) && !string.IsNullOrEmpty(l.CountryName))
+            .Where(l => !string.IsNullOrEmpty(l.CountryCode) &&
+                       !string.IsNullOrEmpty(l.CountryName) &&
+                       !excludedCodes.Contains(l.CountryCode))
             .GroupBy(l => l.CountryCode)
             .Select(g => new CountryInfo
             {
@@ -51,7 +62,8 @@ public class BetanoCountryScraper : ICountryScraper
             .OrderBy(c => c.Name)
             .ToList();
 
-        _logger.LogInformation("Found {Count} countries from Betano", countries.Count);
+        _logger.LogInformation("Found {Count} countries from Betano (excluded {Excluded} tournament codes)",
+            countries.Count, result.Value!.Count - countries.Count);
         return countries;
     }
 }

@@ -16,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SyncEntityType } from "@/lib/api/types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 const BETANO_PROVIDER_ID = "b0000000-0000-0000-0000-000000000001";
@@ -137,7 +138,7 @@ export default function SyncPage() {
 
             <div className="flex flex-wrap gap-3">
               <ScanDialog
-                entityType="Countries"
+                entityType={SyncEntityType.Countries}
                 trigger={
                   <Button variant="default">
                     <ScanLine className="mr-2 h-4 w-4" />
@@ -147,7 +148,7 @@ export default function SyncPage() {
               />
 
               <ScanDialog
-                entityType="Leagues"
+                entityType={SyncEntityType.Leagues}
                 trigger={
                   <Button variant="default">
                     <ScanLine className="mr-2 h-4 w-4" />
@@ -157,7 +158,7 @@ export default function SyncPage() {
               />
 
               <ScanDialog
-                entityType="Seasons"
+                entityType={SyncEntityType.Seasons}
                 trigger={
                   <Button variant="default">
                     <ScanLine className="mr-2 h-4 w-4" />

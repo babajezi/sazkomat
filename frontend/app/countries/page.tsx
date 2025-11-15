@@ -304,7 +304,7 @@ export default function CountriesPage() {
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <option value="">Všichni provideři</option>
-                  {providers?.filter(p => p.type === ProviderType.Scraper).length > 0 && (
+                  {(providers?.filter(p => p.type === ProviderType.Scraper) || []).length > 0 && (
                     <optgroup label="Scraper">
                       {providers?.filter(p => p.type === ProviderType.Scraper).map((provider) => (
                         <option key={provider.id} value={provider.id}>
@@ -313,7 +313,7 @@ export default function CountriesPage() {
                       ))}
                     </optgroup>
                   )}
-                  {providers?.filter(p => p.type === ProviderType.API).length > 0 && (
+                  {(providers?.filter(p => p.type === ProviderType.API) || []).length > 0 && (
                     <optgroup label="API">
                       {providers?.filter(p => p.type === ProviderType.API).map((provider) => (
                         <option key={provider.id} value={provider.id}>
@@ -322,7 +322,7 @@ export default function CountriesPage() {
                       ))}
                     </optgroup>
                   )}
-                  {providers?.filter(p => p.type === ProviderType.Manual).length > 0 && (
+                  {(providers?.filter(p => p.type === ProviderType.Manual) || []).length > 0 && (
                     <optgroup label="Manual">
                       {providers?.filter(p => p.type === ProviderType.Manual).map((provider) => (
                         <option key={provider.id} value={provider.id}>
@@ -331,7 +331,7 @@ export default function CountriesPage() {
                       ))}
                     </optgroup>
                   )}
-                  {providers?.filter(p => p.type === ProviderType.BettingProvider).length > 0 && (
+                  {(providers?.filter(p => p.type === ProviderType.BettingProvider) || []).length > 0 && (
                     <optgroup label="Betting Provider">
                       {providers?.filter(p => p.type === ProviderType.BettingProvider).map((provider) => (
                         <option key={provider.id} value={provider.id}>

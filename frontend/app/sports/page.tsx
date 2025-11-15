@@ -151,9 +151,9 @@ export default function SportsPage() {
               <CardContent>
                 <div className="space-y-2">
                   <div className="text-sm font-semibold">Provider Mappings:</div>
-                  {sport.sportProviders && sport.sportProviders.length > 0 ? (
+                  {(sport as any).sportProviders && (sport as any).sportProviders.length > 0 ? (
                     <div className="space-y-1">
-                      {sport.sportProviders.map((sp: any) => (
+                      {(sport as any).sportProviders.map((sp: any) => (
                         <div
                           key={sp.id}
                           className="flex items-center justify-between text-sm p-2 bg-gray-50 rounded"

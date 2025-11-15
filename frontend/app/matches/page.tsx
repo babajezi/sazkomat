@@ -384,13 +384,13 @@ export default function MatchesPage() {
                           <div className="w-48">
                             {(match.homeOdds || match.drawOdds || match.awayOdds) ? (
                               <div className="flex gap-1 justify-end font-mono text-sm">
-                                <span className={`min-w-[60px] text-right px-2 py-1 rounded ${getWinningOddsClass(match.result, "H")}`}>
+                                <span className={`min-w-[60px] text-right px-2 py-1 rounded ${getWinningOddsClass(match.result, MatchResult.Home)}`}>
                                   {match.homeOdds?.toFixed(2) || "-"}
                                 </span>
-                                <span className={`min-w-[60px] text-right px-2 py-1 rounded ${getWinningOddsClass(match.result, "D")}`}>
+                                <span className={`min-w-[60px] text-right px-2 py-1 rounded ${getWinningOddsClass(match.result, MatchResult.Draw)}`}>
                                   {match.drawOdds?.toFixed(2) || "-"}
                                 </span>
-                                <span className={`min-w-[60px] text-right px-2 py-1 rounded ${getWinningOddsClass(match.result, "A")}`}>
+                                <span className={`min-w-[60px] text-right px-2 py-1 rounded ${getWinningOddsClass(match.result, MatchResult.Away)}`}>
                                   {match.awayOdds?.toFixed(2) || "-"}
                                 </span>
                               </div>

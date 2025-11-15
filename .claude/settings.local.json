@@ -137,7 +137,12 @@
       "Bash(if not exist docs mkdir docs)",
       "Bash(if not exist docsarchive mkdir docsarchive)",
       "Bash(if not exist docsarchivesessions mkdir docsarchivesessions)",
-      "Bash(if not exist docstesting mkdir docstesting)"
+      "Bash(if not exist docstesting mkdir docstesting)",
+      "Bash(sudo lsof:*)",
+      "Bash(ss:*)",
+      "Bash(docker rm:*)",
+      "Bash(docker start:*)",
+      "Bash(docker images:*)"
     ],
     "additionalDirectories": [
       "c:\\projects\\claude-share"
