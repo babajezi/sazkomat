@@ -174,14 +174,28 @@ export default function Home() {
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mt-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>🔗 Mapování Názvů</CardTitle>
+                  <CardTitle>🔗 Mapování Názvů Lig</CardTitle>
                   <CardDescription>
                     Manuální mapování názvů lig mezi providery a BetExplorer
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <Link href="/mappings">
-                    <Button className="w-full" variant="outline">Správa mapování</Button>
+                    <Button className="w-full" variant="outline">Správa mapování lig</Button>
+                  </Link>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>🌍 Mapování Názvů Zemí</CardTitle>
+                  <CardDescription>
+                    Manuální mapování názvů zemí mezi providery a BetExplorer
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Link href="/country-mappings">
+                    <Button className="w-full" variant="outline">Správa mapování zemí</Button>
                   </Link>
                 </CardContent>
               </Card>

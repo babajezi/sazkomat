@@ -32,6 +32,9 @@ import type {
   LeagueNameMapping,
   CreateLeagueNameMappingRequest,
   UpdateLeagueNameMappingRequest,
+  CountryNameMapping,
+  CreateCountryNameMappingRequest,
+  UpdateCountryNameMappingRequest,
 } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
@@ -397,6 +400,60 @@ export const mappingApi = {
   toggleMappingActive: async (id: string): Promise<LeagueNameMapping> => {
     const { data } = await apiClient.post<LeagueNameMapping>(
       `/mappings/${id}/toggle`
+    );
+    return data;
+  },
+};
+
+export const countryMappingApi = {
+  getMappings: async (params?: {
+    providerCode?: string;
+    isActive?: boolean;
+  }): Promise<CountryNameMapping[]> => {
+    const { data } = await apiClient.get<CountryNameMapping[]>(
+      "/country-mappings",
+      {
+        params,
+      }
+    );
+    return data;
+  },
+
+  getMappingById: async (id: string): Promise<CountryNameMapping> => {
+    const { data } = await apiClient.get<CountryNameMapping>(
+      `/country-mappings/${id}`
+    );
+    return data;
+  },
+
+  createMapping: async (
+    request: CreateCountryNameMappingRequest
+  ): Promise<CountryNameMapping> => {
+    const { data } = await apiClient.post<CountryNameMapping>(
+      "/country-mappings",
+      request
+    );
+    return data;
+  },
+
+  updateMapping: async (
+    id: string,
+    request: UpdateCountryNameMappingRequest
+  ): Promise<CountryNameMapping> => {
+    const { data } = await apiClient.patch<CountryNameMapping>(
+      `/country-mappings/${id}`,
+      request
+    );
+    return data;
+  },
+
+  deleteMapping: async (id: string): Promise<void> => {
+    await apiClient.delete(`/country-mappings/${id}`);
+  },
+
+  toggleMappingActive: async (id: string): Promise<CountryNameMapping> => {
+    const { data } = await apiClient.post<CountryNameMapping>(
+      `/country-mappings/${id}/toggle`
     );
     return data;
   },

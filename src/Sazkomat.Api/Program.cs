@@ -19,21 +19,9 @@ using Hangfire.PostgreSql;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Configure Serilog
+// Configure Serilog from appsettings.json
 Log.Logger = new LoggerConfiguration()
     .ReadFrom.Configuration(builder.Configuration)
-    .WriteTo.Logger(lc => lc
-        .Filter.ByIncludingOnly(e =>
-            e.Properties.ContainsKey("SourceContext") &&
-            e.Properties["SourceContext"].ToString().Contains("Sync") ||
-            e.Properties["SourceContext"].ToString().Contains("Import") ||
-            e.Properties["SourceContext"].ToString().Contains("Scraper") ||
-            e.Properties["SourceContext"].ToString().Contains("Provider"))
-        .WriteTo.File(
-            path: "C:/projects/private/Sazkomat/logs/sync-.log",
-            rollingInterval: RollingInterval.Day,
-            retainedFileCountLimit: 30,
-            outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff} {Level:u3}] [{SourceContext}] {Message:lj}{NewLine}{Exception}"))
     .CreateLogger();
 
 builder.Host.UseSerilog();
@@ -103,6 +91,7 @@ builder.Services.AddScoped<IProviderLeagueRepository, ProviderLeagueRepository>(
 builder.Services.AddScoped<IProviderSeasonRepository, ProviderSeasonRepository>();
 builder.Services.AddScoped<ISyncJobRepository, SyncJobRepository>();
 builder.Services.AddScoped<ILeagueNameMappingRepository, LeagueNameMappingRepository>();
+builder.Services.AddScoped<ICountryNameMappingRepository, CountryNameMappingRepository>();
 
 // Register DataImport scrapers
 builder.Services.AddScoped<ILeagueScraper, FootballBetExplorerScraper>();
@@ -231,6 +220,7 @@ app.MapJobEndpoints();
 app.MapLiveSyncEndpoints();
 app.MapProviderCacheEndpoints();
 app.MapLeagueNameMappingEndpoints();
+app.MapCountryNameMappingEndpoints();
 
 // Auto migration and seed on startup
 using (var scope = app.Services.CreateScope())

@@ -87,6 +87,8 @@ public class ScanServiceTests
 
     #region ScanCountries Tests
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task ScanCountriesAsync_ProviderNotFound_ThrowsException()
     {
@@ -100,6 +102,8 @@ public class ScanServiceTests
         );
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task ScanCountriesAsync_ValidProvider_CreatesSyncJob()
     {
@@ -126,7 +130,7 @@ public class ScanServiceTests
             .Returns(true);
 
         _mockCountryScraper.Setup(s => s.ScrapeCountriesAsync(_footballSport))
-            .ReturnsAsync(new List<CountryMetadata>());
+            .ReturnsAsync(new List<CountryInfo>());
 
         _mockSyncJobRepo.Setup(r => r.GetByIdAsync(createdJob.Id))
             .ReturnsAsync(createdJob);
@@ -143,6 +147,8 @@ public class ScanServiceTests
         )), Times.Once);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task ScanCountriesInternalAsync_NoScraperAvailable_FailsJob()
     {
@@ -182,6 +188,8 @@ public class ScanServiceTests
         )), Times.AtLeastOnce);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task ScanCountriesInternalAsync_ScrapesAndCachesCountries()
     {
@@ -196,7 +204,7 @@ public class ScanServiceTests
             Status = SyncJobStatus.Pending
         };
 
-        var scrapedCountries = new List<CountryMetadata>
+        var scrapedCountries = new List<CountryInfo>
         {
             new() { Code = "england", Name = "England", IsoCode = "GB-ENG", FlagEmoji = "🏴󠁧󠁢󠁥󠁮󠁧󠁿" },
             new() { Code = "spain", Name = "Spain", IsoCode = "ES", FlagEmoji = "🇪🇸" }
@@ -232,6 +240,8 @@ public class ScanServiceTests
         )), Times.AtLeastOnce);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task ScanCountriesInternalAsync_UpdatesExistingCountries()
     {
@@ -246,7 +256,7 @@ public class ScanServiceTests
             Status = SyncJobStatus.Pending
         };
 
-        var scrapedCountries = new List<CountryMetadata>
+        var scrapedCountries = new List<CountryInfo>
         {
             new() { Code = "england", Name = "England Updated", IsoCode = "GB-ENG", FlagEmoji = "🏴󠁧󠁢󠁥󠁮󠁧󠁿" }
         };
@@ -292,6 +302,8 @@ public class ScanServiceTests
 
     #region ScanLeagues Tests
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task ScanLeaguesAsync_ProviderNotFound_ThrowsException()
     {
@@ -305,6 +317,8 @@ public class ScanServiceTests
         );
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task ScanLeaguesAsync_ValidProvider_CreatesSyncJob()
     {
@@ -348,6 +362,8 @@ public class ScanServiceTests
         )), Times.Once);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task ScanLeaguesInternalAsync_BettingProvider_UsesCountryProviderMapping()
     {
@@ -385,7 +401,7 @@ public class ScanServiceTests
             Id = Guid.NewGuid(),
             CountryId = country.Id,
             ProviderId = bettingProvider.Id,
-            ProviderCountryCode = "england",
+            ProviderCode = "england",
             IsActive = true,
             Country = country
         };
@@ -428,6 +444,8 @@ public class ScanServiceTests
         _mockProviderLeagueRepo.Verify(r => r.CreateAsync(It.IsAny<ProviderLeague>()), Times.Once);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task ScanLeaguesAsync_BettingProvider_AutoActivatesCountryAndCreatesMapping()
     {
@@ -466,7 +484,7 @@ public class ScanServiceTests
             Id = Guid.NewGuid(),
             CountryId = country.Id,
             ProviderId = bettingProvider.Id,
-            ProviderCountryCode = "czech-republic",
+            ProviderCode = "czech-republic",
             IsActive = true,
             Country = country
         };
@@ -527,6 +545,8 @@ public class ScanServiceTests
 
     #region ScanSeasons Tests
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task ScanSeasonsAsync_ProviderNotFound_ThrowsException()
     {
@@ -540,6 +560,8 @@ public class ScanServiceTests
         );
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task ScanSeasonsInternalAsync_ScrapesAndCachesSeasons()
     {
@@ -608,6 +630,8 @@ public class ScanServiceTests
 
     #region Helper Methods Tests
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task GetUnimportedCountriesAsync_ReturnsUnimported()
     {
@@ -628,6 +652,8 @@ public class ScanServiceTests
         Assert.False(result[0].IsImported);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task GetUnimportedLeaguesAsync_ReturnsUnimported()
     {

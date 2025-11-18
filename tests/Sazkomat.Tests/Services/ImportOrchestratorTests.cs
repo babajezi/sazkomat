@@ -2,6 +2,7 @@ using Moq;
 using Microsoft.Extensions.Logging;
 using Sazkomat.Configuration.Entities;
 using Sazkomat.Configuration.Repositories;
+using Sazkomat.Configuration.Services;
 using Sazkomat.DataImport.DTOs;
 using Sazkomat.DataImport.Entities;
 using Sazkomat.DataImport.Repositories;
@@ -13,28 +14,42 @@ namespace Sazkomat.Tests.Services;
 public class ImportOrchestratorTests
 {
     private readonly Mock<ILeagueRepository> _mockLeagueRepository;
+    private readonly Mock<ISeasonRepository> _mockSeasonRepository;
     private readonly Mock<IRoundRepository> _mockRoundRepository;
     private readonly Mock<IImportJobRepository> _mockImportJobRepository;
-    private readonly ScraperFactory _scraperFactory;
+    private readonly Mock<ISeasonService> _mockSeasonService;
+    private readonly Mock<ISeasonScraper> _mockSeasonScraper;
+    private readonly Mock<IDataProviderRepository> _mockDataProviderRepository;
+    private readonly Mock<Microsoft.Extensions.DependencyInjection.IServiceScopeFactory> _mockScopeFactory;
     private readonly Mock<ILogger<ImportOrchestrator>> _mockLogger;
     private readonly ImportOrchestrator _orchestrator;
 
     public ImportOrchestratorTests()
     {
         _mockLeagueRepository = new Mock<ILeagueRepository>();
+        _mockSeasonRepository = new Mock<ISeasonRepository>();
         _mockRoundRepository = new Mock<IRoundRepository>();
         _mockImportJobRepository = new Mock<IImportJobRepository>();
-        _scraperFactory = new ScraperFactory(Enumerable.Empty<ILeagueScraper>());
+        _mockSeasonService = new Mock<ISeasonService>();
+        _mockSeasonScraper = new Mock<ISeasonScraper>();
+        _mockDataProviderRepository = new Mock<IDataProviderRepository>();
+        _mockScopeFactory = new Mock<Microsoft.Extensions.DependencyInjection.IServiceScopeFactory>();
         _mockLogger = new Mock<ILogger<ImportOrchestrator>>();
 
         _orchestrator = new ImportOrchestrator(
             _mockLeagueRepository.Object,
+            _mockSeasonRepository.Object,
             _mockRoundRepository.Object,
             _mockImportJobRepository.Object,
-            _scraperFactory,
+            _mockSeasonService.Object,
+            _mockSeasonScraper.Object,
+            _mockDataProviderRepository.Object,
+            _mockScopeFactory.Object,
             _mockLogger.Object);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task StartHistoricalImportAsync_NoLeagues_ReturnsFailure()
     {
@@ -52,6 +67,8 @@ public class ImportOrchestratorTests
         Assert.Contains("At least one league must be provided", result.Error);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task StartHistoricalImportAsync_NoSeasons_ReturnsFailure()
     {
@@ -69,6 +86,8 @@ public class ImportOrchestratorTests
         Assert.Contains("At least one season must be provided", result.Error);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task StartHistoricalImportAsync_LeagueNotFound_ReturnsFailure()
     {
@@ -90,6 +109,8 @@ public class ImportOrchestratorTests
         Assert.Contains("not found", result.Error);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task StartHistoricalImportAsync_LeagueNotEnabled_ReturnsFailure()
     {
@@ -120,6 +141,8 @@ public class ImportOrchestratorTests
         Assert.Contains("is not enabled for import", result.Error);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task StartHistoricalImportAsync_ValidRequest_CreatesJob()
     {
@@ -143,6 +166,10 @@ public class ImportOrchestratorTests
             }
         };
 
+        var season1Id = Guid.NewGuid();
+        var season2Id = Guid.NewGuid();
+        var seasonIds = new List<Guid> { season1Id, season2Id };
+
         var request = new HistoricalImportRequest(
             new List<Guid> { leagueId },
             new List<string> { "2023/2024", "2022/2023" },
@@ -154,13 +181,13 @@ public class ImportOrchestratorTests
             LeagueId = leagueId,
             Type = ImportJobType.Historical,
             Status = ImportJobStatus.Pending,
-            Seasons = request.Seasons,
+            SeasonIds = seasonIds,
             IncludeWithoutOdds = false,
             StartedAt = DateTime.UtcNow,
             Progress = new ImportProgressData
             {
                 TotalSeasons = 2,
-                ProcessedSeasons = new List<string>(),
+                ProcessedSeasonIds = new List<Guid>(),
                 ProcessedRounds = 0,
                 Errors = new List<string>()
             }
@@ -185,24 +212,27 @@ public class ImportOrchestratorTests
         _mockImportJobRepository.Verify(r => r.CreateAsync(It.IsAny<ImportJob>()), Times.Once);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task GetJobStatusAsync_JobExists_ReturnsJob()
     {
         // Arrange
         var jobId = Guid.NewGuid();
+        var seasonId = Guid.NewGuid();
         var job = new ImportJob
         {
             Id = jobId,
             LeagueId = Guid.NewGuid(),
             Type = ImportJobType.Historical,
             Status = ImportJobStatus.Running,
-            Seasons = new List<string> { "2023/2024" },
+            SeasonIds = new List<Guid> { seasonId },
             IncludeWithoutOdds = false,
             StartedAt = DateTime.UtcNow,
             Progress = new ImportProgressData
             {
                 TotalSeasons = 1,
-                ProcessedSeasons = new List<string>(),
+                ProcessedSeasonIds = new List<Guid>(),
                 ProcessedRounds = 0,
                 Errors = new List<string>()
             }
@@ -220,6 +250,8 @@ public class ImportOrchestratorTests
         Assert.Equal(ImportJobStatus.Running, result.Status);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task GetJobStatusAsync_JobNotFound_ReturnsNull()
     {
@@ -235,6 +267,8 @@ public class ImportOrchestratorTests
         Assert.Null(result);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task GetImportStatsAsync_NoRounds_ReturnsNull()
     {
@@ -250,18 +284,25 @@ public class ImportOrchestratorTests
         Assert.Null(result);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task GetImportStatsAsync_WithRounds_ReturnsStats()
     {
         // Arrange
         var leagueId = Guid.NewGuid();
+        var season1Id = Guid.NewGuid();
+        var season2Id = Guid.NewGuid();
+        var providerId = Guid.NewGuid();
+
         var rounds = new List<Round>
         {
             new Round
             {
                 Id = Guid.NewGuid(),
                 LeagueId = leagueId,
-                Season = "2023/2024",
+                SeasonId = season1Id,
+                ProviderId = providerId,
                 RoundNumber = 1,
                 MatchesCount = 10,
                 HomeWins = 4,
@@ -272,14 +313,14 @@ public class ImportOrchestratorTests
                 CumulativeOddsAway = 1500m,
                 SummaryResult = "4-3-3",
                 OddsComplete = "Yes",
-                ScrapedAt = DateTime.UtcNow,
-                DataSource = "betexplorer.com"
+                ScrapedAt = DateTime.UtcNow
             },
             new Round
             {
                 Id = Guid.NewGuid(),
                 LeagueId = leagueId,
-                Season = "2023/2024",
+                SeasonId = season1Id,
+                ProviderId = providerId,
                 RoundNumber = 2,
                 MatchesCount = 10,
                 HomeWins = 5,
@@ -290,14 +331,14 @@ public class ImportOrchestratorTests
                 CumulativeOddsAway = 1600m,
                 SummaryResult = "5-2-3",
                 OddsComplete = "Yes",
-                ScrapedAt = DateTime.UtcNow,
-                DataSource = "betexplorer.com"
+                ScrapedAt = DateTime.UtcNow
             },
             new Round
             {
                 Id = Guid.NewGuid(),
                 LeagueId = leagueId,
-                Season = "2022/2023",
+                SeasonId = season2Id,
+                ProviderId = providerId,
                 RoundNumber = 1,
                 MatchesCount = 10,
                 HomeWins = 6,
@@ -308,8 +349,7 @@ public class ImportOrchestratorTests
                 CumulativeOddsAway = 1700m,
                 SummaryResult = "6-2-2",
                 OddsComplete = "Yes",
-                ScrapedAt = DateTime.UtcNow,
-                DataSource = "betexplorer.com"
+                ScrapedAt = DateTime.UtcNow
             }
         };
 

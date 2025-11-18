@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Sazkomat.DataImport.Data;
 using Sazkomat.DataImport.Entities;
 using Sazkomat.DataImport.Repositories;
+using Sazkomat.Tests.Helpers;
 
 namespace Sazkomat.Tests.DataImport;
 
@@ -18,10 +19,12 @@ public class ImportJobRepositoryTests : IDisposable
             .Options;
 
         _context = new DataImportDbContext(options);
-        _repository = new ImportJobRepository(_context);
+        _repository = new ImportJobRepository(_context, TestHelpers.CreateMockLogger<ImportJobRepository>());
         _testLeagueId = Guid.NewGuid();
     }
 
+    [Trait("Category", "Fast")]
+    [Trait("Type", "Repository")]
     [Fact]
     public async Task GetByIdAsync_ExistingJob_ReturnsJob()
     {
@@ -32,13 +35,13 @@ public class ImportJobRepositoryTests : IDisposable
             LeagueId = _testLeagueId,
             Type = ImportJobType.Historical,
             Status = ImportJobStatus.Pending,
-            Seasons = new List<string> { "2023/2024", "2022/2023" },
+            SeasonIds = new List<Guid> { Guid.NewGuid(), Guid.NewGuid() },
             IncludeWithoutOdds = false,
             StartedAt = DateTime.UtcNow,
             Progress = new ImportProgressData
             {
                 TotalSeasons = 2,
-                ProcessedSeasons = new List<string>(),
+                ProcessedSeasonIds = new List<Guid>(),
                 ProcessedRounds = 0,
                 Errors = new List<string>()
             }
@@ -54,9 +57,11 @@ public class ImportJobRepositoryTests : IDisposable
         Assert.NotNull(result);
         Assert.Equal(job.Id, result.Id);
         Assert.Equal(ImportJobStatus.Pending, result.Status);
-        Assert.Equal(2, result.Seasons.Count);
+        Assert.Equal(2, result.SeasonIds.Count);
     }
 
+    [Trait("Category", "Fast")]
+    [Trait("Type", "Repository")]
     [Fact]
     public async Task CreateAsync_ValidJob_AddsJob()
     {
@@ -67,13 +72,13 @@ public class ImportJobRepositoryTests : IDisposable
             LeagueId = _testLeagueId,
             Type = ImportJobType.Historical,
             Status = ImportJobStatus.Pending,
-            Seasons = new List<string> { "2023/2024" },
+            SeasonIds = new List<Guid> { Guid.NewGuid() },
             IncludeWithoutOdds = true,
             StartedAt = DateTime.UtcNow,
             Progress = new ImportProgressData
             {
                 TotalSeasons = 1,
-                ProcessedSeasons = new List<string>(),
+                ProcessedSeasonIds = new List<Guid>(),
                 ProcessedRounds = 0,
                 Errors = new List<string>()
             }
@@ -86,9 +91,11 @@ public class ImportJobRepositoryTests : IDisposable
         // Assert
         Assert.NotNull(result);
         Assert.Equal(job.Id, result.Id);
-        Assert.Single(result.Seasons);
+        Assert.Single(result.SeasonIds);
     }
 
+    [Trait("Category", "Fast")]
+    [Trait("Type", "Repository")]
     [Fact]
     public async Task UpdateAsync_ExistingJob_UpdatesJob()
     {
@@ -99,13 +106,13 @@ public class ImportJobRepositoryTests : IDisposable
             LeagueId = _testLeagueId,
             Type = ImportJobType.Historical,
             Status = ImportJobStatus.Pending,
-            Seasons = new List<string> { "2023/2024" },
+            SeasonIds = new List<Guid> { Guid.NewGuid() },
             IncludeWithoutOdds = false,
             StartedAt = DateTime.UtcNow,
             Progress = new ImportProgressData
             {
                 TotalSeasons = 1,
-                ProcessedSeasons = new List<string>(),
+                ProcessedSeasonIds = new List<Guid>(),
                 ProcessedRounds = 0,
                 Errors = new List<string>()
             }
@@ -116,7 +123,7 @@ public class ImportJobRepositoryTests : IDisposable
 
         // Act
         job.Status = ImportJobStatus.Running;
-        job.Progress.ProcessedSeasons.Add("2023/2024");
+        job.Progress.ProcessedSeasonIds.Add(Guid.NewGuid());
         await _repository.UpdateAsync(job);
 
         var result = await _context.ImportJobs.FindAsync(job.Id);
@@ -124,9 +131,11 @@ public class ImportJobRepositoryTests : IDisposable
         // Assert
         Assert.NotNull(result);
         Assert.Equal(ImportJobStatus.Running, result.Status);
-        Assert.Single(result.Progress.ProcessedSeasons);
+        Assert.Single(result.Progress.ProcessedSeasonIds);
     }
 
+    [Trait("Category", "Fast")]
+    [Trait("Type", "Repository")]
     [Fact]
     public async Task GetByLeagueIdAsync_FiltersByLeague()
     {
@@ -140,7 +149,7 @@ public class ImportJobRepositoryTests : IDisposable
             LeagueId = leagueId1,
             Type = ImportJobType.Historical,
             Status = ImportJobStatus.Pending,
-            Seasons = new List<string> { "2023/2024" },
+            SeasonIds = new List<Guid> { Guid.NewGuid() },
             IncludeWithoutOdds = false,
             StartedAt = DateTime.UtcNow,
             Progress = new ImportProgressData()
@@ -152,7 +161,7 @@ public class ImportJobRepositoryTests : IDisposable
             LeagueId = leagueId2,
             Type = ImportJobType.Historical,
             Status = ImportJobStatus.Pending,
-            Seasons = new List<string> { "2023/2024" },
+            SeasonIds = new List<Guid> { Guid.NewGuid() },
             IncludeWithoutOdds = false,
             StartedAt = DateTime.UtcNow,
             Progress = new ImportProgressData()

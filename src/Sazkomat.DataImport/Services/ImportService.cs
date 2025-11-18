@@ -21,6 +21,7 @@ public class ImportService : IImportService
     private readonly ICountryProviderRepository _countryProviderRepo;
     private readonly ILeagueProviderRepository _leagueProviderRepo;
     private readonly ISportRepository _sportRepo;
+    private readonly ICountryNameMappingRepository _countryNameMappingRepo;
     private readonly ILogger<ImportService> _logger;
 
     public ImportService(
@@ -36,6 +37,7 @@ public class ImportService : IImportService
         ICountryProviderRepository countryProviderRepo,
         ILeagueProviderRepository leagueProviderRepo,
         ISportRepository sportRepo,
+        ICountryNameMappingRepository countryNameMappingRepo,
         ILogger<ImportService> logger)
     {
         _providerCountryRepo = providerCountryRepo;
@@ -50,6 +52,7 @@ public class ImportService : IImportService
         _countryProviderRepo = countryProviderRepo;
         _leagueProviderRepo = leagueProviderRepo;
         _sportRepo = sportRepo;
+        _countryNameMappingRepo = countryNameMappingRepo;
         _logger = logger;
     }
 
@@ -64,16 +67,17 @@ public class ImportService : IImportService
             throw new ArgumentException($"Provider {providerId} not found", nameof(providerId));
         }
 
-        // If providerCountryIds not provided, use all cached countries for this provider
-        List<Guid> countryIdsToImport = providerCountryIds ??
-            (await _providerCountryRepo.GetByProviderIdAsync(providerId))
+        // If providerCountryIds not provided or empty, use all cached countries for this provider
+        List<Guid> countryIdsToImport = (providerCountryIds == null || !providerCountryIds.Any())
+            ? (await _providerCountryRepo.GetByProviderIdAsync(providerId))
                 .Select(pc => pc.Id)
-                .ToList();
+                .ToList()
+            : providerCountryIds;
 
-        // Validate providerCountryIds not empty
+        // Validate countryIdsToImport not empty
         if (!countryIdsToImport.Any())
         {
-            throw new ArgumentException("No provider country IDs provided", nameof(providerCountryIds));
+            throw new ArgumentException("No countries found in cache for this provider", nameof(providerId));
         }
 
         var syncJob = new SyncJob
@@ -113,6 +117,9 @@ public class ImportService : IImportService
             int errorCount = 0;
             var errors = new List<string>();
 
+            // Get provider once for later use
+            var provider = await _dataProviderRepo.GetByIdAsync(syncJob.ProviderId);
+
             foreach (var providerCountryId in providerCountryIds)
             {
                 try
@@ -136,15 +143,52 @@ public class ImportService : IImportService
                         continue;
                     }
 
-                    // Check if Country with same IsoCode already exists
+                    // Check if Country with same Code already exists (Code has unique constraint)
                     Country? country = null;
-                    if (!string.IsNullOrEmpty(providerCountry.IsoCode))
+                    CountryNameMapping? countryMapping = null;
+
+                    // STEP 1: Try manual country name mapping (highest priority)
+                    if (provider != null)
+                    {
+                        countryMapping = await _countryNameMappingRepo.FindMappingAsync(
+                            provider.Code.ToLowerInvariant(),
+                            providerCountry.ProviderCode);
+
+                        if (countryMapping != null)
+                        {
+                            country = await _countryRepo.GetByCodeAsync(countryMapping.BetExplorerCode);
+                            if (country != null)
+                            {
+                                _logger.LogInformation("🗺️  Country found via manual mapping: {ProviderName} '{ProviderCode}' → '{BetExplorerCode}'",
+                                    providerCountry.ProviderName, providerCountry.ProviderCode, countryMapping.BetExplorerCode);
+                            }
+                        }
+                    }
+
+                    // STEP 2: Try to find by IsoCode (for scrapers like BetExplorer)
+                    if (country == null && !string.IsNullOrEmpty(providerCountry.IsoCode))
                     {
                         country = await _countryRepo.GetByCodeAsync(providerCountry.IsoCode);
                     }
 
+                    // STEP 3: Try to find by ProviderCode (fallback for betting providers like Betano)
                     if (country == null)
                     {
+                        country = await _countryRepo.GetByCodeAsync(providerCountry.ProviderCode);
+                    }
+
+                    if (country == null)
+                    {
+                        // CRITICAL RULE: Only Scraper providers (BetExplorer) can create new countries
+                        // Betting providers (Betano, Fortuna) can ONLY create CountryProvider mappings
+                        if (provider.Type != ProviderType.Scraper)
+                        {
+                            _logger.LogWarning("⊗ Skipping country - not found in configuration and provider is not Scraper: {Name} ({Code})",
+                                providerCountry.ProviderName, providerCountry.ProviderCode);
+                            skippedCount++;
+                            continue;
+                        }
+
                         // Create new Country (inactive by default)
                         // Countries are auto-activated during scan leagues when betting providers have leagues in them
                         country = new Country
@@ -156,13 +200,13 @@ public class ImportService : IImportService
                             IsActive = false
                         };
                         country = await _countryRepo.CreateAsync(country);
-                        _logger.LogInformation("Created new Country {CountryId} ({Name}) (inactive - will be activated when betting providers scan leagues)",
-                            country.Id, country.Name);
+                        _logger.LogInformation("✓ Imported country → configuration.countries: {Name} ({Code}) {Flag}",
+                            country.Name, country.Code, country.FlagEmoji);
                     }
                     else
                     {
-                        _logger.LogInformation("Country {CountryId} ({Name}) already exists, reusing",
-                            country.Id, country.Name);
+                        _logger.LogInformation("⊘ Country already exists: {Name} ({Code}), reusing",
+                            country.Name, country.Code);
                     }
 
                     // Create or update CountryProvider mapping
@@ -181,8 +225,8 @@ public class ImportService : IImportService
                             Metadata = providerCountry.RawData
                         };
                         await _countryProviderRepo.AddAsync(countryProvider);
-                        _logger.LogInformation("Created CountryProvider mapping for Country {CountryId} and Provider {ProviderId}",
-                            country.Id, syncJob.ProviderId);
+                        _logger.LogInformation("✓ Created CountryProvider mapping: {Country} ↔ Provider {ProviderId}",
+                            country.Name, syncJob.ProviderId);
                     }
                     else
                     {
@@ -192,8 +236,14 @@ public class ImportService : IImportService
                         existingMapping.Metadata = providerCountry.RawData;
                         existingMapping.IsActive = true;
                         await _countryProviderRepo.UpdateAsync(existingMapping);
-                        _logger.LogInformation("Updated CountryProvider mapping for Country {CountryId}",
-                            country.Id);
+                        _logger.LogInformation("↻ Updated CountryProvider mapping: {Country}",
+                            country.Name);
+                    }
+
+                    // Track usage of CountryNameMapping if it was used
+                    if (countryMapping != null)
+                    {
+                        await _countryNameMappingRepo.TrackUsageAsync(countryMapping.Id, providerCountry.Id);
                     }
 
                     // Mark ProviderCountry as imported
@@ -281,16 +331,17 @@ public class ImportService : IImportService
             throw new ArgumentException($"Provider {providerId} not found", nameof(providerId));
         }
 
-        // If providerLeagueIds not provided, use all cached leagues for this provider
-        List<Guid> leagueIdsToImport = providerLeagueIds ??
-            (await _providerLeagueRepo.GetByProviderIdAsync(providerId))
+        // If providerLeagueIds not provided or empty, use all cached leagues for this provider
+        List<Guid> leagueIdsToImport = (providerLeagueIds == null || !providerLeagueIds.Any())
+            ? (await _providerLeagueRepo.GetByProviderIdAsync(providerId))
                 .Select(pl => pl.Id)
-                .ToList();
+                .ToList()
+            : providerLeagueIds;
 
-        // Validate providerLeagueIds not empty
+        // Validate leagueIdsToImport not empty
         if (!leagueIdsToImport.Any())
         {
-            throw new ArgumentException("No provider league IDs provided", nameof(providerLeagueIds));
+            throw new ArgumentException("No leagues found in cache for this provider", nameof(providerId));
         }
 
         var syncJob = new SyncJob
@@ -434,6 +485,7 @@ public class ImportService : IImportService
                     if (league == null)
                     {
                         // Create new League
+                        // All providers (including betting providers) can create leagues if they are mapped to BetExplorer
                         league = new League
                         {
                             SportId = defaultSport.Id,
@@ -448,8 +500,8 @@ public class ImportService : IImportService
                             Notes = $"Imported from provider {provider?.Name}"
                         };
                         league = await _leagueRepo.CreateAsync(league);
-                        _logger.LogInformation("Created new League {LeagueId} ({Name})",
-                            league.Id, league.Name);
+                        _logger.LogInformation("✓ Created new League {LeagueId} ({Name}) from provider {Provider}",
+                            league.Id, league.Name, provider?.Name ?? "Unknown");
                     }
                     else
                     {
@@ -575,16 +627,17 @@ public class ImportService : IImportService
             throw new ArgumentException($"Provider {providerId} not found", nameof(providerId));
         }
 
-        // If providerSeasonIds not provided, use all cached seasons for this provider
-        List<Guid> seasonIdsToImport = providerSeasonIds ??
-            (await _providerSeasonRepo.GetByProviderIdAsync(providerId))
+        // If providerSeasonIds not provided or empty, use all cached seasons for this provider
+        List<Guid> seasonIdsToImport = (providerSeasonIds == null || !providerSeasonIds.Any())
+            ? (await _providerSeasonRepo.GetByProviderIdAsync(providerId))
                 .Select(ps => ps.Id)
-                .ToList();
+                .ToList()
+            : providerSeasonIds;
 
-        // Validate providerSeasonIds not empty
+        // Validate seasonIdsToImport not empty
         if (!seasonIdsToImport.Any())
         {
-            throw new ArgumentException("No provider season IDs provided", nameof(providerSeasonIds));
+            throw new ArgumentException("No seasons found in cache for this provider", nameof(providerId));
         }
 
         var syncJob = new SyncJob

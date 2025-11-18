@@ -22,6 +22,7 @@ public class ImportServiceTests
     private readonly Mock<ICountryProviderRepository> _mockCountryProviderRepo;
     private readonly Mock<ILeagueProviderRepository> _mockLeagueProviderRepo;
     private readonly Mock<ISportRepository> _mockSportRepo;
+    private readonly Mock<ICountryNameMappingRepository> _mockCountryNameMappingRepo;
     private readonly Mock<ILogger<ImportService>> _mockLogger;
     private readonly ImportService _service;
 
@@ -43,6 +44,7 @@ public class ImportServiceTests
         _mockCountryProviderRepo = new Mock<ICountryProviderRepository>();
         _mockLeagueProviderRepo = new Mock<ILeagueProviderRepository>();
         _mockSportRepo = new Mock<ISportRepository>();
+        _mockCountryNameMappingRepo = new Mock<ICountryNameMappingRepository>();
         _mockLogger = new Mock<ILogger<ImportService>>();
 
         _providerId = Guid.NewGuid();
@@ -76,12 +78,15 @@ public class ImportServiceTests
             _mockCountryProviderRepo.Object,
             _mockLeagueProviderRepo.Object,
             _mockSportRepo.Object,
+            _mockCountryNameMappingRepo.Object,
             _mockLogger.Object
         );
     }
 
     #region ImportCountries Tests
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task ImportCountriesFromCacheAsync_ProviderNotFound_ThrowsException()
     {
@@ -95,6 +100,8 @@ public class ImportServiceTests
         );
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task ImportCountriesFromCacheAsync_EmptyList_ThrowsException()
     {
@@ -111,6 +118,8 @@ public class ImportServiceTests
         );
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task ImportCountriesInternalAsync_CreatesNewCountry()
     {
@@ -146,7 +155,7 @@ public class ImportServiceTests
             .ReturnsAsync((Country?)null);
 
         _mockCountryRepo.Setup(r => r.CreateAsync(It.IsAny<Country>()))
-            .ReturnsAsync((Country c) => { c.Id = Guid.NewGuid(); return c; });
+            .ReturnsAsync((Country c) => new Country { Id = Guid.NewGuid(), Name = c.Name, Code = c.Code, IsoCode = c.IsoCode, IsActive = c.IsActive });
 
         _mockCountryProviderRepo.Setup(r => r.GetByCountryAndProviderAsync(It.IsAny<Guid>(), _providerId))
             .ReturnsAsync((CountryProvider?)null);
@@ -166,6 +175,8 @@ public class ImportServiceTests
         _mockCountryProviderRepo.Verify(r => r.AddAsync(It.IsAny<CountryProvider>()), Times.Once);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task ImportCountriesInternalAsync_ReusesExistingCountry()
     {
@@ -220,6 +231,8 @@ public class ImportServiceTests
         _mockCountryProviderRepo.Verify(r => r.AddAsync(It.IsAny<CountryProvider>()), Times.Once);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task ImportCountriesInternalAsync_SkipsAlreadyImported()
     {
@@ -259,6 +272,8 @@ public class ImportServiceTests
         _mockCountryProviderRepo.Verify(r => r.AddAsync(It.IsAny<CountryProvider>()), Times.Never);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task ImportCountriesInternalAsync_UpdatesExistingMapping()
     {
@@ -328,6 +343,8 @@ public class ImportServiceTests
 
     #region ImportLeagues Tests
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task ImportLeaguesFromCacheAsync_ProviderNotFound_ThrowsException()
     {
@@ -341,6 +358,8 @@ public class ImportServiceTests
         );
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task ImportLeaguesInternalAsync_CreatesNewLeague()
     {
@@ -381,7 +400,7 @@ public class ImportServiceTests
             IsBettable = true,
             Priority = 1,
             IsImported = false,
-            MappingStatus = MappingStatus.Mapped
+            MappingStatus = MappingStatus.AutoMapped
         };
 
         _mockSyncJobRepo.Setup(r => r.GetByIdAsync(jobId))
@@ -406,7 +425,15 @@ public class ImportServiceTests
             .ReturnsAsync((LeagueProvider?)null);
 
         _mockLeagueRepo.Setup(r => r.CreateAsync(It.IsAny<League>()))
-            .ReturnsAsync((League l) => { l.Id = Guid.NewGuid(); return l; });
+            .ReturnsAsync((League l) => new League
+            {
+                Id = Guid.NewGuid(),
+                Name = l.Name,
+                SportId = l.SportId,
+                CountryId = l.CountryId,
+                IsSyncEnabled = l.IsSyncEnabled,
+                IsActive = l.IsActive
+            });
 
         // Act
         await _service.ImportLeaguesFromCacheInternalAsync(jobId, new List<Guid> { providerLeague.Id });
@@ -423,6 +450,8 @@ public class ImportServiceTests
         _mockLeagueProviderRepo.Verify(r => r.AddAsync(It.IsAny<LeagueProvider>()), Times.Once);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task ImportLeaguesInternalAsync_SkipsUnmappedLeagues()
     {
@@ -468,6 +497,8 @@ public class ImportServiceTests
         _mockLeagueRepo.Verify(r => r.CreateAsync(It.IsAny<League>()), Times.Never);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task ImportLeaguesInternalAsync_UpdatesExistingLeague()
     {
@@ -525,7 +556,7 @@ public class ImportServiceTests
             IsBettable = true,
             Priority = 5,
             IsImported = false,
-            MappingStatus = MappingStatus.Mapped
+            MappingStatus = MappingStatus.AutoMapped
         };
 
         _mockSyncJobRepo.Setup(r => r.GetByIdAsync(jobId))
@@ -567,6 +598,8 @@ public class ImportServiceTests
 
     #region ImportSeasons Tests
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task ImportSeasonsFromCacheAsync_ProviderNotFound_ThrowsException()
     {
@@ -580,6 +613,8 @@ public class ImportServiceTests
         );
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task ImportSeasonsInternalAsync_CreatesNewSeason()
     {
@@ -639,7 +674,7 @@ public class ImportServiceTests
             .ReturnsAsync((Season?)null);
 
         _mockSeasonRepo.Setup(r => r.CreateAsync(It.IsAny<Season>()))
-            .ReturnsAsync((Season s) => { s.Id = Guid.NewGuid(); return s; });
+            .ReturnsAsync((Season s) => new Season { Id = Guid.NewGuid(), Name = s.Name, StartYear = s.StartYear, EndYear = s.EndYear });
 
         _mockLeagueSeasonRepo.Setup(r => r.GetByLeagueAndSeasonAsync(It.IsAny<Guid>(), It.IsAny<Guid>()))
             .ReturnsAsync((LeagueSeason?)null);
@@ -662,6 +697,8 @@ public class ImportServiceTests
         )), Times.Once);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task ImportSeasonsInternalAsync_CurrentSeason_SetsSyncModeCurrent()
     {
@@ -695,7 +732,7 @@ public class ImportServiceTests
         _mockProviderLeagueRepo.Setup(r => r.GetByIdAsync(providerLeague.Id)).ReturnsAsync(providerLeague);
         _mockLeagueRepo.Setup(r => r.GetByIdAsync(league.Id)).ReturnsAsync(league);
         _mockSeasonRepo.Setup(r => r.GetByNameAsync(providerSeason.SeasonName)).ReturnsAsync((Season?)null);
-        _mockSeasonRepo.Setup(r => r.CreateAsync(It.IsAny<Season>())).ReturnsAsync((Season s) => { s.Id = Guid.NewGuid(); return s; });
+        _mockSeasonRepo.Setup(r => r.CreateAsync(It.IsAny<Season>())).ReturnsAsync((Season s) => new Season { Id = Guid.NewGuid(), Name = s.Name, StartYear = s.StartYear, EndYear = s.EndYear });
         _mockLeagueSeasonRepo.Setup(r => r.GetByLeagueAndSeasonAsync(It.IsAny<Guid>(), It.IsAny<Guid>())).ReturnsAsync((LeagueSeason?)null);
 
         // Act
@@ -708,6 +745,8 @@ public class ImportServiceTests
         )), Times.Once);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task ImportSeasonsInternalAsync_SkipsIfLeagueNotImported()
     {
@@ -762,6 +801,8 @@ public class ImportServiceTests
 
     #region GetImportStats Tests
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task GetImportStatsAsync_ReturnsCorrectStats()
     {

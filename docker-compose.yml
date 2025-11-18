@@ -1,5 +1,10 @@
 version: '3.8'
 
+# NOTE: BuildKit must be enabled for optimal build performance with cache mounts
+# Set DOCKER_BUILDKIT=1 environment variable or enable in Docker Desktop settings
+# Linux/macOS: export DOCKER_BUILDKIT=1 && docker-compose build
+# Windows PowerShell: $env:DOCKER_BUILDKIT=1; docker-compose build
+
 services:
   # PostgreSQL Database
   postgres:

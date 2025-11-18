@@ -1,8 +1,10 @@
 using Moq;
+using Microsoft.Extensions.Logging;
 using Sazkomat.Configuration.DTOs;
 using Sazkomat.Configuration.Entities;
 using Sazkomat.Configuration.Repositories;
 using Sazkomat.Configuration.Services;
+using Sazkomat.Tests.Helpers;
 
 namespace Sazkomat.Tests.Configuration;
 
@@ -11,6 +13,8 @@ public class ConfigurationServiceTests
     private readonly Mock<ILeagueRepository> _mockLeagueRepository;
     private readonly Mock<ISportRepository> _mockSportRepository;
     private readonly Mock<ICountryRepository> _mockCountryRepository;
+    private readonly Mock<ICountryProviderRepository> _mockCountryProviderRepository;
+    private readonly Mock<ILeagueProviderRepository> _mockLeagueProviderRepository;
     private readonly ConfigurationService _service;
 
     public ConfigurationServiceTests()
@@ -18,13 +22,20 @@ public class ConfigurationServiceTests
         _mockLeagueRepository = new Mock<ILeagueRepository>();
         _mockSportRepository = new Mock<ISportRepository>();
         _mockCountryRepository = new Mock<ICountryRepository>();
+        _mockCountryProviderRepository = new Mock<ICountryProviderRepository>();
+        _mockLeagueProviderRepository = new Mock<ILeagueProviderRepository>();
         _service = new ConfigurationService(
             _mockSportRepository.Object,
             _mockCountryRepository.Object,
-            _mockLeagueRepository.Object
+            _mockLeagueRepository.Object,
+            _mockCountryProviderRepository.Object,
+            _mockLeagueProviderRepository.Object,
+            TestHelpers.CreateMockLogger<ConfigurationService>()
         );
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task CreateLeagueAsync_ValidRequest_CreatesLeague()
     {
@@ -62,7 +73,7 @@ public class ConfigurationServiceTests
             .ReturnsAsync(sport);
         _mockCountryRepository.Setup(r => r.GetByIdAsync(countryId))
             .ReturnsAsync(country);
-        _mockLeagueRepository.Setup(r => r.GetAllAsync(It.IsAny<Guid?>(), It.IsAny<Guid?>(), It.IsAny<bool?>()))
+        _mockLeagueRepository.Setup(r => r.GetAllAsync(It.IsAny<Guid?>(), It.IsAny<Guid?>(), It.IsAny<bool?>(), It.IsAny<bool>()))
             .ReturnsAsync(new List<League>());
         _mockLeagueRepository.Setup(r => r.CreateAsync(It.IsAny<League>()))
             .ReturnsAsync((League l) => l);
@@ -77,6 +88,8 @@ public class ConfigurationServiceTests
         _mockLeagueRepository.Verify(r => r.CreateAsync(It.IsAny<League>()), Times.Once);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task CreateLeagueAsync_InvalidSport_ReturnsFailure()
     {
@@ -105,6 +118,8 @@ public class ConfigurationServiceTests
         _mockLeagueRepository.Verify(r => r.CreateAsync(It.IsAny<League>()), Times.Never);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task CreateLeagueAsync_InvalidCountry_ReturnsFailure()
     {
@@ -143,6 +158,8 @@ public class ConfigurationServiceTests
         _mockLeagueRepository.Verify(r => r.CreateAsync(It.IsAny<League>()), Times.Never);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task UpdateLeagueAsync_ExistingLeague_UpdatesLeague()
     {
@@ -187,6 +204,8 @@ public class ConfigurationServiceTests
         _mockLeagueRepository.Verify(r => r.UpdateAsync(It.IsAny<League>()), Times.Once);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task UpdateLeagueAsync_NonExistingLeague_ReturnsFailure()
     {
@@ -209,6 +228,8 @@ public class ConfigurationServiceTests
         _mockLeagueRepository.Verify(r => r.UpdateAsync(It.IsAny<League>()), Times.Never);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task DeleteLeagueAsync_ExistingLeague_DeletesLeague()
     {
@@ -240,6 +261,8 @@ public class ConfigurationServiceTests
         _mockLeagueRepository.Verify(r => r.DeleteAsync(leagueId), Times.Once);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task DeleteLeagueAsync_NonExistingLeague_ReturnsFailure()
     {

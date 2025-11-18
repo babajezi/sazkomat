@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Sazkomat.DataImport.Data;
 using Sazkomat.DataImport.Entities;
 using Sazkomat.DataImport.Repositories;
+using Sazkomat.Tests.Helpers;
 
 namespace Sazkomat.Tests.DataImport;
 
@@ -10,6 +11,7 @@ public class MatchRepositoryTests : IDisposable
     private readonly DataImportDbContext _context;
     private readonly MatchRepository _repository;
     private readonly Guid _roundId;
+    private readonly Guid _providerId;
 
     public MatchRepositoryTests()
     {
@@ -20,8 +22,11 @@ public class MatchRepositoryTests : IDisposable
         _context = new DataImportDbContext(options);
         _repository = new MatchRepository(_context);
         _roundId = Guid.NewGuid();
+        _providerId = Guid.NewGuid();
     }
 
+    [Trait("Category", "Fast")]
+    [Trait("Type", "Repository")]
     [Fact]
     public async Task GetByIdAsync_ExistingMatch_ReturnsMatch()
     {
@@ -30,14 +35,16 @@ public class MatchRepositoryTests : IDisposable
         {
             Id = Guid.NewGuid(),
             RoundId = _roundId,
+            ProviderId = _providerId,
             HomeTeam = "Manchester United",
             AwayTeam = "Liverpool",
-            Score = "2:1",
+            HomeScore = 2,
+            AwayScore = 1,
             Result = "H",
-            Odds1 = 2.10m,
-            OddsX = 3.20m,
-            Odds2 = 3.50m,
-            BetExplorerUrl = "https://www.betexplorer.com/football/england/premier-league/match-123/"
+            HomeOdds = 2.10m,
+            DrawOdds = 3.20m,
+            AwayOdds = 3.50m,
+            ProviderUrl = "https://www.betexplorer.com/football/england/premier-league/match-123/"
         };
 
         await _context.Matches.AddAsync(match);
@@ -53,6 +60,8 @@ public class MatchRepositoryTests : IDisposable
         Assert.Equal("Liverpool", result.AwayTeam);
     }
 
+    [Trait("Category", "Fast")]
+    [Trait("Type", "Repository")]
     [Fact]
     public async Task GetByIdAsync_NonExistingMatch_ReturnsNull()
     {
@@ -63,6 +72,8 @@ public class MatchRepositoryTests : IDisposable
         Assert.Null(result);
     }
 
+    [Trait("Category", "Fast")]
+    [Trait("Type", "Repository")]
     [Fact]
     public async Task CreateAsync_ValidMatch_AddsMatch()
     {
@@ -70,13 +81,15 @@ public class MatchRepositoryTests : IDisposable
         var match = new Match
         {
             RoundId = _roundId,
+            ProviderId = _providerId,
             HomeTeam = "Arsenal",
             AwayTeam = "Chelsea",
-            Score = "1:1",
+            HomeScore = 1,
+            AwayScore = 1,
             Result = "D",
-            Odds1 = 1.90m,
-            OddsX = 3.40m,
-            Odds2 = 4.20m
+            HomeOdds = 1.90m,
+            DrawOdds = 3.40m,
+            AwayOdds = 4.20m
         };
 
         // Act
@@ -88,9 +101,12 @@ public class MatchRepositoryTests : IDisposable
         var saved = await _context.Matches.FindAsync(result.Id);
         Assert.NotNull(saved);
         Assert.Equal("Arsenal", saved.HomeTeam);
-        Assert.Equal("1:1", saved.Score);
+        Assert.Equal(1, saved.HomeScore);
+        Assert.Equal(1, saved.AwayScore);
     }
 
+    [Trait("Category", "Fast")]
+    [Trait("Type", "Repository")]
     [Fact]
     public async Task UpdateAsync_ExistingMatch_UpdatesMatch()
     {
@@ -99,9 +115,11 @@ public class MatchRepositoryTests : IDisposable
         {
             Id = Guid.NewGuid(),
             RoundId = _roundId,
+            ProviderId = _providerId,
             HomeTeam = "Manchester City",
             AwayTeam = "Tottenham",
-            Score = "0:0",
+            HomeScore = 0,
+            AwayScore = 0,
             Result = "D"
         };
 
@@ -109,21 +127,25 @@ public class MatchRepositoryTests : IDisposable
         await _context.SaveChangesAsync();
 
         // Act
-        match.Score = "2:1";
+        match.HomeScore = 2;
+        match.AwayScore = 1;
         match.Result = "H";
-        match.Odds1 = 1.85m;
-        match.OddsX = 3.50m;
-        match.Odds2 = 4.00m;
+        match.HomeOdds = 1.85m;
+        match.DrawOdds = 3.50m;
+        match.AwayOdds = 4.00m;
         await _repository.UpdateAsync(match);
 
         // Assert
         var updated = await _context.Matches.FindAsync(match.Id);
         Assert.NotNull(updated);
-        Assert.Equal("2:1", updated.Score);
+        Assert.Equal(2, updated.HomeScore);
+        Assert.Equal(1, updated.AwayScore);
         Assert.Equal("H", updated.Result);
-        Assert.Equal(1.85m, updated.Odds1);
+        Assert.Equal(1.85m, updated.HomeOdds);
     }
 
+    [Trait("Category", "Fast")]
+    [Trait("Type", "Repository")]
     [Fact]
     public async Task DeleteAsync_ExistingMatch_DeletesMatch()
     {
@@ -132,9 +154,11 @@ public class MatchRepositoryTests : IDisposable
         {
             Id = Guid.NewGuid(),
             RoundId = _roundId,
+            ProviderId = _providerId,
             HomeTeam = "Team A",
             AwayTeam = "Team B",
-            Score = "1:0",
+            HomeScore = 1,
+            AwayScore = 0,
             Result = "H"
         };
 
@@ -149,6 +173,8 @@ public class MatchRepositoryTests : IDisposable
         Assert.Null(result);
     }
 
+    [Trait("Category", "Fast")]
+    [Trait("Type", "Repository")]
     [Fact]
     public async Task GetByRoundIdAsync_ReturnsMatchesForRound()
     {
@@ -162,27 +188,33 @@ public class MatchRepositoryTests : IDisposable
             {
                 Id = Guid.NewGuid(),
                 RoundId = round1,
+                ProviderId = _providerId,
                 HomeTeam = "Team A",
                 AwayTeam = "Team B",
-                Score = "2:1",
+                HomeScore = 2,
+                AwayScore = 1,
                 Result = "H"
             },
             new()
             {
                 Id = Guid.NewGuid(),
                 RoundId = round1,
+                ProviderId = _providerId,
                 HomeTeam = "Team C",
                 AwayTeam = "Team D",
-                Score = "1:1",
+                HomeScore = 1,
+                AwayScore = 1,
                 Result = "D"
             },
             new()
             {
                 Id = Guid.NewGuid(),
                 RoundId = round2,
+                ProviderId = _providerId,
                 HomeTeam = "Team E",
                 AwayTeam = "Team F",
-                Score = "0:2",
+                HomeScore = 0,
+                AwayScore = 2,
                 Result = "A"
             }
         };
@@ -198,6 +230,8 @@ public class MatchRepositoryTests : IDisposable
         Assert.All(result, m => Assert.Equal(round1, m.RoundId));
     }
 
+    [Trait("Category", "Fast")]
+    [Trait("Type", "Repository")]
     [Fact]
     public async Task GetByRoundIdAsync_NoMatches_ReturnsEmptyList()
     {
@@ -208,6 +242,8 @@ public class MatchRepositoryTests : IDisposable
         Assert.Empty(result);
     }
 
+    [Trait("Category", "Fast")]
+    [Trait("Type", "Repository")]
     [Fact]
     public async Task GetAllAsync_ReturnsAllMatches()
     {
@@ -218,18 +254,22 @@ public class MatchRepositoryTests : IDisposable
             {
                 Id = Guid.NewGuid(),
                 RoundId = _roundId,
+                ProviderId = _providerId,
                 HomeTeam = "Team 1",
                 AwayTeam = "Team 2",
-                Score = "3:0",
+                HomeScore = 3,
+                AwayScore = 0,
                 Result = "H"
             },
             new()
             {
                 Id = Guid.NewGuid(),
                 RoundId = _roundId,
+                ProviderId = _providerId,
                 HomeTeam = "Team 3",
                 AwayTeam = "Team 4",
-                Score = "1:2",
+                HomeScore = 1,
+                AwayScore = 2,
                 Result = "A"
             }
         };
@@ -244,6 +284,8 @@ public class MatchRepositoryTests : IDisposable
         Assert.Equal(2, result.Count);
     }
 
+    [Trait("Category", "Fast")]
+    [Trait("Type", "Repository")]
     [Fact]
     public async Task CreateAsync_WithOdds_StoresOddsCorrectly()
     {
@@ -251,13 +293,15 @@ public class MatchRepositoryTests : IDisposable
         var match = new Match
         {
             RoundId = _roundId,
+            ProviderId = _providerId,
             HomeTeam = "Barcelona",
             AwayTeam = "Real Madrid",
-            Score = "2:3",
+            HomeScore = 2,
+            AwayScore = 3,
             Result = "A",
-            Odds1 = 2.05m,
-            OddsX = 3.65m,
-            Odds2 = 3.25m,
+            HomeOdds = 2.05m,
+            DrawOdds = 3.65m,
+            AwayOdds = 3.25m,
             MatchDate = new DateTime(2024, 10, 26)
         };
 
@@ -267,12 +311,14 @@ public class MatchRepositoryTests : IDisposable
         // Assert
         var saved = await _context.Matches.FindAsync(match.Id);
         Assert.NotNull(saved);
-        Assert.Equal(2.05m, saved.Odds1);
-        Assert.Equal(3.65m, saved.OddsX);
-        Assert.Equal(3.25m, saved.Odds2);
+        Assert.Equal(2.05m, saved.HomeOdds);
+        Assert.Equal(3.65m, saved.DrawOdds);
+        Assert.Equal(3.25m, saved.AwayOdds);
         Assert.Equal(new DateTime(2024, 10, 26), saved.MatchDate);
     }
 
+    [Trait("Category", "Fast")]
+    [Trait("Type", "Repository")]
     [Fact]
     public async Task GetByRoundIdAsync_OrdersMatches()
     {
@@ -283,9 +329,11 @@ public class MatchRepositoryTests : IDisposable
             {
                 Id = Guid.NewGuid(),
                 RoundId = _roundId,
+                ProviderId = _providerId,
                 HomeTeam = "Team C",
                 AwayTeam = "Team D",
-                Score = "1:1",
+                HomeScore = 1,
+                AwayScore = 1,
                 Result = "D",
                 MatchDate = new DateTime(2024, 10, 28)
             },
@@ -293,9 +341,11 @@ public class MatchRepositoryTests : IDisposable
             {
                 Id = Guid.NewGuid(),
                 RoundId = _roundId,
+                ProviderId = _providerId,
                 HomeTeam = "Team A",
                 AwayTeam = "Team B",
-                Score = "2:1",
+                HomeScore = 2,
+                AwayScore = 1,
                 Result = "H",
                 MatchDate = new DateTime(2024, 10, 26)
             },
@@ -303,9 +353,11 @@ public class MatchRepositoryTests : IDisposable
             {
                 Id = Guid.NewGuid(),
                 RoundId = _roundId,
+                ProviderId = _providerId,
                 HomeTeam = "Team E",
                 AwayTeam = "Team F",
-                Score = "0:0",
+                HomeScore = 0,
+                AwayScore = 0,
                 Result = "D",
                 MatchDate = new DateTime(2024, 10, 27)
             }

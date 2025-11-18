@@ -414,6 +414,30 @@ dotnet ef migrations add MigrationName \
   --startup-project src/Sazkomat.Api
 ```
 
+### Build optimizations
+
+```bash
+# Fast build s BuildKit (1-2 min místo 5-9 min)
+./scripts/build-fast.sh            # Linux/macOS
+./scripts/build-fast.ps1           # Windows
+
+# Manuální build s BuildKit
+export DOCKER_BUILDKIT=1           # Linux/macOS
+$env:DOCKER_BUILDKIT=1            # Windows PowerShell
+docker-compose build
+
+# Clean build (bez cache)
+./scripts/build-fast.sh --no-cache
+./scripts/build-fast.ps1 -NoCache
+```
+
+**BuildKit výhody:**
+- 64-80% rychlejší build (5-9min → 1m46s)
+- Cache mounts pro NuGet, npm, apt packages
+- -800MB image size (Playwright optimalizace)
+
+**Dokumentace:** Viz `BUILD.md` pro kompletní build guide a troubleshooting
+
 ### Docker management
 ```bash
 docker-compose ps              # Status služeb
@@ -423,16 +447,39 @@ docker-compose down -v         # Úplný reset
 ```
 
 ### Testování
+
 ```bash
+# Všechny testy
 cd tests/Sazkomat.Tests
 dotnet test
 
-# Detailní výstup s verbose mode
-dotnet test --verbosity detailed
+# Fast testy (< 10s) - Unit + Repository
+./scripts/run-fast-tests.sh        # Linux/macOS
+./scripts/run-fast-tests.ps1       # Windows
 
-# Spustit konkrétní test file
-dotnet test --filter "FullyQualifiedName~ScanServiceTests"
+# Slow testy (< 60s) - Service + Integration
+./scripts/run-slow-tests.sh        # Linux/macOS
+./scripts/run-slow-tests.ps1       # Windows
+
+# Watch mode (TDD workflow)
+./scripts/watch-tests.sh           # Linux/macOS
+./scripts/watch-tests.ps1          # Windows
+
+# Konkrétní test class
+./scripts/test-specific.sh LeagueRepositoryTests
+./scripts/test-specific.ps1 -ClassName ScanServiceTests
+
+# S filtry
+dotnet test --filter "Category=Fast"
+dotnet test --filter "Type=Repository"
+dotnet test --filter "Category=Slow&Type=Service"
 ```
+
+**Test kategorie:**
+- `Category=Fast` - Unit + Repository (~43 tests, < 10s)
+- `Category=Slow` - Service layer (~80 tests, < 60s)
+- `Category=Integration` - HTTP + Scraping (~21 tests)
+- `Type=Unit|Repository|Service|Scraper` - Typ testu
 
 **Dokumentace:** Viz `TESTING.md` pro kompletní přehled testů, coverage report a best practices
 
@@ -543,8 +590,15 @@ docker-compose restart postgres
 
 ---
 
-**Poslední aktualizace:** 2025-10-30
+**Poslední aktualizace:** 2025-11-18
 **Status:** 🎉 **Fáze 1 - 100% DOKONČENO** | Připraveno na Fázi 2
+
+**Build & Test Optimizations (2025-11-18):**
+- Docker build: 64-80% rychlejší (5-9min → 1m46s)
+- Test kategorization: Fast/Slow/Integration
+- 12 nových helper skriptů (test + build)
+- BuildKit cache mounts (NuGet, npm, apt)
+- Kompletní BUILD.md dokumentace
 
 **Fáze 1 Features - Všechny Implementováno:**
 - Backend infrastruktura (.NET 9, EF Core, PostgreSQL)

@@ -29,6 +29,8 @@ public class SeasonServiceTests
         );
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task GetAvailableSeasonsForLeagueAsync_ReturnsSeasons()
     {
@@ -68,6 +70,8 @@ public class SeasonServiceTests
         Assert.Equal(2, result.Value.Count);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task GetAvailableSeasonsForLeagueAsync_OnError_ReturnsFailure()
     {
@@ -84,6 +88,8 @@ public class SeasonServiceTests
         Assert.Contains("Database error", result.Error);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task UpdateLeagueSeasonStatsAsync_ValidRequest_UpdatesStats()
     {
@@ -102,6 +108,8 @@ public class SeasonServiceTests
         _mockLeagueSeasonRepo.Verify(r => r.UpdateMetadataAsync(leagueId, seasonId, roundsCount, matchesCount, hasOdds), Times.Once);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task UpdateLeagueSeasonStatsAsync_OnError_ReturnsFailure()
     {
@@ -120,6 +128,8 @@ public class SeasonServiceTests
         Assert.Contains("Update failed", result.Error);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task GetOrCreateLeagueSeasonAsync_ExistingLeagueSeason_ReturnsExisting()
     {
@@ -160,6 +170,8 @@ public class SeasonServiceTests
         _mockLeagueSeasonRepo.Verify(r => r.CreateAsync(It.IsAny<LeagueSeason>()), Times.Never);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task GetOrCreateLeagueSeasonAsync_NewLeagueSeason_CreatesNew()
     {
@@ -211,6 +223,8 @@ public class SeasonServiceTests
         )), Times.Once);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task GetOrCreateLeagueSeasonAsync_OnError_ReturnsFailure()
     {
@@ -229,6 +243,8 @@ public class SeasonServiceTests
         Assert.Contains("Database error", result.Error);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task GetOrCreateLeagueSeasonAsync_CreatesSeasonIfNotExists()
     {

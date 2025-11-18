@@ -668,3 +668,36 @@ export interface UpdateLeagueNameMappingRequest {
   notes?: string;
   priority?: number;
 }
+
+// Country Name Mappings
+export interface CountryNameMapping {
+  id: string;
+  providerCode: string;
+  providerCountryName: string;
+  betExplorerCode: string;
+  isActive: boolean;
+  notes: string | null;
+  priority: number;
+  lastUsedAt: string | null;
+  usageCount: number;
+  lastProviderCountryId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateCountryNameMappingRequest {
+  providerCode: string;
+  providerCountryName: string;
+  betExplorerCode: string;
+  isActive?: boolean;
+  notes?: string;
+  priority?: number;
+}
+
+export interface UpdateCountryNameMappingRequest {
+  providerCountryName?: string;
+  betExplorerCode?: string;
+  isActive?: boolean;
+  notes?: string;
+  priority?: number;
+}

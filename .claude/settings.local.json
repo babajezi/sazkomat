@@ -142,7 +142,11 @@
       "Bash(ss:*)",
       "Bash(docker rm:*)",
       "Bash(docker start:*)",
-      "Bash(docker images:*)"
+      "Bash(docker images:*)",
+      "Bash(find:*)",
+      "Bash(docker-compose images:*)",
+      "Bash(time dotnet build:*)",
+      "Bash(time dotnet restore:*)"
     ],
     "additionalDirectories": [
       "c:\\projects\\claude-share"

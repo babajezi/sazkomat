@@ -849,6 +849,165 @@ jobs:
 
 ---
 
+## 🏷️ Test Categories
+
+Všechny testy jsou kategorizovány pomocí `[Trait]` atributů pro selektivní spouštění:
+
+### Fast Tests (< 10s target)
+- **Category**: `Fast`
+- **Types**: `Repository`, `Unit`
+- **Count**: ~43 tests
+- **Description**: Rychlé unit testy a repository testy s in-memory database
+
+```bash
+dotnet test --filter "Category=Fast"
+```
+
+### Slow Tests (< 60s target)
+- **Category**: `Slow`
+- **Types**: `Service`
+- **Count**: ~80 tests
+- **Description**: Service layer testy s komplexní business logikou
+
+```bash
+dotnet test --filter "Category=Slow"
+```
+
+### Integration Tests
+- **Category**: `Integration`
+- **Types**: `Scraper`
+- **Count**: ~21 tests
+- **Description**: Integration testy zahrnující HTTP calls a real HTML parsing
+
+```bash
+dotnet test --filter "Category=Integration"
+```
+
+### Příklady Filtrování
+
+```bash
+# Jen repository testy
+dotnet test --filter "Type=Repository"
+
+# Jen fast unit testy
+dotnet test --filter "Category=Fast&Type=Unit"
+
+# Vše kromě integration
+dotnet test --filter "Category!=Integration"
+
+# Service testy (slow)
+dotnet test --filter "Type=Service"
+```
+
+---
+
+## 🚀 Helper Scripts
+
+Pro rychlejší development workflow jsou k dispozici helper skripty:
+
+### Test Scripts
+
+#### Run Fast Tests
+```bash
+# Linux/macOS
+./scripts/run-fast-tests.sh
+
+# Windows
+./scripts/run-fast-tests.ps1
+
+# S verbose outputem
+./scripts/run-fast-tests.ps1 -Verbose
+```
+**Runtime**: < 10 sekund
+**Tests**: Unit + Repository (~43 tests)
+
+#### Run Slow Tests
+```bash
+# Linux/macOS
+./scripts/run-slow-tests.sh
+
+# Windows
+./scripts/run-slow-tests.ps1
+```
+**Runtime**: < 60 sekund
+**Tests**: Service + Integration (~101 tests)
+
+#### Watch Mode (Continuous Testing)
+```bash
+# Linux/macOS
+./scripts/watch-tests.sh
+
+# Windows
+./scripts/watch-tests.ps1
+
+# S vlastním filtrem
+./scripts/watch-tests.ps1 -Filter "Type=Repository"
+```
+**Pro TDD workflow** - automaticky spouští testy při změně souborů
+
+#### Test Specific Class
+```bash
+# Linux/macOS
+./scripts/test-specific.sh LeagueRepositoryTests
+
+# Windows
+./scripts/test-specific.ps1 -ClassName LeagueRepositoryTests
+```
+
+### Build Scripts
+
+#### Fast Build
+```bash
+# Linux/macOS
+./scripts/build-fast.sh
+
+# Windows
+./scripts/build-fast.ps1
+
+# Clean build (no cache)
+./scripts/build-fast.ps1 -NoCache
+```
+**Runtime**: ~1m46s (with cache), ~3-5min (no cache)
+
+---
+
+## 🧩 DatabaseFixture
+
+Pro rychlejší repository testy je k dispozici `DatabaseFixture` - sdílený DB setup:
+
+### Usage
+
+```csharp
+[Collection("Database")]
+public class MyRepositoryTests
+{
+    private readonly DatabaseFixture _fixture;
+
+    public MyRepositoryTests(DatabaseFixture fixture)
+    {
+        _fixture = fixture;
+    }
+
+    [Trait("Category", "Fast")]
+    [Trait("Type", "Repository")]
+    [Fact]
+    public async Task TestMethod()
+    {
+        // Create fresh context for this test
+        using var context = _fixture.CreateConfigurationDbContext();
+
+        // Your test code...
+    }
+}
+```
+
+### Benefits
+- **Faster setup** - Shared fixture reduces overhead
+- **Isolation** - Each test gets fresh context
+- **Clean** - Automatic cleanup via IDisposable
+
+---
+
 ## 🎓 Resources
 
 ### Unit Testing

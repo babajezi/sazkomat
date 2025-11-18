@@ -21,6 +21,8 @@ public class ResilientHttpClientTests
         _resilientClient = new ResilientHttpClient(_httpClient, _mockLogger.Object);
     }
 
+    [Trait("Category", "Integration")]
+    [Trait("Type", "Scraper")]
     [Fact]
     public async Task GetHtmlAsync_SuccessfulRequest_ReturnsHtml()
     {
@@ -53,6 +55,8 @@ public class ResilientHttpClientTests
         );
     }
 
+    [Trait("Category", "Integration")]
+    [Trait("Type", "Scraper")]
     [Fact]
     public async Task GetHtmlAsync_AddsUserAgent_ToRequest()
     {
@@ -83,6 +87,8 @@ public class ResilientHttpClientTests
         Assert.True(capturedRequest.Headers.Contains("Accept-Language"));
     }
 
+    [Trait("Category", "Integration")]
+    [Trait("Type", "Scraper")]
     [Fact]
     public async Task GetHtmlAsync_TransientError_RetriesRequest()
     {
@@ -135,6 +141,8 @@ public class ResilientHttpClientTests
             Times.AtLeast(2));
     }
 
+    [Trait("Category", "Integration")]
+    [Trait("Type", "Scraper")]
     [Fact]
     public async Task GetHtmlAsync_HttpRequestException_RetriesRequest()
     {
@@ -173,6 +181,8 @@ public class ResilientHttpClientTests
         Assert.Equal(2, callCount); // Should have retried once
     }
 
+    [Trait("Category", "Integration")]
+    [Trait("Type", "Scraper")]
     [Fact]
     public async Task GetHtmlAsync_PermanentError_ThrowsAfterMaxRetries()
     {
@@ -205,6 +215,8 @@ public class ResilientHttpClientTests
         Assert.Equal(4, callCount);
     }
 
+    [Trait("Category", "Integration")]
+    [Trait("Type", "Scraper")]
     [Fact]
     public async Task GetHtmlAsync_NotFound404_ThrowsImmediately()
     {
@@ -238,6 +250,8 @@ public class ResilientHttpClientTests
         Assert.Equal(4, callCount); // Initial + 3 retries
     }
 
+    [Trait("Category", "Integration")]
+    [Trait("Type", "Scraper")]
     [Fact]
     public async Task GetHtmlAsync_MultipleRequests_UsesRandomUserAgent()
     {
@@ -275,6 +289,8 @@ public class ResilientHttpClientTests
         Assert.All(userAgents, ua => Assert.Contains("Mozilla", ua));
     }
 
+    [Trait("Category", "Integration")]
+    [Trait("Type", "Scraper")]
     [Fact]
     public async Task GetHtmlAsync_SuccessfulRequest_LogsInfoMessages()
     {
@@ -318,6 +334,8 @@ public class ResilientHttpClientTests
             Times.Once);
     }
 
+    [Trait("Category", "Integration")]
+    [Trait("Type", "Scraper")]
     [Fact]
     public async Task GetHtmlAsync_IntermittentFailure_EventuallySucceeds()
     {
@@ -358,6 +376,8 @@ public class ResilientHttpClientTests
         Assert.Equal(2, callCount); // Initial + 1 retry
     }
 
+    [Trait("Category", "Integration")]
+    [Trait("Type", "Scraper")]
     [Fact]
     public async Task GetHtmlAsync_LargeContent_HandlesCorrectly()
     {

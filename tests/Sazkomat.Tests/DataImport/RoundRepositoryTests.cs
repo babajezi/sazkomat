@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Sazkomat.DataImport.Data;
 using Sazkomat.DataImport.Entities;
 using Sazkomat.DataImport.Repositories;
+using Sazkomat.Tests.Helpers;
 
 namespace Sazkomat.Tests.DataImport;
 
@@ -10,6 +11,8 @@ public class RoundRepositoryTests : IDisposable
     private readonly DataImportDbContext _context;
     private readonly RoundRepository _repository;
     private readonly Guid _testLeagueId;
+    private readonly Guid _testSeasonId;
+    private readonly Guid _testProviderId;
 
     public RoundRepositoryTests()
     {
@@ -18,10 +21,14 @@ public class RoundRepositoryTests : IDisposable
             .Options;
 
         _context = new DataImportDbContext(options);
-        _repository = new RoundRepository(_context);
+        _repository = new RoundRepository(_context, TestHelpers.CreateMockLogger<RoundRepository>());
         _testLeagueId = Guid.NewGuid();
+        _testSeasonId = Guid.NewGuid();
+        _testProviderId = Guid.NewGuid();
     }
 
+    [Trait("Category", "Fast")]
+    [Trait("Type", "Repository")]
     [Fact]
     public async Task GetAllAsync_ReturnsAllRounds()
     {
@@ -30,7 +37,8 @@ public class RoundRepositoryTests : IDisposable
         {
             Id = Guid.NewGuid(),
             LeagueId = _testLeagueId,
-            Season = "2023/2024",
+            SeasonId = _testSeasonId,
+            ProviderId = _testProviderId,
             RoundNumber = 1,
             MatchesCount = 10,
             HomeWins = 4,
@@ -42,14 +50,14 @@ public class RoundRepositoryTests : IDisposable
             SummaryResult = "4-3-3",
             OddsComplete = "Yes",
             ScrapedAt = DateTime.UtcNow,
-            DataSource = "betexplorer.com"
         };
 
         var round2 = new Round
         {
             Id = Guid.NewGuid(),
             LeagueId = _testLeagueId,
-            Season = "2023/2024",
+            SeasonId = _testSeasonId,
+            ProviderId = _testProviderId,
             RoundNumber = 2,
             MatchesCount = 10,
             HomeWins = 5,
@@ -61,7 +69,6 @@ public class RoundRepositoryTests : IDisposable
             SummaryResult = "5-2-3",
             OddsComplete = "Yes",
             ScrapedAt = DateTime.UtcNow,
-            DataSource = "betexplorer.com"
         };
 
         await _context.Rounds.AddRangeAsync(round1, round2);
@@ -74,6 +81,8 @@ public class RoundRepositoryTests : IDisposable
         Assert.Equal(2, result.Count);
     }
 
+    [Trait("Category", "Fast")]
+    [Trait("Type", "Repository")]
     [Fact]
     public async Task GetByIdAsync_ExistingRound_ReturnsRound()
     {
@@ -82,7 +91,8 @@ public class RoundRepositoryTests : IDisposable
         {
             Id = Guid.NewGuid(),
             LeagueId = _testLeagueId,
-            Season = "2023/2024",
+            SeasonId = _testSeasonId,
+            ProviderId = _testProviderId,
             RoundNumber = 1,
             MatchesCount = 10,
             HomeWins = 4,
@@ -94,7 +104,6 @@ public class RoundRepositoryTests : IDisposable
             SummaryResult = "4-3-3",
             OddsComplete = "Yes",
             ScrapedAt = DateTime.UtcNow,
-            DataSource = "betexplorer.com"
         };
 
         await _context.Rounds.AddAsync(round);
@@ -106,10 +115,12 @@ public class RoundRepositoryTests : IDisposable
         // Assert
         Assert.NotNull(result);
         Assert.Equal(round.Id, result.Id);
-        Assert.Equal("2023/2024", result.Season);
+        Assert.Equal(_testSeasonId, result.SeasonId);
         Assert.Equal(1, result.RoundNumber);
     }
 
+    [Trait("Category", "Fast")]
+    [Trait("Type", "Repository")]
     [Fact]
     public async Task GetByLeagueAsync_FiltersByLeague()
     {
@@ -121,7 +132,8 @@ public class RoundRepositoryTests : IDisposable
         {
             Id = Guid.NewGuid(),
             LeagueId = leagueId1,
-            Season = "2023/2024",
+            SeasonId = _testSeasonId,
+            ProviderId = _testProviderId,
             RoundNumber = 1,
             MatchesCount = 10,
             HomeWins = 4,
@@ -133,14 +145,14 @@ public class RoundRepositoryTests : IDisposable
             SummaryResult = "4-3-3",
             OddsComplete = "Yes",
             ScrapedAt = DateTime.UtcNow,
-            DataSource = "betexplorer.com"
         };
 
         var round2 = new Round
         {
             Id = Guid.NewGuid(),
             LeagueId = leagueId2,
-            Season = "2023/2024",
+            SeasonId = _testSeasonId,
+            ProviderId = _testProviderId,
             RoundNumber = 1,
             MatchesCount = 10,
             HomeWins = 5,
@@ -152,7 +164,6 @@ public class RoundRepositoryTests : IDisposable
             SummaryResult = "5-2-3",
             OddsComplete = "Yes",
             ScrapedAt = DateTime.UtcNow,
-            DataSource = "betexplorer.com"
         };
 
         await _context.Rounds.AddRangeAsync(round1, round2);
@@ -166,6 +177,8 @@ public class RoundRepositoryTests : IDisposable
         Assert.Equal(leagueId1, result[0].LeagueId);
     }
 
+    [Trait("Category", "Fast")]
+    [Trait("Type", "Repository")]
     [Fact]
     public async Task GetByLeagueSeasonRoundAsync_FindsSpecificRound()
     {
@@ -174,7 +187,8 @@ public class RoundRepositoryTests : IDisposable
         {
             Id = Guid.NewGuid(),
             LeagueId = _testLeagueId,
-            Season = "2023/2024",
+            SeasonId = _testSeasonId,
+            ProviderId = _testProviderId,
             RoundNumber = 1,
             MatchesCount = 10,
             HomeWins = 4,
@@ -186,14 +200,14 @@ public class RoundRepositoryTests : IDisposable
             SummaryResult = "4-3-3",
             OddsComplete = "Yes",
             ScrapedAt = DateTime.UtcNow,
-            DataSource = "betexplorer.com"
         };
 
         var round2 = new Round
         {
             Id = Guid.NewGuid(),
             LeagueId = _testLeagueId,
-            Season = "2023/2024",
+            SeasonId = _testSeasonId,
+            ProviderId = _testProviderId,
             RoundNumber = 2,
             MatchesCount = 10,
             HomeWins = 5,
@@ -205,21 +219,22 @@ public class RoundRepositoryTests : IDisposable
             SummaryResult = "5-2-3",
             OddsComplete = "Yes",
             ScrapedAt = DateTime.UtcNow,
-            DataSource = "betexplorer.com"
         };
 
         await _context.Rounds.AddRangeAsync(round1, round2);
         await _context.SaveChangesAsync();
 
         // Act
-        var result = await _repository.GetByLeagueSeasonRoundAsync(_testLeagueId, "2023/2024", 1);
+        var result = await _repository.GetByLeagueSeasonRoundAsync(_testLeagueId, _testSeasonId, 1);
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal("2023/2024", result.Season);
+        Assert.Equal(_testSeasonId, result.SeasonId);
         Assert.Equal(1, result.RoundNumber);
     }
 
+    [Trait("Category", "Fast")]
+    [Trait("Type", "Repository")]
     [Fact]
     public async Task CreateAsync_ValidRound_AddsRound()
     {
@@ -228,7 +243,8 @@ public class RoundRepositoryTests : IDisposable
         {
             Id = Guid.NewGuid(),
             LeagueId = _testLeagueId,
-            Season = "2023/2024",
+            SeasonId = _testSeasonId,
+            ProviderId = _testProviderId,
             RoundNumber = 1,
             MatchesCount = 10,
             HomeWins = 4,
@@ -240,7 +256,6 @@ public class RoundRepositoryTests : IDisposable
             SummaryResult = "4-3-3",
             OddsComplete = "Yes",
             ScrapedAt = DateTime.UtcNow,
-            DataSource = "betexplorer.com"
         };
 
         // Act
@@ -249,7 +264,7 @@ public class RoundRepositoryTests : IDisposable
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal("2023/2024", result.Season);
+        Assert.Equal(_testSeasonId, result.SeasonId);
         Assert.Equal(1, result.RoundNumber);
     }
 

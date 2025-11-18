@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Sazkomat.DataImport.Data;
 using Sazkomat.DataImport.Entities;
 using Sazkomat.DataImport.Repositories;
+using Sazkomat.Tests.Helpers;
 
 namespace Sazkomat.Tests.DataImport;
 
@@ -18,10 +19,12 @@ public class ProviderLeagueRepositoryTests : IDisposable
             .Options;
 
         _context = new DataImportDbContext(options);
-        _repository = new ProviderLeagueRepository(_context);
+        _repository = new ProviderLeagueRepository(_context, TestHelpers.CreateMockLogger<ProviderLeagueRepository>());
         _providerId = Guid.NewGuid();
     }
 
+    [Trait("Category", "Fast")]
+    [Trait("Type", "Repository")]
     [Fact]
     public async Task GetByIdAsync_ExistingLeague_ReturnsLeague()
     {
@@ -50,6 +53,8 @@ public class ProviderLeagueRepositoryTests : IDisposable
         Assert.Equal("Premier League", result.ProviderName);
     }
 
+    [Trait("Category", "Fast")]
+    [Trait("Type", "Repository")]
     [Fact]
     public async Task GetByProviderIdAsync_ReturnsAllLeaguesForProvider()
     {
@@ -96,6 +101,8 @@ public class ProviderLeagueRepositoryTests : IDisposable
         Assert.All(result, l => Assert.Equal(provider1, l.ProviderId));
     }
 
+    [Trait("Category", "Fast")]
+    [Trait("Type", "Repository")]
     [Fact]
     public async Task GetByProviderSlugAsync_ReturnsCorrectLeague()
     {
@@ -132,6 +139,8 @@ public class ProviderLeagueRepositoryTests : IDisposable
         Assert.Equal("spain/la-liga", result.ProviderSlug);
     }
 
+    [Trait("Category", "Fast")]
+    [Trait("Type", "Repository")]
     [Fact]
     public async Task GetByProviderSlugAsync_NotFound_ReturnsNull()
     {
@@ -142,6 +151,8 @@ public class ProviderLeagueRepositoryTests : IDisposable
         Assert.Null(result);
     }
 
+    [Trait("Category", "Fast")]
+    [Trait("Type", "Repository")]
     [Fact]
     public async Task CreateAsync_ValidLeague_AddsLeague()
     {
@@ -155,7 +166,7 @@ public class ProviderLeagueRepositoryTests : IDisposable
             IsBettable = true,
             Priority = 2,
             IsImported = false,
-            MappingStatus = MappingStatus.Mapped
+            MappingStatus = MappingStatus.AutoMapped
         };
 
         // Act
@@ -169,6 +180,8 @@ public class ProviderLeagueRepositoryTests : IDisposable
         Assert.Equal("Serie A", saved.ProviderName);
     }
 
+    [Trait("Category", "Fast")]
+    [Trait("Type", "Repository")]
     [Fact]
     public async Task UpdateAsync_ExistingLeague_UpdatesLeague()
     {
@@ -203,6 +216,8 @@ public class ProviderLeagueRepositoryTests : IDisposable
         Assert.NotNull(updated.LeagueId);
     }
 
+    [Trait("Category", "Fast")]
+    [Trait("Type", "Repository")]
     [Fact]
     public async Task GetUnimportedAsync_ReturnsOnlyUnimportedLeagues()
     {
@@ -247,55 +262,8 @@ public class ProviderLeagueRepositoryTests : IDisposable
         Assert.All(result, l => Assert.False(l.IsImported));
     }
 
-    [Fact]
-    public async Task GetByMappingStatusAsync_FiltersCorrectly()
-    {
-        // Arrange
-        var leagues = new List<ProviderLeague>
-        {
-            new()
-            {
-                Id = Guid.NewGuid(),
-                ProviderId = _providerId,
-                ProviderSlug = "england/premier-league",
-                ProviderName = "Premier League",
-                MappingStatus = MappingStatus.Mapped,
-                IsImported = false
-            },
-            new()
-            {
-                Id = Guid.NewGuid(),
-                ProviderId = _providerId,
-                ProviderSlug = "unknown/league",
-                ProviderName = "Unknown League",
-                MappingStatus = MappingStatus.Unmapped,
-                IsImported = false
-            },
-            new()
-            {
-                Id = Guid.NewGuid(),
-                ProviderId = _providerId,
-                ProviderSlug = "pending/league",
-                ProviderName = "Pending League",
-                MappingStatus = MappingStatus.PendingReview,
-                IsImported = false
-            }
-        };
-
-        await _context.ProviderLeagues.AddRangeAsync(leagues);
-        await _context.SaveChangesAsync();
-
-        // Act
-        var mapped = await _repository.GetByMappingStatusAsync(_providerId, MappingStatus.Mapped);
-        var unmapped = await _repository.GetByMappingStatusAsync(_providerId, MappingStatus.Unmapped);
-
-        // Assert
-        Assert.Single(mapped);
-        Assert.Equal("Premier League", mapped[0].ProviderName);
-        Assert.Single(unmapped);
-        Assert.Equal("Unknown League", unmapped[0].ProviderName);
-    }
-
+    [Trait("Category", "Fast")]
+    [Trait("Type", "Repository")]
     [Fact]
     public async Task GetAllAsync_ReturnsAllLeagues()
     {

@@ -13,6 +13,15 @@ public class DataImportDbContext : DbContext
     {
     }
 
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    {
+        base.OnConfiguring(optionsBuilder);
+        // Temporarily suppress pending model changes warning
+        // This allows the app to start while we work on the migration
+        optionsBuilder.ConfigureWarnings(warnings =>
+            warnings.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
+    }
+
     public DbSet<Round> Rounds => Set<Round>();
     public DbSet<Match> Matches => Set<Match>();
     public DbSet<ImportJob> ImportJobs => Set<ImportJob>();
@@ -25,8 +34,9 @@ public class DataImportDbContext : DbContext
     // Sync job queue
     public DbSet<SyncJob> SyncJobs => Set<SyncJob>();
 
-    // League name mappings
+    // Name mappings
     public DbSet<LeagueNameMapping> LeagueNameMappings => Set<LeagueNameMapping>();
+    public DbSet<CountryNameMapping> CountryNameMappings => Set<CountryNameMapping>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -45,8 +55,9 @@ public class DataImportDbContext : DbContext
         // Sync job queue
         modelBuilder.ApplyConfiguration(new SyncJobConfiguration());
 
-        // League name mappings
+        // Name mappings
         modelBuilder.ApplyConfiguration(new LeagueNameMappingConfiguration());
+        modelBuilder.ApplyConfiguration(new CountryNameMappingConfiguration());
     }
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

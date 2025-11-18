@@ -16,6 +16,8 @@ public class SyncWorkflowServiceTests
         _service = new SyncWorkflowService(_mockRepository.Object);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task GetStateAsync_ReturnsState()
     {
@@ -42,6 +44,8 @@ public class SyncWorkflowServiceTests
         Assert.Equal(state.Id, result.Value.Id);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task MarkCountriesSyncedAsync_UpdatesState()
     {
@@ -66,6 +70,8 @@ public class SyncWorkflowServiceTests
         _mockRepository.Verify(r => r.UpdateAsync(state), Times.Once);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task ConfirmCountriesAsync_WhenNotSynced_ReturnsFailure()
     {
@@ -89,6 +95,8 @@ public class SyncWorkflowServiceTests
         _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<SyncWorkflowState>()), Times.Never);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task ConfirmCountriesAsync_WhenSynced_UpdatesState()
     {
@@ -112,6 +120,8 @@ public class SyncWorkflowServiceTests
         _mockRepository.Verify(r => r.UpdateAsync(state), Times.Once);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task MarkLeaguesSyncedAsync_UpdatesState()
     {
@@ -135,6 +145,8 @@ public class SyncWorkflowServiceTests
         _mockRepository.Verify(r => r.UpdateAsync(state), Times.Once);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task ConfirmLeaguesAsync_WhenNotSynced_ReturnsFailure()
     {
@@ -158,6 +170,8 @@ public class SyncWorkflowServiceTests
         _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<SyncWorkflowState>()), Times.Never);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task ConfirmLeaguesAsync_WhenSynced_UpdatesState()
     {
@@ -181,6 +195,8 @@ public class SyncWorkflowServiceTests
         _mockRepository.Verify(r => r.UpdateAsync(state), Times.Once);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task MarkSeasonsSyncedAsync_UpdatesState()
     {
@@ -204,6 +220,8 @@ public class SyncWorkflowServiceTests
         _mockRepository.Verify(r => r.UpdateAsync(state), Times.Once);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task ResetWorkflowAsync_CallsRepositoryReset()
     {
@@ -215,6 +233,8 @@ public class SyncWorkflowServiceTests
         _mockRepository.Verify(r => r.ResetAsync(), Times.Once);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task CanSyncCountriesAsync_WhenNotSynced_ReturnsSuccess()
     {
@@ -235,6 +255,8 @@ public class SyncWorkflowServiceTests
         Assert.True(result.IsSuccess);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task CanSyncCountriesAsync_WhenAlreadySynced_ReturnsFailure()
     {
@@ -256,6 +278,8 @@ public class SyncWorkflowServiceTests
         Assert.Contains("already been synced", result.Error);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task CanSyncLeaguesAsync_WhenCountriesNotConfirmed_ReturnsFailure()
     {
@@ -278,6 +302,8 @@ public class SyncWorkflowServiceTests
         Assert.Contains("Countries must be confirmed", result.Error);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task CanSyncLeaguesAsync_WhenLeaguesAlreadySynced_ReturnsFailure()
     {
@@ -301,6 +327,8 @@ public class SyncWorkflowServiceTests
         Assert.Contains("already been synced", result.Error);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task CanSyncLeaguesAsync_WhenValid_ReturnsSuccess()
     {
@@ -323,6 +351,8 @@ public class SyncWorkflowServiceTests
         Assert.True(result.IsSuccess);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task CanSyncSeasonsAsync_WhenLeaguesNotConfirmed_ReturnsFailure()
     {
@@ -347,6 +377,8 @@ public class SyncWorkflowServiceTests
         Assert.Contains("Leagues must be confirmed", result.Error);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task CanSyncSeasonsAsync_WhenSeasonsAlreadySynced_ReturnsFailure()
     {
@@ -372,6 +404,8 @@ public class SyncWorkflowServiceTests
         Assert.Contains("already been synced", result.Error);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task CanSyncSeasonsAsync_WhenValid_ReturnsSuccess()
     {
@@ -396,6 +430,8 @@ public class SyncWorkflowServiceTests
         Assert.True(result.IsSuccess);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task WorkflowProgression_FullFlow_WorksCorrectly()
     {

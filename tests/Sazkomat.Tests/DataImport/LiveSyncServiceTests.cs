@@ -6,6 +6,7 @@ using Sazkomat.DataImport.Entities;
 using Sazkomat.DataImport.Repositories;
 using Sazkomat.DataImport.Scrapers;
 using Sazkomat.DataImport.Services;
+using Match = Sazkomat.DataImport.Entities.Match;
 
 namespace Sazkomat.Tests.DataImport;
 
@@ -64,7 +65,6 @@ public class LiveSyncServiceTests
         {
             Id = Guid.NewGuid(),
             Name = "2023-2024",
-            DisplayName = "2023/2024",
             StartYear = 2023,
             EndYear = 2024
         };
@@ -92,6 +92,8 @@ public class LiveSyncServiceTests
 
     #region LiveSyncRounds Tests
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task LiveSyncRoundsAsync_ProviderNotFound_ThrowsException()
     {
@@ -105,6 +107,8 @@ public class LiveSyncServiceTests
         );
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task LiveSyncRoundsAsync_ValidProvider_CreatesSyncJob()
     {
@@ -128,7 +132,7 @@ public class LiveSyncServiceTests
         _mockSyncJobRepo.Setup(r => r.GetByIdAsync(createdJob.Id))
             .ReturnsAsync(createdJob);
 
-        _mockLeagueRepo.Setup(r => r.GetAllAsync())
+        _mockLeagueRepo.Setup(r => r.GetAllAsync(null, null, null, false))
             .ReturnsAsync(new List<League>());
 
         // Act
@@ -144,6 +148,8 @@ public class LiveSyncServiceTests
         )), Times.Once);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task LiveSyncRoundsInternalAsync_NoActiveSeasons_SkipsLeagues()
     {
@@ -161,7 +167,7 @@ public class LiveSyncServiceTests
         _mockSyncJobRepo.Setup(r => r.GetByIdAsync(jobId))
             .ReturnsAsync(syncJob);
 
-        _mockLeagueRepo.Setup(r => r.GetAllAsync())
+        _mockLeagueRepo.Setup(r => r.GetAllAsync(null, null, null, false))
             .ReturnsAsync(new List<League> { _league });
 
         _mockLeagueSeasonRepo.Setup(r => r.GetByLeagueIdAsync(_league.Id, true))
@@ -175,6 +181,8 @@ public class LiveSyncServiceTests
         _mockScraper.Verify(s => s.ScrapeSeasonAsync(It.IsAny<League>(), It.IsAny<string>()), Times.Never);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task LiveSyncRoundsInternalAsync_CreatesNewRounds()
     {
@@ -205,7 +213,7 @@ public class LiveSyncServiceTests
                 OddsComplete = "Yes",
                 Matches = new List<Match>
                 {
-                    new() { HomeTeam = "Team A", AwayTeam = "Team B", Result = "H", Odds1 = 1.85m, OddsX = 3.2m, Odds2 = 2.55m }
+                    new() { HomeTeam = "Team A", AwayTeam = "Team B", Result = "H", HomeOdds =1.85m, DrawOdds =3.2m, AwayOdds =2.55m }
                 }
             }
         };
@@ -213,7 +221,7 @@ public class LiveSyncServiceTests
         _mockSyncJobRepo.Setup(r => r.GetByIdAsync(jobId))
             .ReturnsAsync(syncJob);
 
-        _mockLeagueRepo.Setup(r => r.GetAllAsync())
+        _mockLeagueRepo.Setup(r => r.GetAllAsync(null, null, null, false))
             .ReturnsAsync(new List<League> { _league });
 
         _mockLeagueSeasonRepo.Setup(r => r.GetByLeagueIdAsync(_league.Id, true))
@@ -241,6 +249,8 @@ public class LiveSyncServiceTests
         _mockMatchRepo.Verify(r => r.CreateAsync(It.IsAny<Match>()), Times.Once);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task LiveSyncRoundsInternalAsync_WithForceRefresh_UpdatesExistingRounds()
     {
@@ -288,7 +298,7 @@ public class LiveSyncServiceTests
         _mockSyncJobRepo.Setup(r => r.GetByIdAsync(jobId))
             .ReturnsAsync(syncJob);
 
-        _mockLeagueRepo.Setup(r => r.GetAllAsync())
+        _mockLeagueRepo.Setup(r => r.GetAllAsync(null, null, null, false))
             .ReturnsAsync(new List<League> { _league });
 
         _mockLeagueSeasonRepo.Setup(r => r.GetByLeagueIdAsync(_league.Id, true))
@@ -317,6 +327,8 @@ public class LiveSyncServiceTests
         _mockRoundRepo.Verify(r => r.CreateAsync(It.IsAny<Round>()), Times.Never);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task LiveSyncRoundsInternalAsync_WithoutForceRefresh_SkipsExistingRounds()
     {
@@ -353,7 +365,7 @@ public class LiveSyncServiceTests
         _mockSyncJobRepo.Setup(r => r.GetByIdAsync(jobId))
             .ReturnsAsync(syncJob);
 
-        _mockLeagueRepo.Setup(r => r.GetAllAsync())
+        _mockLeagueRepo.Setup(r => r.GetAllAsync(null, null, null, false))
             .ReturnsAsync(new List<League> { _league });
 
         _mockLeagueSeasonRepo.Setup(r => r.GetByLeagueIdAsync(_league.Id, true))
@@ -377,6 +389,8 @@ public class LiveSyncServiceTests
         _mockRoundRepo.Verify(r => r.CreateAsync(It.IsAny<Round>()), Times.Never);
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task LiveSyncRoundsInternalAsync_OnError_MarksJobAsFailed()
     {
@@ -394,7 +408,7 @@ public class LiveSyncServiceTests
         _mockSyncJobRepo.Setup(r => r.GetByIdAsync(jobId))
             .ReturnsAsync(syncJob);
 
-        _mockLeagueRepo.Setup(r => r.GetAllAsync())
+        _mockLeagueRepo.Setup(r => r.GetAllAsync(null, null, null, false))
             .ThrowsAsync(new InvalidOperationException("Database error"));
 
         // Act & Assert
@@ -411,6 +425,8 @@ public class LiveSyncServiceTests
 
     #region LiveSyncRound Tests (Single Round)
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task LiveSyncRoundAsync_RoundNotFound_ThrowsException()
     {
@@ -429,6 +445,8 @@ public class LiveSyncServiceTests
         );
     }
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task LiveSyncRoundInternalAsync_UpdatesSingleRound()
     {
@@ -469,7 +487,7 @@ public class LiveSyncServiceTests
                 OddsComplete = "Yes",
                 Matches = new List<Match>
                 {
-                    new() { HomeTeam = "Team A", AwayTeam = "Team B", Result = "H", Odds1 = 2.0m, OddsX = 2.8m, Odds2 = 2.2m }
+                    new() { HomeTeam = "Team A", AwayTeam = "Team B", Result = "H", HomeOdds =2.0m, DrawOdds =2.8m, AwayOdds =2.2m }
                 }
             }
         };
@@ -506,6 +524,8 @@ public class LiveSyncServiceTests
 
     #region GetLiveSyncStats Tests
 
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
     [Fact]
     public async Task GetLiveSyncStatsAsync_ReturnsCorrectStats()
     {

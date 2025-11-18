@@ -384,10 +384,14 @@ public static class ImportEndpoints
             try
             {
                 var jobId = await importService.ImportCountriesFromCacheAsync(request.ProviderId, request.ProviderCountryIds);
+                var countryCount = request.ProviderCountryIds?.Count ?? 0;
+                var message = countryCount > 0
+                    ? $"Country import started for {countryCount} countries"
+                    : "Country import started for all cached countries";
                 return Results.Ok(new
                 {
                     jobId,
-                    message = $"Country import started for {request.ProviderCountryIds.Count} countries"
+                    message
                 });
             }
             catch (ArgumentException ex)
@@ -407,10 +411,14 @@ public static class ImportEndpoints
             try
             {
                 var jobId = await importService.ImportLeaguesFromCacheAsync(request.ProviderId, request.ProviderLeagueIds);
+                var leagueCount = request.ProviderLeagueIds?.Count ?? 0;
+                var message = leagueCount > 0
+                    ? $"League import started for {leagueCount} leagues"
+                    : "League import started for all cached leagues";
                 return Results.Ok(new
                 {
                     jobId,
-                    message = $"League import started for {request.ProviderLeagueIds.Count} leagues"
+                    message
                 });
             }
             catch (ArgumentException ex)
@@ -430,10 +438,14 @@ public static class ImportEndpoints
             try
             {
                 var jobId = await importService.ImportSeasonsFromCacheAsync(request.ProviderId, request.ProviderSeasonIds);
+                var seasonCount = request.ProviderSeasonIds?.Count ?? 0;
+                var message = seasonCount > 0
+                    ? $"Season import started for {seasonCount} seasons"
+                    : "Season import started for all cached seasons";
                 return Results.Ok(new
                 {
                     jobId,
-                    message = $"Season import started for {request.ProviderSeasonIds.Count} seasons"
+                    message
                 });
             }
             catch (ArgumentException ex)
@@ -467,6 +479,6 @@ public static class ImportEndpoints
 }
 
 // Request DTOs for cache import endpoints
-public record ImportCountriesRequest(Guid ProviderId, List<Guid> ProviderCountryIds);
-public record ImportLeaguesRequest(Guid ProviderId, List<Guid> ProviderLeagueIds);
-public record ImportSeasonsRequest(Guid ProviderId, List<Guid> ProviderSeasonIds);
+public record ImportCountriesRequest(Guid ProviderId, List<Guid>? ProviderCountryIds);
+public record ImportLeaguesRequest(Guid ProviderId, List<Guid>? ProviderLeagueIds);
+public record ImportSeasonsRequest(Guid ProviderId, List<Guid>? ProviderSeasonIds);

@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Sazkomat.Configuration.Data;
 using Sazkomat.Configuration.Entities;
 using Sazkomat.Configuration.Repositories;
+using Sazkomat.Tests.Helpers;
 
 namespace Sazkomat.Tests.Configuration;
 
@@ -17,7 +18,7 @@ public class LeagueRepositoryTests : IDisposable
             .Options;
 
         _context = new ConfigurationDbContext(options);
-        _repository = new LeagueRepository(_context);
+        _repository = new LeagueRepository(_context, TestHelpers.CreateMockLogger<LeagueRepository>());
 
         // Seed test data
         SeedTestData();
@@ -46,6 +47,8 @@ public class LeagueRepositoryTests : IDisposable
         _context.SaveChanges();
     }
 
+    [Trait("Category", "Fast")]
+    [Trait("Type", "Repository")]
     [Fact]
     public async Task GetAllAsync_ReturnsAllLeagues()
     {
@@ -89,6 +92,8 @@ public class LeagueRepositoryTests : IDisposable
         Assert.Equal(2, result.Count);
     }
 
+    [Trait("Category", "Fast")]
+    [Trait("Type", "Repository")]
     [Fact]
     public async Task GetByIdAsync_ExistingLeague_ReturnsLeague()
     {
@@ -121,6 +126,8 @@ public class LeagueRepositoryTests : IDisposable
         Assert.Equal("Premier League", result.Name);
     }
 
+    [Trait("Category", "Fast")]
+    [Trait("Type", "Repository")]
     [Fact]
     public async Task GetByIdAsync_NonExistingLeague_ReturnsNull()
     {
@@ -131,6 +138,8 @@ public class LeagueRepositoryTests : IDisposable
         Assert.Null(result);
     }
 
+    [Trait("Category", "Fast")]
+    [Trait("Type", "Repository")]
     [Fact]
     public async Task CreateAsync_ValidLeague_AddsLeague()
     {
@@ -160,6 +169,8 @@ public class LeagueRepositoryTests : IDisposable
         Assert.Equal("La Liga", result.Name);
     }
 
+    [Trait("Category", "Fast")]
+    [Trait("Type", "Repository")]
     [Fact]
     public async Task UpdateAsync_ExistingLeague_UpdatesLeague()
     {
@@ -196,6 +207,8 @@ public class LeagueRepositoryTests : IDisposable
         Assert.Equal(5, result.Priority);
     }
 
+    [Trait("Category", "Fast")]
+    [Trait("Type", "Repository")]
     [Fact]
     public async Task DeleteAsync_ExistingLeague_DeletesLeague()
     {
@@ -227,6 +240,8 @@ public class LeagueRepositoryTests : IDisposable
         Assert.Null(result);
     }
 
+    [Trait("Category", "Fast")]
+    [Trait("Type", "Repository")]
     [Fact]
     public async Task GetAllAsync_FiltersBySport()
     {

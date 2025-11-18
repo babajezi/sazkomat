@@ -152,6 +152,8 @@ public class ScanService : IScanService
                         IsImported = false
                     };
                     await _providerCountryRepo.CreateAsync(providerCountry);
+                    _logger.LogInformation("✓ Added country to cache: {Name} ({Code}) {Flag}",
+                        country.Name, country.Code, country.FlagEmoji ?? "");
                     newCount++;
                 }
                 else
@@ -163,6 +165,8 @@ public class ScanService : IScanService
                     existing.ScrapedAt = DateTime.UtcNow;
                     existing.RawData = JsonSerializer.Serialize(country);
                     await _providerCountryRepo.UpdateAsync(existing);
+                    _logger.LogInformation("↻ Updated country in cache: {Name} ({Code})",
+                        country.Name, country.Code);
                     updatedCount++;
                 }
             }
@@ -421,6 +425,8 @@ public class ScanService : IScanService
                                 IsImported = false
                             };
                             await _providerLeagueRepo.CreateAsync(providerLeague);
+                            _logger.LogInformation("✓ Added league to cache: {Name} [{Country}]",
+                                league.DisplayName ?? league.Name, country.Name);
                             newCount++;
                         }
                         else
@@ -433,6 +439,8 @@ public class ScanService : IScanService
                             existing.ScrapedAt = DateTime.UtcNow;
                             existing.RawData = JsonSerializer.Serialize(league);
                             await _providerLeagueRepo.UpdateAsync(existing);
+                            _logger.LogInformation("↻ Updated league in cache: {Name} [{Country}]",
+                                league.DisplayName ?? league.Name, country.Name);
                             updatedCount++;
                         }
                     }

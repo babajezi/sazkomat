@@ -46,6 +46,8 @@ public class FootballBetExplorerScraperTests
         };
     }
 
+    [Trait("Category", "Integration")]
+    [Trait("Type", "Scraper")]
     [Fact]
     public void CanHandle_FootballSport_ReturnsTrue()
     {
@@ -56,6 +58,8 @@ public class FootballBetExplorerScraperTests
         Assert.True(result);
     }
 
+    [Trait("Category", "Integration")]
+    [Trait("Type", "Scraper")]
     [Fact]
     public void CanHandle_BasketballSport_ReturnsFalse()
     {
@@ -75,6 +79,8 @@ public class FootballBetExplorerScraperTests
         Assert.False(result);
     }
 
+    [Trait("Category", "Integration")]
+    [Trait("Type", "Scraper")]
     [Fact]
     public async Task ScrapeSeasonAsync_NoResultsContainer_ReturnsEmptyList()
     {
@@ -91,6 +97,8 @@ public class FootballBetExplorerScraperTests
         Assert.Empty(rounds);
     }
 
+    [Trait("Category", "Integration")]
+    [Trait("Type", "Scraper")]
     [Fact]
     public async Task ScrapeSeasonAsync_ValidHtml_ParsesRounds()
     {
@@ -159,6 +167,8 @@ public class FootballBetExplorerScraperTests
         Assert.Equal("1-1-0", round.SummaryResult);
     }
 
+    [Trait("Category", "Integration")]
+    [Trait("Type", "Scraper")]
     [Fact]
     public async Task ScrapeSeasonAsync_MultipleRounds_ParsesCorrectly()
     {
@@ -213,6 +223,8 @@ public class FootballBetExplorerScraperTests
         Assert.Equal(1, round2.AwayWins);
     }
 
+    [Trait("Category", "Integration")]
+    [Trait("Type", "Scraper")]
     [Fact]
     public async Task ScrapeSeasonAsync_OddsCalculation_CorrectlySumsCumulativeOdds()
     {
@@ -260,6 +272,8 @@ public class FootballBetExplorerScraperTests
         Assert.Equal(9.00m, round.CumulativeOddsAway);  // 4.00 + 5.00
     }
 
+    [Trait("Category", "Integration")]
+    [Trait("Type", "Scraper")]
     [Fact]
     public async Task ScrapeSeasonAsync_MissingOdds_HandlesGracefully()
     {
@@ -297,6 +311,8 @@ public class FootballBetExplorerScraperTests
         Assert.Equal("No", round.OddsComplete); // Should indicate incomplete odds
     }
 
+    [Trait("Category", "Integration")]
+    [Trait("Type", "Scraper")]
     [Fact]
     public async Task ScrapeSeasonAsync_PostponedMatch_ParsesCorrectly()
     {
@@ -343,6 +359,8 @@ public class FootballBetExplorerScraperTests
         Assert.Equal(1, round.HomeWins); // Only completed match
     }
 
+    [Trait("Category", "Integration")]
+    [Trait("Type", "Scraper")]
     [Fact]
     public async Task ScrapeSeasonAsync_SeasonFormatConversion_UsesCorrectUrl()
     {
@@ -363,6 +381,8 @@ public class FootballBetExplorerScraperTests
         Assert.Contains("/results/", capturedUrl);
     }
 
+    [Trait("Category", "Integration")]
+    [Trait("Type", "Scraper")]
     [Fact]
     public async Task ScrapeSeasonAsync_ResultParsing_IdentifiesWinDrawLoss()
     {
@@ -421,6 +441,8 @@ public class FootballBetExplorerScraperTests
         Assert.Equal("1-1-1", round.SummaryResult);
     }
 
+    [Trait("Category", "Integration")]
+    [Trait("Type", "Scraper")]
     [Fact]
     public async Task ScrapeSeasonAsync_MatchDetails_PopulatedCorrectly()
     {
@@ -456,13 +478,14 @@ public class FootballBetExplorerScraperTests
         var round = rounds[0];
         Assert.Single(round.Matches);
 
-        var match = round.Matches[0];
+        var match = round.Matches.First();
         Assert.Equal("Manchester United", match.HomeTeam);
         Assert.Equal("Wolves", match.AwayTeam);
-        Assert.Equal("3:1", match.Score);
+        Assert.Equal(3, match.HomeScore);
+        Assert.Equal(1, match.AwayScore);
         Assert.Equal("H", match.Result); // Home win
-        Assert.Equal(1.65m, match.Odds1);
-        Assert.Equal(3.80m, match.OddsX);
-        Assert.Equal(5.25m, match.Odds2);
+        Assert.Equal(1.65m, match.HomeOdds);
+        Assert.Equal(3.80m, match.DrawOdds);
+        Assert.Equal(5.25m, match.AwayOdds);
     }
 }

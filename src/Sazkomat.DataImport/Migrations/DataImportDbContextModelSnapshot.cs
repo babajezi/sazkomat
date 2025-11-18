@@ -172,6 +172,81 @@ namespace Sazkomat.DataImport.Migrations
                     b.ToTable("league_name_mappings", "data_import");
                 });
 
+            modelBuilder.Entity("Sazkomat.DataImport.Entities.CountryNameMapping", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("BetExplorerCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("betexplorer_code");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("is_active");
+
+                    b.Property<Guid?>("LastProviderCountryId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("last_provider_country_id");
+
+                    b.Property<DateTime?>("LastUsedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_used_at");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("notes");
+
+                    b.Property<int>("Priority")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("priority");
+
+                    b.Property<string>("ProviderCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("provider_code");
+
+                    b.Property<string>("ProviderCountryName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("provider_country_name");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<int>("UsageCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("usage_count");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProviderCode")
+                        .HasDatabaseName("ix_country_name_mappings_provider_code");
+
+                    b.HasIndex("ProviderCode", "ProviderCountryName", "IsActive")
+                        .HasDatabaseName("ix_country_name_mappings_lookup");
+
+                    b.ToTable("country_name_mappings", "data_import");
+                });
+
             modelBuilder.Entity("Sazkomat.DataImport.Entities.Match", b =>
                 {
                     b.Property<Guid>("Id")

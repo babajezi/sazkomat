@@ -351,25 +351,50 @@ export default function ImportPage() {
             )}
 
             {!currentJob && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Informace</CardTitle>
-                </CardHeader>
-                <CardContent className="text-sm text-gray-600 space-y-2">
-                  <p>
-                    Po spuštění importu se zobrazí progress a můžete sledovat
-                    stav importu.
-                  </p>
-                  <p>
-                    Import běží na pozadí a může trvat několik minut v
-                    závislosti na počtu lig a sezón.
-                  </p>
-                  <p>
-                    Data jsou scrappována z BetExplorer.com s respektováním
-                    rate limitů.
-                  </p>
-                </CardContent>
-              </Card>
+              <>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Informace</CardTitle>
+                  </CardHeader>
+                  <CardContent className="text-sm text-gray-600 space-y-2">
+                    <p>
+                      Po spuštění importu se zobrazí progress a můžete sledovat
+                      stav importu.
+                    </p>
+                    <p>
+                      Import běží na pozadí a může trvat několik minut v
+                      závislosti na počtu lig a sezón.
+                    </p>
+                    <p>
+                      Data jsou scrappována z BetExplorer.com s respektováním
+                      rate limitů.
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Mapování Názvů</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <p className="text-sm text-gray-600">
+                      Pokud automatické mapování nepracuje správně, můžete vytvořit manuální mapování:
+                    </p>
+                    <div className="flex flex-col gap-2">
+                      <Link href="/mappings">
+                        <Button variant="outline" className="w-full justify-start">
+                          🔗 Mapování názvů lig
+                        </Button>
+                      </Link>
+                      <Link href="/country-mappings">
+                        <Button variant="outline" className="w-full justify-start">
+                          🌍 Mapování názvů zemí
+                        </Button>
+                      </Link>
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
             )}
           </div>
         </div>
