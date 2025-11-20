@@ -19,9 +19,56 @@ using Hangfire.PostgreSql;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Configure Serilog from appsettings.json
+// Configure Serilog with 4 separate log files
 Log.Logger = new LoggerConfiguration()
-    .ReadFrom.Configuration(builder.Configuration)
+    .MinimumLevel.Information()
+    .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
+    .MinimumLevel.Override("Microsoft.EntityFrameworkCore", LogEventLevel.Warning)
+    .MinimumLevel.Override("Microsoft.AspNetCore.Hosting.Diagnostics", LogEventLevel.Warning)
+    .MinimumLevel.Override("Microsoft.AspNetCore.Routing.EndpointMiddleware", LogEventLevel.Warning)
+    .MinimumLevel.Override("Microsoft.AspNetCore.Cors.Infrastructure.CorsService", LogEventLevel.Warning)
+    .MinimumLevel.Override("System", LogEventLevel.Warning)
+    .Enrich.FromLogContext()
+    // Console sink
+    .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}")
+    // 1. YYYYMMDD.log - Všechno (master chronologický log)
+    .WriteTo.File(
+        path: "/app/logs/.log",
+        rollingInterval: RollingInterval.Day,
+        retainedFileCountLimit: 30,
+        outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} {Level:u3}] [{SourceContext}] {Message:lj}{NewLine}{Exception}")
+    // 2. error-YYYYMMDD.log - Jen errory (Level >= Error)
+    .WriteTo.Logger(lc => lc
+        .Filter.ByIncludingOnly(e => e.Level >= LogEventLevel.Error)
+        .WriteTo.File(
+            path: "/app/logs/error-.log",
+            rollingInterval: RollingInterval.Day,
+            retainedFileCountLimit: 30,
+            outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} {Level:u3}] [{SourceContext}] {Message:lj}{NewLine}{Exception}"))
+    // 3. sync-YYYYMMDD.log - Synchronizační operace z providerů
+    .WriteTo.Logger(lc => lc
+        .Filter.ByIncludingOnly(e =>
+            e.Properties.ContainsKey("SourceContext") &&
+            (e.Properties["SourceContext"].ToString().Contains("ScanService") ||
+             e.Properties["SourceContext"].ToString().Contains("LiveSyncService") ||
+             e.Properties["SourceContext"].ToString().Contains("ImportService") ||
+             e.Properties["SourceContext"].ToString().Contains("ProviderSyncService")))
+        .WriteTo.File(
+            path: "/app/logs/sync-.log",
+            rollingInterval: RollingInterval.Day,
+            retainedFileCountLimit: 30,
+            outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} {Level:u3}] {Message:lj}{NewLine}{Exception}"))
+    // 4. comm-YYYYMMDD.log - HTTP komunikace a scraping
+    .WriteTo.Logger(lc => lc
+        .Filter.ByIncludingOnly(e =>
+            e.Properties.ContainsKey("SourceContext") &&
+            (e.Properties["SourceContext"].ToString().Contains("HttpClient") ||
+             e.Properties["SourceContext"].ToString().Contains("Scraper")))
+        .WriteTo.File(
+            path: "/app/logs/comm-.log",
+            rollingInterval: RollingInterval.Day,
+            retainedFileCountLimit: 30,
+            outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} {Level:u3}] {Message:lj}{NewLine}{Exception}"))
     .CreateLogger();
 
 builder.Host.UseSerilog();

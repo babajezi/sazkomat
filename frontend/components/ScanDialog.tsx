@@ -38,7 +38,6 @@ export function ScanDialog({
 }: ScanDialogProps) {
   const [open, setOpen] = useState(false);
   const [selectedProviderIds, setSelectedProviderIds] = useState<string[]>([]);
-  const [scanResults, setScanResults] = useState<ScanJobResponse[]>([]);
   const queryClient = useQueryClient();
 
   // Load betting providers for Leagues scan
@@ -48,7 +47,7 @@ export function ScanDialog({
     enabled: entityType === "Leagues" && open,
   });
 
-  const scanMutation = useMutation({
+  const scanMutation = useMutation<ScanJobResponse | ScanJobResponse[]>({
     mutationFn: async () => {
       // For Leagues with multi-provider selection
       if (entityType === "Leagues" && selectedProviderIds.length > 0) {
@@ -74,8 +73,7 @@ export function ScanDialog({
           results.push(result);
         }
 
-        setScanResults(results);
-        return results[0]; // Return first for backward compatibility
+        return results; // Return full array for multi-provider scan
       }
 
       // Original single-provider flow for Countries and Seasons
@@ -119,13 +117,21 @@ export function ScanDialog({
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["sync-jobs"] });
+
+      // Handle both single job and array of jobs
       if (onSuccess) {
-        onSuccess(data.jobId);
+        if (Array.isArray(data)) {
+          // Multi-provider: call onSuccess for each job
+          data.forEach(job => onSuccess(job.jobId));
+        } else {
+          // Single-provider: call once
+          onSuccess(data.jobId);
+        }
       }
+
       setTimeout(() => {
         setOpen(false);
         scanMutation.reset();
-        setScanResults([]);
         setSelectedProviderIds([]);
       }, 2000);
     },
@@ -248,12 +254,12 @@ export function ScanDialog({
             <Alert className="bg-green-50 border-green-200">
               <CheckCircle2 className="h-4 w-4 text-green-600" />
               <AlertDescription className="text-green-900">
-                {scanResults.length > 0 ? (
+                {Array.isArray(scanMutation.data) ? (
                   <>
-                    Scan úspěšně spuštěn pro {scanResults.length} provider
-                    {scanResults.length > 1 && "ů"}!
+                    Scan úspěšně spuštěn pro {scanMutation.data.length} provider
+                    {scanMutation.data.length > 1 && "ů"}!
                     <div className="mt-1 text-xs space-y-1">
-                      {scanResults.map((result, idx) => (
+                      {scanMutation.data.map((result, idx) => (
                         <div key={idx}>
                           Job {idx + 1}: {result.jobId.slice(0, 8)}...
                         </div>

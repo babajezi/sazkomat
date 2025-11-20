@@ -20,6 +20,7 @@ public class ScanServiceTests
     private readonly Mock<ICountryRepository> _mockCountryRepo;
     private readonly Mock<ICountryProviderRepository> _mockCountryProviderRepo;
     private readonly Mock<ILeagueRepository> _mockLeagueRepo;
+    private readonly Mock<ICountryNameMappingRepository> _mockCountryNameMappingRepo;
     private readonly Mock<ICountryScraper> _mockCountryScraper;
     private readonly Mock<ILeagueMetadataScraper> _mockLeagueScraper;
     private readonly Mock<ISeasonScraper> _mockSeasonScraper;
@@ -42,6 +43,7 @@ public class ScanServiceTests
         _mockCountryRepo = new Mock<ICountryRepository>();
         _mockCountryProviderRepo = new Mock<ICountryProviderRepository>();
         _mockLeagueRepo = new Mock<ILeagueRepository>();
+        _mockCountryNameMappingRepo = new Mock<ICountryNameMappingRepository>();
         _mockCountryScraper = new Mock<ICountryScraper>();
         _mockLeagueScraper = new Mock<ILeagueMetadataScraper>();
         _mockSeasonScraper = new Mock<ISeasonScraper>();
@@ -77,6 +79,7 @@ public class ScanServiceTests
             _mockCountryRepo.Object,
             _mockCountryProviderRepo.Object,
             _mockLeagueRepo.Object,
+            _mockCountryNameMappingRepo.Object,
             new[] { _mockCountryScraper.Object },
             new[] { _mockLeagueScraper.Object },
             new[] { _mockSeasonScraper.Object },
@@ -296,6 +299,132 @@ public class ScanServiceTests
         Assert.Equal("England Updated", existingCountry.ProviderName);
         _mockProviderCountryRepo.Verify(r => r.UpdateAsync(existingCountry), Times.Once);
         _mockProviderCountryRepo.Verify(r => r.CreateAsync(It.IsAny<ProviderCountry>()), Times.Never);
+    }
+
+    [Trait("Category", "Slow")]
+    [Trait("Type", "Service")]
+    [Fact]
+    public async Task ScanCountriesAsync_BettingProvider_CreatesCountryProviderMappings()
+    {
+        // Arrange
+        var betanoProviderId = Guid.NewGuid();
+        var betanoProvider = new DataProvider
+        {
+            Id = betanoProviderId,
+            Name = "Betano",
+            Code = "betano",
+            Type = ProviderType.BettingProvider,
+            BaseUrl = "https://www.betano.cz",
+            IsActive = true
+        };
+
+        var czechRepublic = new Country
+        {
+            Id = Guid.NewGuid(),
+            Name = "Czech Republic",
+            Code = "czech-republic",
+            IsoCode = "CZ",
+            IsActive = true
+        };
+
+        var england = new Country
+        {
+            Id = Guid.NewGuid(),
+            Name = "England",
+            Code = "england",
+            IsoCode = "GB",
+            IsActive = true
+        };
+
+        var scrapedCountries = new List<CountryInfo>
+        {
+            new() { Code = "czech-republic", Name = "Czech Republic", IsoCode = null },
+            new() { Code = "england", Name = "England", IsoCode = null }
+        };
+
+        var syncJob = new SyncJob
+        {
+            Id = Guid.NewGuid(),
+            ProviderId = betanoProviderId,
+            Type = SyncJobType.Scan,
+            EntityType = SyncEntityType.Countries,
+            Status = SyncJobStatus.Pending,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        // Setup mocks
+        _mockDataProviderRepo.Setup(r => r.GetByIdAsync(betanoProviderId))
+            .ReturnsAsync(betanoProvider);
+
+        _mockSportRepo.Setup(r => r.GetAllAsync())
+            .ReturnsAsync(new List<Sport> { _footballSport });
+
+        _mockSyncJobRepo.Setup(r => r.CreateAsync(It.IsAny<SyncJob>()))
+            .ReturnsAsync(syncJob);
+
+        _mockSyncJobRepo.Setup(r => r.GetByIdAsync(It.IsAny<Guid>()))
+            .ReturnsAsync(syncJob);
+
+        _mockSyncJobRepo.Setup(r => r.UpdateAsync(It.IsAny<SyncJob>()))
+            .ReturnsAsync(syncJob);
+
+        _mockCountryScraper.Setup(s => s.CanHandle(betanoProvider))
+            .Returns(true);
+
+        _mockCountryScraper.Setup(s => s.ScrapeCountriesAsync(_footballSport))
+            .ReturnsAsync(scrapedCountries);
+
+        _mockProviderCountryRepo.Setup(r => r.GetByProviderCodeAsync(betanoProviderId, It.IsAny<string>()))
+            .ReturnsAsync((ProviderCountry?)null);
+
+        _mockProviderCountryRepo.Setup(r => r.CreateAsync(It.IsAny<ProviderCountry>()))
+            .ReturnsAsync((ProviderCountry pc) => pc);
+
+        // Country matching - STEP 1: Manual mapping (return null - not used)
+        _mockCountryNameMappingRepo.Setup(r => r.FindMappingAsync("betano", It.IsAny<string>()))
+            .ReturnsAsync((CountryNameMapping?)null);
+
+        // Country matching - STEP 3: By ProviderCode
+        _mockCountryRepo.Setup(r => r.GetByCodeAsync("czech-republic"))
+            .ReturnsAsync(czechRepublic);
+
+        _mockCountryRepo.Setup(r => r.GetByCodeAsync("england"))
+            .ReturnsAsync(england);
+
+        // CountryProvider doesn't exist yet
+        _mockCountryProviderRepo.Setup(r => r.GetByCountryAndProviderAsync(czechRepublic.Id, betanoProviderId))
+            .ReturnsAsync((CountryProvider?)null);
+
+        _mockCountryProviderRepo.Setup(r => r.GetByCountryAndProviderAsync(england.Id, betanoProviderId))
+            .ReturnsAsync((CountryProvider?)null);
+
+        _mockCountryProviderRepo.Setup(r => r.AddAsync(It.IsAny<CountryProvider>()))
+            .Verifiable();
+
+        // Act
+        var jobId = await _service.ScanCountriesAsync(betanoProviderId);
+
+        // Assert
+        // Verify ProviderCountry cache entries created
+        _mockProviderCountryRepo.Verify(r => r.CreateAsync(It.IsAny<ProviderCountry>()), Times.Exactly(2));
+
+        // Verify CountryProvider mappings created for both countries
+        _mockCountryProviderRepo.Verify(r => r.AddAsync(It.Is<CountryProvider>(cp =>
+            cp.CountryId == czechRepublic.Id &&
+            cp.ProviderId == betanoProviderId &&
+            cp.ProviderCode == "czech-republic" &&
+            cp.ProviderName == "Czech Republic" &&
+            cp.IsActive == true)), Times.Once);
+
+        _mockCountryProviderRepo.Verify(r => r.AddAsync(It.Is<CountryProvider>(cp =>
+            cp.CountryId == england.Id &&
+            cp.ProviderId == betanoProviderId &&
+            cp.ProviderCode == "england" &&
+            cp.ProviderName == "England" &&
+            cp.IsActive == true)), Times.Once);
+
+        // Verify sync job completed successfully
+        Assert.Equal(SyncJobStatus.Completed, syncJob.Status);
     }
 
     #endregion

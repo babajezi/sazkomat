@@ -100,6 +100,9 @@ public class BetExplorerEnrichmentService : IBetExplorerEnrichmentService
                 // Use BetExplorer's slug (critical for data import)
                 Slug = match.Slug,
 
+                // Keep provider's country code
+                CountryCode = providerLeague.CountryCode,
+
                 // Keep provider's bettable status (true by definition since it came from betting provider)
                 IsBettable = true,
 

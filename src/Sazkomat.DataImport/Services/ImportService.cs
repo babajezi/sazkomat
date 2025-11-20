@@ -4,6 +4,7 @@ using Sazkomat.Configuration.Repositories;
 using Sazkomat.DataImport.Entities;
 using Sazkomat.DataImport.Repositories;
 using System.Text.Json;
+using System.Transactions;
 
 namespace Sazkomat.DataImport.Services;
 
@@ -110,6 +111,14 @@ public class ImportService : IImportService
         syncJob.StartedAt = DateTime.UtcNow;
         await _syncJobRepo.UpdateAsync(syncJob);
 
+        // Use TransactionScope to coordinate transactions across multiple DbContexts
+        // This ensures atomic commit/rollback for both Configuration and DataImport schemas
+        var transactionOptions = new TransactionOptions
+        {
+            IsolationLevel = IsolationLevel.ReadCommitted,
+            Timeout = TransactionManager.MaximumTimeout
+        };
+
         try
         {
             int importedCount = 0;
@@ -120,7 +129,11 @@ public class ImportService : IImportService
             // Get provider once for later use
             var provider = await _dataProviderRepo.GetByIdAsync(syncJob.ProviderId);
 
-            foreach (var providerCountryId in providerCountryIds)
+            // Wrap import loop in TransactionScope to ensure atomic commit across schemas
+            using (var scope = new TransactionScope(TransactionScopeOption.Required,
+                transactionOptions, TransactionScopeAsyncFlowOption.Enabled))
+            {
+                foreach (var providerCountryId in providerCountryIds)
             {
                 try
                 {
@@ -134,13 +147,26 @@ public class ImportService : IImportService
                         continue;
                     }
 
-                    // Skip if already imported
-                    if (providerCountry.IsImported)
+                    // Skip if already imported - but verify the country actually exists
+                    if (providerCountry.IsImported && providerCountry.CountryId.HasValue)
                     {
-                        _logger.LogInformation("ProviderCountry {Id} ({Name}) already imported, skipping",
-                            providerCountryId, providerCountry.ProviderName);
-                        skippedCount++;
-                        continue;
+                        var existingCountry = await _countryRepo.GetByIdAsync(providerCountry.CountryId.Value);
+                        if (existingCountry != null)
+                        {
+                            _logger.LogInformation("ProviderCountry {Id} ({Name}) already imported, skipping",
+                                providerCountryId, providerCountry.ProviderName);
+                            skippedCount++;
+                            continue;
+                        }
+                        else
+                        {
+                            // Orphaned reference - reset and re-import
+                            _logger.LogWarning("⚠ ProviderCountry {Id} has orphaned country reference {CountryId}, resetting and re-importing",
+                                providerCountryId, providerCountry.CountryId.Value);
+                            providerCountry.IsImported = false;
+                            providerCountry.CountryId = null;
+                            providerCountry.ImportedAt = null;
+                        }
                     }
 
                     // Check if Country with same Code already exists (Code has unique constraint)
@@ -262,6 +288,10 @@ public class ImportService : IImportService
                 }
             }
 
+                // Complete the transaction - all changes committed atomically
+                scope.Complete();
+            }
+
             // Update sync job as completed - use PartiallyCompleted if there were some errors
             syncJob.Status = errorCount > 0 ? SyncJobStatus.PartiallyCompleted : SyncJobStatus.Completed;
             syncJob.CompletedAt = DateTime.UtcNow;
@@ -374,6 +404,14 @@ public class ImportService : IImportService
         syncJob.StartedAt = DateTime.UtcNow;
         await _syncJobRepo.UpdateAsync(syncJob);
 
+        // Use TransactionScope to coordinate transactions across multiple DbContexts
+        // This ensures atomic commit/rollback for both Configuration and DataImport schemas
+        var transactionOptions = new TransactionOptions
+        {
+            IsolationLevel = IsolationLevel.ReadCommitted,
+            Timeout = TransactionManager.MaximumTimeout
+        };
+
         try
         {
             // Get default sport (Football)
@@ -388,7 +426,11 @@ public class ImportService : IImportService
             // Get provider once for later use
             var provider = await _dataProviderRepo.GetByIdAsync(syncJob.ProviderId);
 
-            foreach (var providerLeagueId in providerLeagueIds)
+            // Wrap import loop in TransactionScope to ensure atomic commit across schemas
+            using (var scope = new TransactionScope(TransactionScopeOption.Required,
+                transactionOptions, TransactionScopeAsyncFlowOption.Enabled))
+            {
+                foreach (var providerLeagueId in providerLeagueIds)
             {
                 try
                 {
@@ -402,13 +444,26 @@ public class ImportService : IImportService
                         continue;
                     }
 
-                    // Skip if already imported
-                    if (providerLeague.IsImported)
+                    // Skip if already imported - but verify the league actually exists
+                    if (providerLeague.IsImported && providerLeague.LeagueId.HasValue)
                     {
-                        _logger.LogInformation("ProviderLeague {Id} ({Name}) already imported, skipping",
-                            providerLeagueId, providerLeague.ProviderName);
-                        skippedCount++;
-                        continue;
+                        var existingLeague = await _leagueRepo.GetByIdAsync(providerLeague.LeagueId.Value);
+                        if (existingLeague != null)
+                        {
+                            _logger.LogInformation("ProviderLeague {Id} ({Name}) already imported, skipping",
+                                providerLeagueId, providerLeague.ProviderName);
+                            skippedCount++;
+                            continue;
+                        }
+                        else
+                        {
+                            // Orphaned reference - reset and re-import
+                            _logger.LogWarning("⚠ ProviderLeague {Id} has orphaned league reference {LeagueId}, resetting and re-importing",
+                                providerLeagueId, providerLeague.LeagueId.Value);
+                            providerLeague.IsImported = false;
+                            providerLeague.LeagueId = null;
+                            providerLeague.ImportedAt = null;
+                        }
                     }
 
                     // For betting providers (ProviderCountryId is null), get country from league's mapped data
@@ -558,6 +613,10 @@ public class ImportService : IImportService
                 }
             }
 
+                // Complete the transaction - all changes committed atomically
+                scope.Complete();
+            }
+
             // Update sync job - use PartiallyCompleted if there were some errors
             syncJob.Status = errorCount > 0 ? SyncJobStatus.PartiallyCompleted : SyncJobStatus.Completed;
             syncJob.CompletedAt = DateTime.UtcNow;
@@ -670,6 +729,14 @@ public class ImportService : IImportService
         syncJob.StartedAt = DateTime.UtcNow;
         await _syncJobRepo.UpdateAsync(syncJob);
 
+        // Use TransactionScope to coordinate transactions across multiple DbContexts
+        // This ensures atomic commit/rollback for both Configuration and DataImport schemas
+        var transactionOptions = new TransactionOptions
+        {
+            IsolationLevel = IsolationLevel.ReadCommitted,
+            Timeout = TransactionManager.MaximumTimeout
+        };
+
         try
         {
             int importedCount = 0;
@@ -677,7 +744,11 @@ public class ImportService : IImportService
             int errorCount = 0;
             var errors = new List<string>();
 
-            foreach (var providerSeasonId in providerSeasonIds)
+            // Wrap import loop in TransactionScope to ensure atomic commit across schemas
+            using (var scope = new TransactionScope(TransactionScopeOption.Required,
+                transactionOptions, TransactionScopeAsyncFlowOption.Enabled))
+            {
+                foreach (var providerSeasonId in providerSeasonIds)
             {
                 try
                 {
@@ -691,13 +762,26 @@ public class ImportService : IImportService
                         continue;
                     }
 
-                    // Skip if already imported
-                    if (providerSeason.IsImported)
+                    // Skip if already imported - but verify the season actually exists
+                    if (providerSeason.IsImported && providerSeason.SeasonId.HasValue)
                     {
-                        _logger.LogInformation("ProviderSeason {Id} ({Name}) already imported, skipping",
-                            providerSeasonId, providerSeason.SeasonName);
-                        skippedCount++;
-                        continue;
+                        var existingSeason = await _seasonRepo.GetByIdAsync(providerSeason.SeasonId.Value);
+                        if (existingSeason != null)
+                        {
+                            _logger.LogInformation("ProviderSeason {Id} ({Name}) already imported, skipping",
+                                providerSeasonId, providerSeason.SeasonName);
+                            skippedCount++;
+                            continue;
+                        }
+                        else
+                        {
+                            // Orphaned reference - reset and re-import
+                            _logger.LogWarning("⚠ ProviderSeason {Id} has orphaned season reference {SeasonId}, resetting and re-importing",
+                                providerSeasonId, providerSeason.SeasonId.Value);
+                            providerSeason.IsImported = false;
+                            providerSeason.SeasonId = null;
+                            providerSeason.ImportedAt = null;
+                        }
                     }
 
                     // Get ProviderLeague to find corresponding League
@@ -799,6 +883,10 @@ public class ImportService : IImportService
                     errorCount++;
                     errors.Add($"ProviderSeason {providerSeasonId}: {ex.Message}");
                 }
+            }
+
+                // Complete the transaction - all changes committed atomically
+                scope.Complete();
             }
 
             // Update sync job - use PartiallyCompleted if there were some errors

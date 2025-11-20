@@ -18,6 +18,7 @@ public class ScanService : IScanService
     private readonly ICountryRepository _countryRepo;
     private readonly ICountryProviderRepository _countryProviderRepo;
     private readonly ILeagueRepository _leagueRepo;
+    private readonly ICountryNameMappingRepository _countryNameMappingRepo;
     private readonly IEnumerable<ICountryScraper> _countryScrapers;
     private readonly IEnumerable<ILeagueMetadataScraper> _leagueScrapers;
     private readonly IEnumerable<ISeasonScraper> _seasonScrapers;
@@ -34,6 +35,7 @@ public class ScanService : IScanService
         ICountryRepository countryRepo,
         ICountryProviderRepository countryProviderRepo,
         ILeagueRepository leagueRepo,
+        ICountryNameMappingRepository countryNameMappingRepo,
         IEnumerable<ICountryScraper> countryScrapers,
         IEnumerable<ILeagueMetadataScraper> leagueScrapers,
         IEnumerable<ISeasonScraper> seasonScrapers,
@@ -49,6 +51,7 @@ public class ScanService : IScanService
         _countryRepo = countryRepo;
         _countryProviderRepo = countryProviderRepo;
         _leagueRepo = leagueRepo;
+        _countryNameMappingRepo = countryNameMappingRepo;
         _countryScrapers = countryScrapers;
         _leagueScrapers = leagueScrapers;
         _seasonScrapers = seasonScrapers;
@@ -168,6 +171,90 @@ public class ScanService : IScanService
                     _logger.LogInformation("↻ Updated country in cache: {Name} ({Code})",
                         country.Name, country.Code);
                     updatedCount++;
+                }
+
+                // For BETTING PROVIDERS ONLY: Create CountryProvider mappings
+                // This allows betting providers to scan leagues after country scan
+                if (provider.Type == Configuration.Entities.ProviderType.BettingProvider)
+                {
+                    Configuration.Entities.Country? configCountry = null;
+
+                    // STEP 1: Try manual country name mapping (highest priority)
+                    var countryMapping = await _countryNameMappingRepo.FindMappingAsync(
+                        provider.Code.ToLowerInvariant(),
+                        country.Code);
+
+                    if (countryMapping != null)
+                    {
+                        configCountry = await _countryRepo.GetByCodeAsync(countryMapping.BetExplorerCode);
+                        if (configCountry != null)
+                        {
+                            _logger.LogInformation("🗺️  Country found via manual mapping: {ProviderName} '{ProviderCode}' → '{BetExplorerCode}'",
+                                country.Name, country.Code, countryMapping.BetExplorerCode);
+                        }
+                    }
+
+                    // STEP 2: Try to find by IsoCode (if available)
+                    if (configCountry == null && !string.IsNullOrEmpty(country.IsoCode))
+                    {
+                        configCountry = await _countryRepo.GetByCodeAsync(country.IsoCode);
+                        if (configCountry != null)
+                        {
+                            _logger.LogDebug("Country matched by IsoCode: {CountryName} ({IsoCode})",
+                                configCountry.Name, country.IsoCode);
+                        }
+                    }
+
+                    // STEP 3: Try to find by ProviderCode (fallback)
+                    if (configCountry == null)
+                    {
+                        configCountry = await _countryRepo.GetByCodeAsync(country.Code);
+                        if (configCountry != null)
+                        {
+                            _logger.LogDebug("Country matched by ProviderCode: {CountryName} ({Code})",
+                                configCountry.Name, country.Code);
+                        }
+                    }
+
+                    if (configCountry != null)
+                    {
+                        // Check if CountryProvider mapping already exists
+                        var existingMapping = await _countryProviderRepo.GetByCountryAndProviderAsync(
+                            configCountry.Id, providerId);
+
+                        if (existingMapping == null)
+                        {
+                            // Create new CountryProvider mapping
+                            var countryProvider = new Configuration.Entities.CountryProvider
+                            {
+                                CountryId = configCountry.Id,
+                                ProviderId = providerId,
+                                ProviderCode = country.Code,
+                                ProviderName = country.Name,
+                                IsActive = true
+                            };
+                            await _countryProviderRepo.AddAsync(countryProvider);
+
+                            _logger.LogInformation("✓ Created CountryProvider mapping: {CountryName} ({CountryCode}) ↔ Provider {ProviderCode}",
+                                configCountry.Name, configCountry.Code, provider.Code);
+                        }
+                        else
+                        {
+                            // Update existing mapping
+                            existingMapping.ProviderCode = country.Code;
+                            existingMapping.ProviderName = country.Name;
+                            existingMapping.IsActive = true;
+                            await _countryProviderRepo.UpdateAsync(existingMapping);
+
+                            _logger.LogInformation("↻ Updated CountryProvider mapping: {CountryName} ({CountryCode})",
+                                configCountry.Name, configCountry.Code);
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogWarning("⚠ No matching country found in configuration for {ProviderName} '{ProviderCode}' - mapping not created. Add manual CountryNameMapping or create country first.",
+                            country.Name, country.Code);
+                    }
                 }
             }
 
@@ -418,6 +505,7 @@ public class ScanService : IScanService
                                 ProviderSlug = league.Slug,
                                 ProviderName = league.Name,
                                 DisplayName = league.DisplayName,
+                                CountryCode = league.CountryCode ?? country.Code,
                                 Priority = league.Priority,
                                 IsBettable = league.IsBettable,
                                 ScrapedAt = DateTime.UtcNow,
@@ -434,6 +522,7 @@ public class ScanService : IScanService
                             // Update existing
                             existing.ProviderName = league.Name;
                             existing.DisplayName = league.DisplayName;
+                            existing.CountryCode = league.CountryCode ?? country.Code;
                             existing.Priority = league.Priority;
                             existing.IsBettable = league.IsBettable;
                             existing.ScrapedAt = DateTime.UtcNow;

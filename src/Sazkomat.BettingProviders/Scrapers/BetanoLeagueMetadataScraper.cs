@@ -49,6 +49,7 @@ public class BetanoLeagueMetadataScraper : ILeagueMetadataScraper
                 Name = l.ProviderLeagueName,
                 DisplayName = $"{l.ProviderLeagueName} ({l.CountryName})",
                 Slug = GenerateSlug(l.ProviderLeagueName),
+                CountryCode = country.Code,
                 ProviderLeagueId = l.ProviderLeagueId,
                 Priority = 5,
                 IsBettable = true,

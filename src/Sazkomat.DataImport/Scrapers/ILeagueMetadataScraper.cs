@@ -32,6 +32,7 @@ public class LeagueMetadata
     public string Name { get; set; } = string.Empty;
     public string DisplayName { get; set; } = string.Empty;
     public string Slug { get; set; } = string.Empty;
+    public string? CountryCode { get; set; }
     public string? ProviderLeagueId { get; set; }
     public int Priority { get; set; } = 5;
     public bool IsBettable { get; set; } = true;
