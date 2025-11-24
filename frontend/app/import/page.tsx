@@ -13,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { CountryFlag } from "@/components/CountryFlag";
+import { getLeagueDisplayName } from "@/lib/utils/league";
 import type { ImportJob } from "@/lib/api/types";
 import { ImportJobStatus } from "@/lib/api/types";
 
@@ -186,7 +187,7 @@ export default function ImportPage() {
                                 htmlFor={league.id}
                                 className="text-sm cursor-pointer"
                               >
-                                {league.displayName}
+                                {getLeagueDisplayName(league)}
                               </label>
                             </div>
                           ))}

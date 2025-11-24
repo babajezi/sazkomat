@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronRight, Sparkles, X } from "lucide-react";
 import Link from "next/link";
 import { CountryFlag } from "@/components/CountryFlag";
+import { getLeagueDisplayName } from "@/lib/utils/league";
 import type { Round } from "@/lib/api/types";
 import { MatchResult } from "@/lib/api/types";
 
@@ -207,7 +208,7 @@ export default function RoundsPage() {
                   <option value="">Všechny ligy</option>
                   {filteredLeagues.map((league) => (
                     <option key={league.id} value={league.id}>
-                      {league.displayName}
+                      {getLeagueDisplayName(league)}
                     </option>
                   ))}
                 </select>

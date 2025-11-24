@@ -12,15 +12,19 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { useState } from "react";
-import { RefreshCw, Database } from "lucide-react";
+import { RefreshCw, Database, Settings } from "lucide-react";
 import { SyncDialog } from "@/components/SyncDialog";
+import { EditProviderDialog } from "@/components/EditProviderDialog";
 import { PaginationControls } from "@/components/PaginationControls";
+import { ProviderLogo } from "@/components/ProviderLogo";
 import { ProviderType, type DataProvider } from "@/lib/api/types";
 
 export default function ProvidersPage() {
   const queryClient = useQueryClient();
   const [syncDialogOpen, setSyncDialogOpen] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<DataProvider | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingProvider, setEditingProvider] = useState<DataProvider | null>(null);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(20);
 
@@ -113,8 +117,12 @@ export default function ProvidersPage() {
           {paginatedProviders?.map((provider) => (
             <Card key={provider.id}>
               <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div>
+                <div className="flex items-start gap-3">
+                  {/* Provider Logo */}
+                  <ProviderLogo provider={provider} size="sm" />
+
+                  {/* Provider Info */}
+                  <div className="flex-1">
                     <CardTitle className="flex items-center gap-2">
                       {provider.name}
                       {provider.isActive ? (
@@ -165,6 +173,17 @@ export default function ProvidersPage() {
                 <div className="pt-4 border-t space-y-2">
                   <Button
                     onClick={() => {
+                      setEditingProvider(provider);
+                      setEditDialogOpen(true);
+                    }}
+                    variant="outline"
+                    className="w-full"
+                  >
+                    <Settings className="w-4 h-4 mr-2" />
+                    Upravit
+                  </Button>
+                  <Button
+                    onClick={() => {
                       setSelectedProvider(provider);
                       setSyncDialogOpen(true);
                     }}
@@ -206,6 +225,12 @@ export default function ProvidersPage() {
           open={syncDialogOpen}
           onOpenChange={setSyncDialogOpen}
           provider={selectedProvider}
+        />
+
+        <EditProviderDialog
+          provider={editingProvider}
+          open={editDialogOpen}
+          onOpenChange={setEditDialogOpen}
         />
       </div>
     </div>

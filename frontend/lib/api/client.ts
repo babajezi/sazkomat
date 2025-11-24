@@ -28,6 +28,7 @@ import type {
   SyncSeasonDataRequest,
   AvailableSeasonsResponse,
   DataProvider,
+  LogoSize,
   SyncLeaguesRequest,
   LeagueNameMapping,
   CreateLeagueNameMappingRequest,
@@ -247,10 +248,37 @@ export const configApi = {
 
   updateProviderConfiguration: async (
     providerId: string,
-    config: { timeout?: number; proxyUrl?: string; customSettings?: Record<string, string> }
+    config: {
+      timeout?: number;
+      proxyUrl?: string;
+      excludedCountryIds?: string[];
+      excludedLeagueIds?: string[];
+      customSettings?: Record<string, string>;
+    }
   ): Promise<DataProvider> => {
     const { data } = await apiClient.patch(`/config/providers/${providerId}/configuration`, config);
     return data;
+  },
+
+  // Provider Logo endpoints
+  uploadProviderLogo: async (providerId: string, file: File): Promise<{ message: string }> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    const { data } = await apiClient.post(`/config/providers/${providerId}/logo`, formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    return data;
+  },
+
+  deleteProviderLogo: async (providerId: string): Promise<{ message: string }> => {
+    const { data } = await apiClient.delete(`/config/providers/${providerId}/logo`);
+    return data;
+  },
+
+  getProviderLogoUrl: (providerId: string, size: "sm" | "md" | "lg" = "md"): string => {
+    return `${API_URL}/api/config/providers/${providerId}/logo?size=${size}`;
   },
 };
 

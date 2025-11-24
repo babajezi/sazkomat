@@ -8,8 +8,9 @@ public interface ICountryScraper
     /// Scrapes available countries from the provider for a specific sport
     /// </summary>
     /// <param name="sport">The sport to get countries for</param>
+    /// <param name="excludedCountryIds">Optional list of provider country/region IDs to exclude (e.g., Betano league IDs for special sections)</param>
     /// <returns>List of country codes and names</returns>
-    Task<List<CountryInfo>> ScrapeCountriesAsync(Sport sport);
+    Task<List<CountryInfo>> ScrapeCountriesAsync(Sport sport, List<string>? excludedCountryIds = null);
 
     /// <summary>
     /// Checks if this scraper can handle the given provider

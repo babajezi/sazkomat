@@ -149,7 +149,12 @@
       "Bash(time dotnet restore:*)",
       "Bash(docker compose:*)",
       "Bash(export DOCKER_BUILDKIT=1)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(dotnet tool list:*)",
+      "Bash(/tmp/betano_db_countries.txt)",
+      "Bash(docker image ls:*)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(docker rmi:*)"
     ],
     "additionalDirectories": [
       "c:\\projects\\claude-share"

@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CountryFlag } from "@/components/CountryFlag";
+import { getLeagueDisplayName } from "@/lib/utils/league";
 import type { League, Sport, Country } from "@/lib/api/types";
 
 interface EditLeagueDialogProps {
@@ -36,6 +37,7 @@ export function EditLeagueDialog({
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
     name: "",
+    nameCs: "",
     displayName: "",
     betExplorerSlug: "",
     isSyncEnabled: true,
@@ -49,6 +51,7 @@ export function EditLeagueDialog({
     if (league) {
       setFormData({
         name: league.name || "",
+        nameCs: league.nameCs || "",
         displayName: league.displayName || "",
         betExplorerSlug: league.betExplorerSlug || "",
         isSyncEnabled: league.isSyncEnabled ?? true,
@@ -84,7 +87,7 @@ export function EditLeagueDialog({
         <DialogHeader>
           <DialogTitle>Upravit ligu</DialogTitle>
           <DialogDescription>
-            Upravte nastavení ligy {league.displayName}
+            Upravte nastavení ligy {getLeagueDisplayName(league)}
           </DialogDescription>
         </DialogHeader>
 
@@ -114,7 +117,7 @@ export function EditLeagueDialog({
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="edit-name">Název *</Label>
+              <Label htmlFor="edit-name">Název (anglicky) *</Label>
               <Input
                 id="edit-name"
                 value={formData.name}
@@ -124,6 +127,19 @@ export function EditLeagueDialog({
                 placeholder="Premier League"
                 required
               />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="edit-nameCs">Název (česky)</Label>
+              <Input
+                id="edit-nameCs"
+                value={formData.nameCs || ""}
+                onChange={(e) =>
+                  setFormData({ ...formData, nameCs: e.target.value })
+                }
+                placeholder="Anglická Premier League"
+              />
+              <p className="text-xs text-gray-500">Preferovaný název pro zobrazení</p>
             </div>
 
             <div className="grid gap-2">

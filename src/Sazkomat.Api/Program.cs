@@ -123,6 +123,8 @@ builder.Services.AddScoped<ILogSettingsRepository, LogSettingsRepository>();
 builder.Services.AddScoped<IConfigurationService, ConfigurationService>();
 builder.Services.AddScoped<ISeasonService, SeasonService>();
 builder.Services.AddScoped<IProviderService, ProviderService>();
+builder.Services.AddScoped<IRedisService, RedisService>();
+builder.Services.AddScoped<IProviderLogoService, ProviderLogoService>();
 builder.Services.AddScoped<IDatabaseResetService, DatabaseResetService>();
 builder.Services.AddScoped<ISyncWorkflowService, SyncWorkflowService>();
 builder.Services.AddScoped<IUniversalImportExportService, UniversalImportExportService>();
@@ -257,6 +259,7 @@ app.MapGet("/health", () => Results.Ok(new
 // Map endpoints
 app.MapConfigurationEndpoints();
 app.MapProviderEndpoints();
+app.MapProviderLogoEndpoints();
 app.MapImportEndpoints();
 app.MapSeasonEndpoints();
 app.MapDatabaseEndpoints();

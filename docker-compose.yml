@@ -68,6 +68,7 @@ services:
       - sazkomat-network
     volumes:
       - ./logs:/app/logs
+      - ./uploads:/app/uploads
 
   # Next.js Frontend
   frontend:

@@ -29,6 +29,17 @@ public class DataProvider : Entity
     /// </summary>
     public string? Configuration { get; set; }
 
+    /// <summary>
+    /// Indicates if the provider has an uploaded logo
+    /// Logo files are stored in /uploads/provider-logos/{Id}/ as sm.webp, md.webp, lg.webp
+    /// </summary>
+    public bool HasLogo { get; set; } = false;
+
+    /// <summary>
+    /// Timestamp when the logo was last uploaded
+    /// </summary>
+    public DateTime? LogoUploadedAt { get; set; }
+
     // Navigation properties
     public ICollection<CountryProvider> CountryProviders { get; set; } = new List<CountryProvider>();
     public ICollection<LeagueProvider> LeagueProviders { get; set; } = new List<LeagueProvider>();

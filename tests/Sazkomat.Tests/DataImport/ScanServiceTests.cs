@@ -132,7 +132,7 @@ public class ScanServiceTests
         _mockCountryScraper.Setup(s => s.CanHandle(_provider))
             .Returns(true);
 
-        _mockCountryScraper.Setup(s => s.ScrapeCountriesAsync(_footballSport))
+        _mockCountryScraper.Setup(s => s.ScrapeCountriesAsync(_footballSport, It.IsAny<List<string>?>()))
             .ReturnsAsync(new List<CountryInfo>());
 
         _mockSyncJobRepo.Setup(r => r.GetByIdAsync(createdJob.Id))
@@ -225,7 +225,7 @@ public class ScanServiceTests
         _mockCountryScraper.Setup(s => s.CanHandle(_provider))
             .Returns(true);
 
-        _mockCountryScraper.Setup(s => s.ScrapeCountriesAsync(_footballSport))
+        _mockCountryScraper.Setup(s => s.ScrapeCountriesAsync(_footballSport, It.IsAny<List<string>?>()))
             .ReturnsAsync(scrapedCountries);
 
         _mockProviderCountryRepo.Setup(r => r.GetByProviderCodeAsync(_providerId, It.IsAny<string>()))
@@ -285,7 +285,7 @@ public class ScanServiceTests
         _mockCountryScraper.Setup(s => s.CanHandle(_provider))
             .Returns(true);
 
-        _mockCountryScraper.Setup(s => s.ScrapeCountriesAsync(_footballSport))
+        _mockCountryScraper.Setup(s => s.ScrapeCountriesAsync(_footballSport, It.IsAny<List<string>?>()))
             .ReturnsAsync(scrapedCountries);
 
         _mockProviderCountryRepo.Setup(r => r.GetByProviderCodeAsync(_providerId, "england"))
@@ -371,7 +371,7 @@ public class ScanServiceTests
         _mockCountryScraper.Setup(s => s.CanHandle(betanoProvider))
             .Returns(true);
 
-        _mockCountryScraper.Setup(s => s.ScrapeCountriesAsync(_footballSport))
+        _mockCountryScraper.Setup(s => s.ScrapeCountriesAsync(_footballSport, It.IsAny<List<string>?>()))
             .ReturnsAsync(scrapedCountries);
 
         _mockProviderCountryRepo.Setup(r => r.GetByProviderCodeAsync(betanoProviderId, It.IsAny<string>()))

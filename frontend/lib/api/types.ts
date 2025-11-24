@@ -71,6 +71,7 @@ export interface UpdateSportRequest {
 export interface Country {
   id: string;
   name: string;
+  nameCs?: string | null;
   code: string;
   flagEmoji: string;
   isoCode: string;
@@ -98,6 +99,7 @@ export interface League {
   sportId: string;
   countryId: string;
   name: string;
+  nameCs?: string | null;
   displayName: string;
   betExplorerSlug: string;
   isSyncEnabled: boolean;
@@ -132,6 +134,7 @@ export interface CreateCountryRequest {
 
 export interface UpdateCountryRequest {
   name?: string;
+  nameCs?: string;
   code?: string;
   flagEmoji?: string;
   isActive?: boolean;
@@ -416,9 +419,14 @@ export interface DataProvider {
   priority: number;
   type: ProviderType;
   notes?: string | null;
+  configuration?: string | null;
+  hasLogo: boolean;
+  logoUploadedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
+
+export type LogoSize = 'sm' | 'md' | 'lg';
 
 export interface SyncLeaguesRequest {
   sportCode: string;

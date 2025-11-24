@@ -5,6 +5,7 @@ namespace Sazkomat.Configuration.Entities;
 public class Country : Entity
 {
     public string Name { get; set; } = string.Empty;
+    public string? NameCs { get; set; } // Czech name (loaded from ISO 3166 localization)
     public string Code { get; set; } = string.Empty;
     public string FlagEmoji { get; set; } = string.Empty;
     public string IsoCode { get; set; } = string.Empty; // ISO Alpha-2 (lowercase: "gb", "de", "cz")

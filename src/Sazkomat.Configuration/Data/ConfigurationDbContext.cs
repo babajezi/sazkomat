@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Sazkomat.Configuration.Data.Configurations;
 using Sazkomat.Configuration.Entities;
@@ -5,7 +6,7 @@ using Sazkomat.Core.Entities;
 
 namespace Sazkomat.Configuration.Data;
 
-public class ConfigurationDbContext : DbContext
+public class ConfigurationDbContext : IdentityDbContext<ApplicationUser>
 {
     public ConfigurationDbContext(DbContextOptions<ConfigurationDbContext> options)
         : base(options)
@@ -24,10 +25,20 @@ public class ConfigurationDbContext : DbContext
     public DbSet<SyncWorkflowState> SyncWorkflowStates => Set<SyncWorkflowState>();
     public DbSet<LogSettings> LogSettings => Set<LogSettings>();
 
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    {
+        base.OnConfiguring(optionsBuilder);
+
+        // Suppress pending model changes warning (we handle migrations manually)
+        optionsBuilder.ConfigureWarnings(warnings =>
+            warnings.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
+    }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
 
+        // Application entities
         modelBuilder.ApplyConfiguration(new SportConfiguration());
         modelBuilder.ApplyConfiguration(new CountryConfiguration());
         modelBuilder.ApplyConfiguration(new LeagueConfiguration());
@@ -39,6 +50,9 @@ public class ConfigurationDbContext : DbContext
         modelBuilder.ApplyConfiguration(new SportProviderConfiguration());
         modelBuilder.ApplyConfiguration(new SyncWorkflowStateConfiguration());
         modelBuilder.ApplyConfiguration(new LogSettingsConfiguration());
+
+        // Identity entities
+        modelBuilder.ApplyConfiguration(new ApplicationUserConfiguration());
     }
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

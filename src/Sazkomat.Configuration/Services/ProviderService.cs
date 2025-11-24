@@ -141,6 +141,8 @@ public class ProviderService : IProviderService
         {
             Timeout = request.Timeout,
             ProxyUrl = request.ProxyUrl,
+            ExcludedCountryIds = request.ExcludedCountryIds,
+            ExcludedLeagueIds = request.ExcludedLeagueIds,
             CustomSettings = request.CustomSettings
         };
 

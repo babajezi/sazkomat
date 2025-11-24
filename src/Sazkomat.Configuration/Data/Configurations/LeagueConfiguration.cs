@@ -28,6 +28,10 @@ public class LeagueConfiguration : IEntityTypeConfiguration<League>
             .HasMaxLength(200)
             .IsRequired();
 
+        builder.Property(l => l.NameCs)
+            .HasColumnName("name_cs")
+            .HasMaxLength(200);
+
         builder.Property(l => l.DisplayName)
             .HasColumnName("display_name")
             .HasMaxLength(250)

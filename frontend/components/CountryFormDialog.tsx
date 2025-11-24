@@ -30,6 +30,7 @@ export function EditCountryDialog({
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
     name: "",
+    nameCs: "",
     code: "",
     flagEmoji: "",
   });
@@ -39,6 +40,7 @@ export function EditCountryDialog({
     if (country) {
       setFormData({
         name: country.name || "",
+        nameCs: country.nameCs || "",
         code: country.code || "",
         flagEmoji: country.flagEmoji || "",
       });
@@ -67,23 +69,41 @@ export function EditCountryDialog({
         <DialogHeader>
           <DialogTitle>Upravit zemi</DialogTitle>
           <DialogDescription>
-            Upravte údaje země {country.name}
+            Upravte údaje země {country.nameCs || country.name}
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="edit-name">Název *</Label>
+              <Label htmlFor="edit-name">Název (anglicky) *</Label>
               <Input
                 id="edit-name"
                 value={formData.name}
                 onChange={(e) =>
                   setFormData({ ...formData, name: e.target.value })
                 }
-                placeholder="Česká republika"
+                placeholder="Czech Republic"
                 required
               />
+              <p className="text-xs text-gray-500">
+                Anglický název země z BetExploreru
+              </p>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="edit-nameCs">Název (česky)</Label>
+              <Input
+                id="edit-nameCs"
+                value={formData.nameCs}
+                onChange={(e) =>
+                  setFormData({ ...formData, nameCs: e.target.value })
+                }
+                placeholder="Česko"
+              />
+              <p className="text-xs text-gray-500">
+                Český název země (primárně zobrazovaný)
+              </p>
             </div>
 
             <div className="grid gap-2">

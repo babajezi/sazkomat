@@ -20,6 +20,10 @@ public class CountryConfiguration : IEntityTypeConfiguration<Country>
             .HasMaxLength(100)
             .IsRequired();
 
+        builder.Property(c => c.NameCs)
+            .HasColumnName("name_cs")
+            .HasMaxLength(100);
+
         builder.Property(c => c.Code)
             .HasColumnName("code")
             .HasMaxLength(50)

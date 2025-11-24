@@ -114,6 +114,20 @@ public class ScanService : IScanService
             var sports = await _sportRepo.GetAllAsync();
             var defaultSport = sports.FirstOrDefault(s => s.Name == "Football") ?? sports.First();
 
+            // Load provider configuration (if available)
+            Configuration.DTOs.ProviderConfigurationDto? config = null;
+            if (!string.IsNullOrEmpty(provider.Configuration))
+            {
+                try
+                {
+                    config = JsonSerializer.Deserialize<Configuration.DTOs.ProviderConfigurationDto>(provider.Configuration);
+                }
+                catch (JsonException ex)
+                {
+                    _logger.LogWarning(ex, "Failed to deserialize provider configuration for {ProviderId}, continuing without filters", providerId);
+                }
+            }
+
             // Select the appropriate scraper for this provider
             var countryScraper = _countryScrapers.FirstOrDefault(s => s.CanHandle(provider));
             if (countryScraper == null)
@@ -127,8 +141,10 @@ public class ScanService : IScanService
                 throw new InvalidOperationException(errorMessage);
             }
 
-            // Scrape countries from provider
-            var scrapedCountries = await countryScraper.ScrapeCountriesAsync(defaultSport);
+            // Scrape countries from provider (with optional exclusion filters)
+            var scrapedCountries = await countryScraper.ScrapeCountriesAsync(
+                defaultSport,
+                config?.ExcludedCountryIds);
             _logger.LogInformation("Scraped {Count} countries from provider {ProviderId}",
                 scrapedCountries.Count, providerId);
 
@@ -137,8 +153,11 @@ public class ScanService : IScanService
 
             foreach (var country in scrapedCountries)
             {
-                // Check if already exists
-                var existing = await _providerCountryRepo.GetByProviderCodeAsync(providerId, country.Code);
+                // Check if already exists - use ProviderName as the unique key
+                // since some providers (like Betano) use the same code (e.g., "default") for multiple countries
+                // We MUST NOT fallback to code-based lookup as it would cause countries with duplicate codes
+                // to overwrite each other instead of being created as separate records
+                var existing = await _providerCountryRepo.GetByProviderNameAsync(providerId, country.Name);
 
                 if (existing == null)
                 {
@@ -343,6 +362,20 @@ public class ScanService : IScanService
             var sports = await _sportRepo.GetAllAsync();
             var defaultSport = sports.FirstOrDefault(s => s.Name == "Football") ?? sports.First();
 
+            // Load provider configuration (if available)
+            Configuration.DTOs.ProviderConfigurationDto? config = null;
+            if (!string.IsNullOrEmpty(provider.Configuration))
+            {
+                try
+                {
+                    config = JsonSerializer.Deserialize<Configuration.DTOs.ProviderConfigurationDto>(provider.Configuration);
+                }
+                catch (JsonException ex)
+                {
+                    _logger.LogWarning(ex, "Failed to deserialize provider configuration for {ProviderId}, continuing without filters", providerId);
+                }
+            }
+
             // Select the appropriate league scraper for this provider
             var leagueScraper = _leagueScrapers.FirstOrDefault(s => s.CanHandle(provider));
             if (leagueScraper == null)
@@ -487,6 +520,21 @@ public class ScanService : IScanService
 
                         _logger.LogInformation("Enrichment complete: {Enriched} leagues found on BetExplorer, {Skipped} skipped",
                             leaguesToCache.Count, skippedCount);
+                    }
+
+                    // Apply ExcludedLeagueIds filter (if configured)
+                    if (config?.ExcludedLeagueIds != null && config.ExcludedLeagueIds.Any())
+                    {
+                        var beforeFilter = leaguesToCache.Count;
+                        leaguesToCache = leaguesToCache
+                            .Where(l => !config.ExcludedLeagueIds.Contains(l.Slug))
+                            .ToList();
+
+                        if (beforeFilter != leaguesToCache.Count)
+                        {
+                            _logger.LogInformation("Filtered out {Excluded} leagues based on ExcludedLeagueIds configuration for country {CountryName}",
+                                beforeFilter - leaguesToCache.Count, country.Name);
+                        }
                     }
 
                     // Cache the leagues (either direct BetExplorer or enriched betting provider data)

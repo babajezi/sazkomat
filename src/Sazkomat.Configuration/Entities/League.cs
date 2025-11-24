@@ -7,6 +7,7 @@ public class League : Entity
     public Guid SportId { get; set; }
     public Guid CountryId { get; set; }
     public string Name { get; set; } = string.Empty;
+    public string? NameCs { get; set; } // Czech name for localization
     public string DisplayName { get; set; } = string.Empty;
     [Obsolete("Use LeagueProvider mapping instead")]
     public string BetExplorerSlug { get; set; } = string.Empty; // Will be removed in next migration

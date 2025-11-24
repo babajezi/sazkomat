@@ -96,6 +96,7 @@ public class ConfigurationService : IConfigurationService
             SportId = request.SportId,
             CountryId = request.CountryId,
             Name = request.Name,
+            NameCs = request.NameCs,
             DisplayName = $"{request.Name} ({country.Name})",
             BetExplorerSlug = request.BetExplorerSlug,
             IsBettable = request.IsBettable,
@@ -130,6 +131,11 @@ public class ConfigurationService : IConfigurationService
         {
             league.Name = request.Name;
             league.DisplayName = $"{request.Name} ({league.Country.Name})";
+        }
+
+        if (request.NameCs != null)
+        {
+            league.NameCs = request.NameCs;
         }
 
         if (request.BetExplorerSlug != null)
@@ -234,6 +240,11 @@ public class ConfigurationService : IConfigurationService
         if (request.Name != null)
         {
             country.Name = request.Name;
+        }
+
+        if (request.NameCs != null)
+        {
+            country.NameCs = request.NameCs;
         }
 
         if (request.Code != null)

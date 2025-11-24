@@ -21,6 +21,8 @@ import { LeagueSeasonsDisplay } from "@/components/LeagueSeasonsDisplay";
 import { LeagueProviderDialog } from "@/components/LeagueProviderDialog";
 import { PaginationControls } from "@/components/PaginationControls";
 import { CountryFlag } from "@/components/CountryFlag";
+import { getCountryDisplayName } from "@/lib/utils/country";
+import { getLeagueDisplayName } from "@/lib/utils/league";
 import type { League, LeagueProvider } from "@/lib/api/types";
 import { ProviderType, BooleanFilterValue, HasProvidersFilter } from "@/lib/api/types";
 
@@ -121,7 +123,7 @@ export default function LeaguesPage() {
   const handleDelete = async (league: League) => {
     if (
       window.confirm(
-        `Opravdu chcete smazat ligu "${league.displayName}"? Tato akce je nevratná.`
+        `Opravdu chcete smazat ligu "${getLeagueDisplayName(league)}"? Tato akce je nevratná.`
       )
     ) {
       deleteMutation.mutate(league.id);
@@ -140,7 +142,7 @@ export default function LeaguesPage() {
     // Validate: Cannot enable sync if league or country is not active
     if (checked && !league.isActive) {
       alert(
-        `Nelze aktivovat synchronizaci pro neaktivní ligu "${league.displayName}". Prosím nejprve aktivujte ligu.`
+        `Nelze aktivovat synchronizaci pro neaktivní ligu "${getLeagueDisplayName(league)}". Prosím nejprve aktivujte ligu.`
       );
       return;
     }
@@ -148,7 +150,7 @@ export default function LeaguesPage() {
     const country = countries?.find((c) => c.id === league.countryId);
     if (checked && country && !country.isActive) {
       alert(
-        `Nelze aktivovat synchronizaci pro ligu "${league.displayName}", protože země "${country.name}" není aktivní. Prosím nejprve aktivujte zemi.`
+        `Nelze aktivovat synchronizaci pro ligu "${getLeagueDisplayName(league)}", protože země "${getCountryDisplayName(country)}" není aktivní. Prosím nejprve aktivujte zemi.`
       );
       return;
     }
@@ -220,7 +222,8 @@ export default function LeaguesPage() {
       const query = searchQuery.toLowerCase();
       const matchesDisplayName = league.displayName.toLowerCase().includes(query);
       const matchesName = league.name.toLowerCase().includes(query);
-      if (!matchesDisplayName && !matchesName) return false;
+      const matchesNameCs = league.nameCs?.toLowerCase().includes(query);
+      if (!matchesDisplayName && !matchesName && !matchesNameCs) return false;
     }
 
     if (filterSportId && league.sportId !== filterSportId) return false;
@@ -515,11 +518,11 @@ export default function LeaguesPage() {
                       {getCountry(league.countryId) && (
                         <>
                           <CountryFlag isoCode={getCountry(league.countryId)!.isoCode} className="text-xl" />
-                          <span>{getCountry(league.countryId)!.name}</span>
+                          <span>{getCountryDisplayName(getCountry(league.countryId)!)}</span>
                         </>
                       )}
                       {!getCountry(league.countryId) && <span>Unknown</span>}
-                      {league.displayName}
+                      {getLeagueDisplayName(league)}
                       <Badge variant={league.isSyncEnabled ? "default" : "secondary"}>
                         {league.isSyncEnabled ? "Sync povolen" : "Sync zakázán"}
                       </Badge>

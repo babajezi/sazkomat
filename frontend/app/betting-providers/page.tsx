@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { EditProviderDialog } from "@/components/EditProviderDialog";
+import { ProviderLogo } from "@/components/ProviderLogo";
 import { ProviderType, type DataProvider } from "@/lib/api/types";
 
 export default function BettingProvidersPage() {
@@ -147,22 +148,28 @@ export default function BettingProvidersPage() {
           <Card key={provider.id}>
             <CardHeader>
               <div className="flex justify-between items-start">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    {provider.name}
-                    {provider.isActive ? (
-                      <Badge variant="default">Aktivní</Badge>
-                    ) : (
-                      <Badge variant="secondary">Neaktivní</Badge>
-                    )}
-                  </CardTitle>
-                  <CardDescription className="mt-2">
-                    <span className="font-mono text-xs">{provider.code}</span>
-                    {" • "}
-                    <a href={provider.baseUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                      {provider.baseUrl}
-                    </a>
-                  </CardDescription>
+                <div className="flex items-start gap-4">
+                  {/* Provider Logo */}
+                  <ProviderLogo provider={provider} size="md" />
+
+                  {/* Provider Info */}
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      {provider.name}
+                      {provider.isActive ? (
+                        <Badge variant="default">Aktivní</Badge>
+                      ) : (
+                        <Badge variant="secondary">Neaktivní</Badge>
+                      )}
+                    </CardTitle>
+                    <CardDescription className="mt-2">
+                      <span className="font-mono text-xs">{provider.code}</span>
+                      {" • "}
+                      <a href={provider.baseUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                        {provider.baseUrl}
+                      </a>
+                    </CardDescription>
+                  </div>
                 </div>
                 <div className="flex gap-2">
                   <Button

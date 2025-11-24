@@ -4,7 +4,8 @@ public record CreateLeagueRequest(
     Guid SportId,
     Guid CountryId,
     string Name,
-    string BetExplorerSlug,
+    string? NameCs = null,
+    string BetExplorerSlug = "",
     bool IsBettable = true,
     int Priority = 5,
     string? Notes = null

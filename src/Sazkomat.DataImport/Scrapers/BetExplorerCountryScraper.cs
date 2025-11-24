@@ -24,7 +24,7 @@ public class BetExplorerCountryScraper : ICountryScraper
         return provider.Code.Equals("betexplorer", StringComparison.OrdinalIgnoreCase);
     }
 
-    public async Task<List<CountryInfo>> ScrapeCountriesAsync(Sport sport)
+    public async Task<List<CountryInfo>> ScrapeCountriesAsync(Sport sport, List<string>? excludedCountryIds = null)
     {
         var countries = new List<CountryInfo>();
 

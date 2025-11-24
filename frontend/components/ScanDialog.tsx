@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { ProviderLogo } from "@/components/ProviderLogo";
 import { Loader2, ScanLine, CheckCircle2, AlertCircle } from "lucide-react";
 import type { SyncEntityType, ScanJobResponse } from "@/lib/api/types";
 import { configApi } from "@/lib/api/client";
@@ -28,6 +29,7 @@ interface ScanDialogProps {
   entityIds?: string[];
   trigger?: React.ReactNode;
   onSuccess?: (jobId: string) => void;
+  providerId?: string;
 }
 
 export function ScanDialog({
@@ -35,10 +37,23 @@ export function ScanDialog({
   entityIds = [],
   trigger,
   onSuccess,
+  providerId,
 }: ScanDialogProps) {
   const [open, setOpen] = useState(false);
   const [selectedProviderIds, setSelectedProviderIds] = useState<string[]>([]);
   const queryClient = useQueryClient();
+
+  // Load selected provider details for display in alert message
+  const { data: selectedProvider } = useQuery({
+    queryKey: ["provider", providerId],
+    queryFn: async () => {
+      const res = await fetch(`${API_URL}/api/config/providers`);
+      if (!res.ok) throw new Error("Failed to fetch providers");
+      const providers = await res.json();
+      return providers.find((p: any) => p.id === providerId);
+    },
+    enabled: open && !!providerId && entityType !== "Leagues",
+  });
 
   // Load betting providers for Leagues scan
   const { data: bettingProviders, isLoading: providersLoading } = useQuery({
@@ -83,20 +98,20 @@ export function ScanDialog({
       switch (entityType) {
         case "Countries":
           endpoint = "/api/scan/countries";
-          body = { providerId: BET_EXPLORER_PROVIDER_ID };
+          body = { providerId: providerId || BET_EXPLORER_PROVIDER_ID };
           break;
         case "Leagues":
           // Fallback to BetExplorer if no providers selected
           endpoint = "/api/scan/leagues";
           body = {
-            providerId: BET_EXPLORER_PROVIDER_ID,
+            providerId: providerId || BET_EXPLORER_PROVIDER_ID,
             countryIds: entityIds,
           };
           break;
         case "Seasons":
           endpoint = "/api/scan/seasons";
           body = {
-            providerId: BET_EXPLORER_PROVIDER_ID,
+            providerId: providerId || BET_EXPLORER_PROVIDER_ID,
             leagueIds: entityIds,
           };
           break;
@@ -193,29 +208,26 @@ export function ScanDialog({
                   Načítám providery...
                 </div>
               ) : bettingProviders && bettingProviders.length > 0 ? (
-                <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-3">
                   {bettingProviders.map((provider) => (
-                    <div key={provider.id} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={provider.id}
-                        checked={selectedProviderIds.includes(provider.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedProviderIds([...selectedProviderIds, provider.id]);
-                          } else {
-                            setSelectedProviderIds(
-                              selectedProviderIds.filter((id) => id !== provider.id)
-                            );
-                          }
-                        }}
-                      />
-                      <Label
-                        htmlFor={provider.id}
-                        className="text-sm font-normal cursor-pointer"
-                      >
-                        {provider.name} ({provider.code})
-                      </Label>
-                    </div>
+                    <Button
+                      key={provider.id}
+                      type="button"
+                      variant={selectedProviderIds.includes(provider.id) ? "default" : "outline"}
+                      className="h-auto py-3 px-4 justify-start"
+                      onClick={() => {
+                        if (selectedProviderIds.includes(provider.id)) {
+                          setSelectedProviderIds(
+                            selectedProviderIds.filter((id) => id !== provider.id)
+                          );
+                        } else {
+                          setSelectedProviderIds([...selectedProviderIds, provider.id]);
+                        }
+                      }}
+                    >
+                      <ProviderLogo provider={provider} size="sm" className="mr-3" />
+                      <span className="font-medium">{provider.name}</span>
+                    </Button>
                   ))}
                 </div>
               ) : (
@@ -243,8 +255,8 @@ export function ScanDialog({
                 </>
               ) : (
                 <>
-                  Scan načte data z BetExplorer do cache tabulek. Data můžete zkontrolovat
-                  před importem do hlavní databáze.
+                  Scan načte data z <strong>{selectedProvider?.name || "BetExplorer"}</strong> do cache tabulek.
+                  Data můžete zkontrolovat před importem do hlavní databáze.
                 </>
               )}
             </AlertDescription>

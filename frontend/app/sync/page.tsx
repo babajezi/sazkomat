@@ -9,13 +9,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ArrowLeft, Database, ScanLine, Download, Activity, Info } from "lucide-react";
 import { ScanDialog } from "@/components/ScanDialog";
 import { CacheTablesView } from "@/components/CacheTablesView";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { ProviderLogo } from "@/components/ProviderLogo";
 import { SyncEntityType } from "@/lib/api/types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
@@ -80,18 +74,29 @@ export default function SyncPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Select value={selectedProviderId} onValueChange={setSelectedProviderId}>
-            <SelectTrigger className="w-full md:w-[400px]">
-              <SelectValue placeholder="Vyber providera..." />
-            </SelectTrigger>
-            <SelectContent>
+          {activeProviders.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {activeProviders.map((provider: any) => (
-                <SelectItem key={provider.id} value={provider.id}>
-                  {provider.name} ({provider.code}) - {provider.type}
-                </SelectItem>
+                <Button
+                  key={provider.id}
+                  type="button"
+                  variant={selectedProviderId === provider.id ? "default" : "outline"}
+                  className="h-auto py-4 px-4 justify-start"
+                  onClick={() => setSelectedProviderId(provider.id)}
+                >
+                  <ProviderLogo provider={provider} size="sm" className="mr-3" />
+                  <div className="text-left flex-1">
+                    <div className="font-medium">{provider.name}</div>
+                    <div className="text-xs opacity-70">{provider.code}</div>
+                  </div>
+                </Button>
               ))}
-            </SelectContent>
-          </Select>
+            </div>
+          ) : (
+            <div className="text-sm text-muted-foreground">
+              Žádní aktivní providers nejsou k dispozici.
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -139,6 +144,7 @@ export default function SyncPage() {
             <div className="flex flex-wrap gap-3">
               <ScanDialog
                 entityType={SyncEntityType.Countries}
+                providerId={selectedProviderId}
                 trigger={
                   <Button variant="default">
                     <ScanLine className="mr-2 h-4 w-4" />
@@ -149,6 +155,7 @@ export default function SyncPage() {
 
               <ScanDialog
                 entityType={SyncEntityType.Leagues}
+                providerId={selectedProviderId}
                 trigger={
                   <Button variant="default">
                     <ScanLine className="mr-2 h-4 w-4" />
@@ -159,6 +166,7 @@ export default function SyncPage() {
 
               <ScanDialog
                 entityType={SyncEntityType.Seasons}
+                providerId={selectedProviderId}
                 trigger={
                   <Button variant="default">
                     <ScanLine className="mr-2 h-4 w-4" />

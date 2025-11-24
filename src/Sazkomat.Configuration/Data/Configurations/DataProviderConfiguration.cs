@@ -63,6 +63,14 @@ public class DataProviderConfiguration : IEntityTypeConfiguration<DataProvider>
             .HasColumnName("configuration")
             .HasColumnType("jsonb");
 
+        builder.Property(dp => dp.HasLogo)
+            .HasColumnName("has_logo")
+            .IsRequired()
+            .HasDefaultValue(false);
+
+        builder.Property(dp => dp.LogoUploadedAt)
+            .HasColumnName("logo_uploaded_at");
+
         builder.Property(dp => dp.CreatedAt)
             .HasColumnName("created_at")
             .IsRequired();

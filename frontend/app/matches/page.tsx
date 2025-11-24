@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { configApi } from "@/lib/api/client";
 import type { Match, MatchFilter } from "@/lib/api/types";
 import { MatchResult, MatchSortBy } from "@/lib/api/types";
+import { getLeagueDisplayName } from "@/lib/utils/league";
 import Link from "next/link";
 import {
   Select,
@@ -168,7 +169,7 @@ export default function MatchesPage() {
                   <SelectItem value="all">Všechny ligy</SelectItem>
                   {leagues?.map((league) => (
                     <SelectItem key={league.id} value={league.id}>
-                      {league.displayName}
+                      {getLeagueDisplayName(league)}
                     </SelectItem>
                   ))}
                 </SelectContent>

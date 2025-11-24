@@ -45,6 +45,14 @@ public class ProviderCountryRepository : IProviderCountryRepository
             .FirstOrDefaultAsync();
     }
 
+    public async Task<ProviderCountry?> GetByProviderNameAsync(Guid providerId, string providerName)
+    {
+        return await _context.ProviderCountries
+            .Where(pc => pc.ProviderId == providerId && pc.ProviderName == providerName)
+            .OrderByDescending(pc => pc.ScrapedAt)
+            .FirstOrDefaultAsync();
+    }
+
     public async Task<List<ProviderCountry>> GetUnimportedAsync(Guid providerId)
     {
         return await _context.ProviderCountries
