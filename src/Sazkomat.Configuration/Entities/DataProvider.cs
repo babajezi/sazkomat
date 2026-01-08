@@ -30,6 +30,12 @@ public class DataProvider : Entity
     public string? Configuration { get; set; }
 
     /// <summary>
+    /// JSONB storing scan capabilities (canScanCountries, canScanLeagues, canScanSeasons)
+    /// Determines which scan buttons are shown in the UI
+    /// </summary>
+    public string ScanCapabilities { get; set; } = "{\"canScanCountries\":true,\"canScanLeagues\":true,\"canScanSeasons\":true}";
+
+    /// <summary>
     /// Indicates if the provider has an uploaded logo
     /// Logo files are stored in /uploads/provider-logos/{Id}/ as sm.webp, md.webp, lg.webp
     /// </summary>

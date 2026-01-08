@@ -15,10 +15,12 @@ import { ChevronDown, ChevronRight, Sparkles, X } from "lucide-react";
 import Link from "next/link";
 import { CountryFlag } from "@/components/CountryFlag";
 import { getLeagueDisplayName } from "@/lib/utils/league";
+import { useLanguage } from "@/contexts/UserContext";
 import type { Round } from "@/lib/api/types";
 import { MatchResult } from "@/lib/api/types";
 
 export default function RoundsPage() {
+  const { language } = useLanguage();
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(20);
   const [expandedRounds, setExpandedRounds] = useState<Set<string>>(new Set());
@@ -208,7 +210,7 @@ export default function RoundsPage() {
                   <option value="">Všechny ligy</option>
                   {filteredLeagues.map((league) => (
                     <option key={league.id} value={league.id}>
-                      {getLeagueDisplayName(league)}
+                      {getLeagueDisplayName(league, language)}
                     </option>
                   ))}
                 </select>

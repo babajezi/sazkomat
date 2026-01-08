@@ -63,6 +63,12 @@ public class DataProviderConfiguration : IEntityTypeConfiguration<DataProvider>
             .HasColumnName("configuration")
             .HasColumnType("jsonb");
 
+        builder.Property(dp => dp.ScanCapabilities)
+            .HasColumnName("scan_capabilities")
+            .HasColumnType("jsonb")
+            .IsRequired()
+            .HasDefaultValue("{\"canScanCountries\":true,\"canScanLeagues\":true,\"canScanSeasons\":true}");
+
         builder.Property(dp => dp.HasLogo)
             .HasColumnName("has_logo")
             .IsRequired()

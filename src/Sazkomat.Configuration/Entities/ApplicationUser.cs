@@ -27,4 +27,19 @@ public class ApplicationUser : IdentityUser
     /// Last time user updated their profile
     /// </summary>
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+    /// <summary>
+    /// Whether the user account has been approved by an admin
+    /// </summary>
+    public bool IsApproved { get; set; } = false;
+
+    /// <summary>
+    /// When the user was approved
+    /// </summary>
+    public DateTime? ApprovedAt { get; set; }
+
+    /// <summary>
+    /// Email of the admin who approved the user
+    /// </summary>
+    public string? ApprovedBy { get; set; }
 }

@@ -58,7 +58,7 @@ public class LiveSyncServiceTests
             BetExplorerSlug = "england/premier-league",
             SportId = Guid.NewGuid(),
             CountryId = Guid.NewGuid(),
-            IsSyncEnabled = true
+            IsActive = true
         };
 
         _season = new Season

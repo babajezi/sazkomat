@@ -1,124 +1,115 @@
-# Session State - 2025-11-24
+# Session State - 2026-01-07
 
-## Aktuální stav projektu
+## Právě dokončeno
 
-### ✅ Úspěšně dokončeno: Czech Country Names
+### ✅ Tipsport Provider - KOMPLETNĚ DOKONČEN
 
-**Datum implementace:** 2025-11-22 až 2025-11-24
-**Status:** ✅ DOKONČENO A FUNKČNÍ
+**Datum:** 2026-01-07
+**Status:** ✅ PRODUCTION READY
 
 #### Implementované features
 
-1. **Backend změny:**
-   - Přidána `NameCs` property do `Country` entity (src/Sazkomat.Configuration/Entities/Country.cs)
-   - Přidán column mapping v `CountryConfiguration.cs` (name_cs)
-   - Aktualizován `ConfigurationDbContextModelSnapshot.cs`
-   - Přidán a naplněn sloupec `name_cs` v databázi (193 českých názvů zemí z ISO 3166)
+1. **TipsportScraper** (`src/Sazkomat.BettingProviders/Scrapers/TipsportScraper.cs`)
+   - Extrakce lig z Tipsport REST API přes Playwright (bypass Cloudflare)
+   - Country mapping z českých názvů (např. "1. anglická liga" → england)
+   - Fallback dictionary + database-driven mappings
 
-2. **Frontend změny:**
-   - Přidáno `nameCs` pole do TypeScript typu `Country` (frontend/lib/api/types.ts)
-   - Upraven `EditCountryDialog` pro editaci obou názvů (frontend/components/CountryFormDialog.tsx)
-   - Již existující `getCountryDisplayName()` utility funguje správně (frontend/lib/utils/country.ts)
+2. **TipsportJsonExtractor** (`src/Sazkomat.BettingProviders/Services/TipsportJsonExtractor.cs`)
+   - Parsování JSON odpovědí z Tipsport API
+   - Extrakce competition dat
 
-3. **Chování:**
-   - České názvy se zobrazují primárně v celé aplikaci
-   - Edit dialog umožňuje upravovat oba názvy (anglický a český)
-   - API endpoint `/api/config/countries` vrací `nameCs` pole
+3. **Bug fix: Country mapping order**
+   - Opraveno: "severoirská" se nyní matchuje před "irská" (OrderByDescending by length)
+   - Zabraňuje chybnému mapování "1. severoirská liga" na Ireland místo Northern Ireland
 
-#### Klíčové soubory změněny
+4. **Unmatched Leagues workflow**
+   - Frontend stránka `/unmatched-leagues` pro manuální mapování
+   - Možnost přiřadit ligu + zemi z číselníku
+   - Auto-mapping na existující BetExplorer ligy
 
-**Backend:**
-- `src/Sazkomat.Configuration/Entities/Country.cs`
-- `src/Sazkomat.Configuration/Data/Configurations/CountryConfiguration.cs`
-- `src/Sazkomat.Configuration/Migrations/ConfigurationDbContextModelSnapshot.cs`
+5. **Backfill mechanismy**
+   - `POST /api/scan/backfill-provider-leagues` - doplní provider_leagues z resolved unmatched_leagues
+   - `POST /api/scan/backfill-league-providers` - doplní LeagueProvider mapování
 
-**Frontend:**
-- `frontend/components/CountryFormDialog.tsx`
-- `frontend/lib/api/types.ts`
+6. **Import statistiky**
+   - Import endpoint vrací `{ created, updated, skipped, errors }`
+   - Frontend zobrazuje detailní výsledky importu
 
-**Database:**
-- Tabulka: `configuration.countries`
-- Přidán sloupec: `name_cs character varying(100)`
-- Naplněno 193 českých názvů
+7. **Pagination fixes**
+   - Opraveno: totalCount používá filteredLeagues.length
+   - Opraveno: setPage(0) při změně filtrů
 
-#### Řešené problémy
+#### Stav dat pro Tipsport
 
-1. **Column name mapping chyba:**
-   - Chyba: `column c.NameCs does not exist`
-   - Řešení: Přidán explicit mapping `HasColumnName("name_cs")` v CountryConfiguration.cs
-
-2. **Docker cache problémy:**
-   - Frontend zobrazoval stará data
-   - Řešení: Kompletní rebuild s `docker-compose down && docker rmi sazkomat-frontend && docker-compose build --no-cache frontend && docker-compose up -d`
-
-3. **EF Core ModelSnapshot:**
-   - Musel být ručně aktualizován o NameCs property
-
-#### Verifikace
-
-```bash
-# API vrací nameCs správně
-curl -s http://localhost:3001/api/config/countries | python3 -m json.tool | head -30
-
-# Příklad výstupu:
-{
-    "name": "Albania",
-    "nameCs": "Albánie",
-    "code": "albania",
-    "flagEmoji": "🇦🇱",
-    ...
-}
-```
-
-#### User feedback
-
-✅ "už je to v pořádku" - Potvrzeno uživatelem jako funkční
+- **51 LeagueProvider** mapování (ligy s vazbou na Tipsport)
+- **54 Mapped** unmatched leagues (vyřešené mapování)
+- Provider ID: `b0000000-0000-0000-0000-000000000004`
 
 ---
 
-## Současný stav služeb
+## Aktuální stav
 
-```bash
-docker-compose ps
-```
+- **Docker:** Běží (všechny kontejnery healthy)
+- **Frontend:** http://localhost:3000
+- **API:** http://localhost:3001
+- **PostgreSQL:** localhost:3002
+- **Redis:** localhost:3003
+- **pgAdmin:** http://localhost:3004
 
-Všechny služby běží:
-- ✅ sazkomat-api (port 3001) - healthy
-- ✅ sazkomat-frontend (port 3000) - unhealthy (ale funkční)
-- ✅ sazkomat-postgres (port 3002) - healthy
-- ✅ sazkomat-redis (port 3003) - healthy
-- ✅ sazkomat-pgadmin (port 3004) - healthy
+## Betting Providers - Stav implementace
+
+| Provider | Status | Poznámky |
+|----------|--------|----------|
+| BetExplorer | ✅ Reference | Zdroj pravdy pro ligy/země |
+| Betano | ✅ Kompletní | Plně funkční scraper |
+| Tipsport | ✅ Kompletní | Plně funkční scraper |
+| Fortuna | ⏳ Další | Připraveno k implementaci |
+
+## Další kroky
+
+1. **Fortuna provider** - implementace scraperu
+2. Případně další betting providers
 
 ---
 
-## Background jobs
+## Předchozí dokončené práce
 
-Existuje několik běžících background jobů z předchozích sessions:
-- 256832, bdab35, f67417, 0efe9b, 0f95a0, 77ccba, 0d8828, 15fc6b, cf4969
+### ✅ Betano Provider - KOMPLETNĚ DOKONČEN
 
-**Poznámka:** Tyto joby lze ukončit nebo ignorovat - jsou z předchozích testů.
+**Datum:** 2025-12-xx
+**Status:** ✅ PRODUCTION READY
+
+- BetanoScraper s Playwright
+- Country/League mapping
+- LeagueProvider automatické vytváření
+
+### ✅ Selektivní Reset Databáze
+
+**Datum:** 2025-12-09
+**Status:** ✅ DOKONČENO
+
+- `POST /api/database/reset/selective`
+- SelectiveResetDialog komponenta
+
+### ✅ Auth API Endpoints
+
+**Datum:** 2025-11-25
+**Status:** ✅ DOKONČENO
+
+- Google OAuth + JWT autentizace
+- User approval workflow
 
 ---
 
-## Další poznámky
-
-### Porty (NESMÍ SE MĚNIT bez explicitního souhlasu)
+## Porty (NESMÍ SE MĚNIT bez explicitního souhlasu)
 - Frontend: 3000
 - API: 3001
 - PostgreSQL: 3002
 - Redis: 3003
 - pgAdmin: 3004
 
-### Dokumentace
-- Hlavní projekt info: `CLAUDE.md`
-- Quick start: `QUICK_START.md`
-- Testing: `TESTING.md`
-- Docker: `DOCKER.md`
-
-### Žádné pending tasky
-Všechny požadované úkoly jsou dokončeny.
-
 ---
 
-**Poslední úspěšná verifikace:** 2025-11-24 11:05 CET
-**Připraveno k reset kontextu:** ✅ ANO
+**Poslední aktualizace:** 2026-01-07
+**Build status:** ✅ SUCCESS
+**Připraveno k dalšímu provideru:** ✅ ANO

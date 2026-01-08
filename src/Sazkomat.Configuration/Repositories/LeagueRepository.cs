@@ -43,7 +43,7 @@ public class LeagueRepository : ILeagueRepository
 
         if (onlyEnabled.HasValue && onlyEnabled.Value)
         {
-            query = query.Where(l => l.IsSyncEnabled);
+            query = query.Where(l => l.IsActive);
         }
 
         return await query.ToListAsync();
@@ -61,6 +61,20 @@ public class LeagueRepository : ILeagueRepository
     {
         return await _context.Leagues
             .FirstOrDefaultAsync(l => l.BetExplorerSlug == slug);
+    }
+
+    public async Task<League?> GetByBetExplorerSlugAsync(string betExplorerSlug)
+    {
+        return await _context.Leagues
+            .Include(l => l.Country)
+            .FirstOrDefaultAsync(l => l.BetExplorerSlug == betExplorerSlug);
+    }
+
+    public async Task<List<League>> GetByCountryIdAsync(Guid countryId)
+    {
+        return await _context.Leagues
+            .Where(l => l.CountryId == countryId)
+            .ToListAsync();
     }
 
     public async Task<League> AddAsync(League league)

@@ -18,11 +18,14 @@ public class ScanService : IScanService
     private readonly ICountryRepository _countryRepo;
     private readonly ICountryProviderRepository _countryProviderRepo;
     private readonly ILeagueRepository _leagueRepo;
+    private readonly ILeagueProviderRepository _leagueProviderRepo;
     private readonly ICountryNameMappingRepository _countryNameMappingRepo;
+    private readonly IUnmatchedLeagueRepository _unmatchedLeagueRepo;
     private readonly IEnumerable<ICountryScraper> _countryScrapers;
     private readonly IEnumerable<ILeagueMetadataScraper> _leagueScrapers;
     private readonly IEnumerable<ISeasonScraper> _seasonScrapers;
     private readonly IBetExplorerEnrichmentService _enrichmentService;
+    private readonly IBetanoFullDataProvider _betanoFullDataProvider;
     private readonly ILogger<ScanService> _logger;
 
     public ScanService(
@@ -35,11 +38,14 @@ public class ScanService : IScanService
         ICountryRepository countryRepo,
         ICountryProviderRepository countryProviderRepo,
         ILeagueRepository leagueRepo,
+        ILeagueProviderRepository leagueProviderRepo,
         ICountryNameMappingRepository countryNameMappingRepo,
+        IUnmatchedLeagueRepository unmatchedLeagueRepo,
         IEnumerable<ICountryScraper> countryScrapers,
         IEnumerable<ILeagueMetadataScraper> leagueScrapers,
         IEnumerable<ISeasonScraper> seasonScrapers,
         IBetExplorerEnrichmentService enrichmentService,
+        IBetanoFullDataProvider betanoFullDataProvider,
         ILogger<ScanService> logger)
     {
         _providerCountryRepo = providerCountryRepo;
@@ -51,12 +57,52 @@ public class ScanService : IScanService
         _countryRepo = countryRepo;
         _countryProviderRepo = countryProviderRepo;
         _leagueRepo = leagueRepo;
+        _leagueProviderRepo = leagueProviderRepo;
         _countryNameMappingRepo = countryNameMappingRepo;
+        _unmatchedLeagueRepo = unmatchedLeagueRepo;
         _countryScrapers = countryScrapers;
         _leagueScrapers = leagueScrapers;
         _seasonScrapers = seasonScrapers;
         _enrichmentService = enrichmentService;
+        _betanoFullDataProvider = betanoFullDataProvider;
         _logger = logger;
+    }
+
+    public async Task<Guid> CreateScanJobAsync(Guid providerId, SyncEntityType entityType, List<Guid>? countryIds = null, List<Guid>? leagueIds = null)
+    {
+        _logger.LogInformation("Creating scan job for provider {ProviderId}, entity type {EntityType}", providerId, entityType);
+
+        // Validate provider exists
+        var provider = await _dataProviderRepo.GetByIdAsync(providerId);
+        if (provider == null)
+        {
+            throw new ArgumentException($"Provider {providerId} not found", nameof(providerId));
+        }
+
+        // Create sync job (Pending status - will be executed by Hangfire)
+        var syncJob = new SyncJob
+        {
+            ProviderId = providerId,
+            Type = SyncJobType.Scan,
+            EntityType = entityType,
+            Status = SyncJobStatus.Pending,
+            CountryIds = countryIds ?? new List<Guid>(),
+            LeagueIds = leagueIds ?? new List<Guid>(),
+            Priority = entityType switch
+            {
+                SyncEntityType.Countries => 1,
+                SyncEntityType.CountriesAndLeagues => 1, // Same priority as countries (combined scan)
+                SyncEntityType.Leagues => 2,
+                SyncEntityType.Seasons => 3,
+                _ => 5
+            }
+        };
+        syncJob = await _syncJobRepo.CreateAsync(syncJob);
+
+        _logger.LogInformation("Created scan job {JobId} for provider {ProviderId}, entity type {EntityType}",
+            syncJob.Id, providerId, entityType);
+
+        return syncJob.Id;
     }
 
     public async Task<Guid> ScanCountriesAsync(Guid providerId)
@@ -153,47 +199,30 @@ public class ScanService : IScanService
 
             foreach (var country in scrapedCountries)
             {
-                // Check if already exists - use ProviderName as the unique key
-                // since some providers (like Betano) use the same code (e.g., "default") for multiple countries
-                // We MUST NOT fallback to code-based lookup as it would cause countries with duplicate codes
-                // to overwrite each other instead of being created as separate records
-                var existing = await _providerCountryRepo.GetByProviderNameAsync(providerId, country.Name);
-
-                if (existing == null)
+                // For BETTING PROVIDERS: Check if there's an inactive mapping (skip non-countries like Copa Libertadores)
+                if (provider.Type == Configuration.Entities.ProviderType.BettingProvider)
                 {
-                    // Create new
-                    var providerCountry = new ProviderCountry
+                    var providerCodeLower = provider.Code.ToLowerInvariant();
+                    var existingInactiveMapping = await _countryNameMappingRepo.FindAnyMappingAsync(
+                        providerCodeLower,
+                        country.Code);
+
+                    if (existingInactiveMapping != null && !existingInactiveMapping.IsActive)
                     {
-                        ProviderId = providerId,
-                        ProviderCode = country.Code,
-                        ProviderName = country.Name,
-                        IsoCode = country.IsoCode,
-                        FlagEmoji = country.FlagEmoji,
-                        ScrapedAt = DateTime.UtcNow,
-                        RawData = JsonSerializer.Serialize(country),
-                        IsImported = false
-                    };
-                    await _providerCountryRepo.CreateAsync(providerCountry);
-                    _logger.LogInformation("✓ Added country to cache: {Name} ({Code}) {Flag}",
-                        country.Name, country.Code, country.FlagEmoji ?? "");
-                    newCount++;
-                }
-                else
-                {
-                    // Update existing
-                    existing.ProviderName = country.Name;
-                    existing.IsoCode = country.IsoCode;
-                    existing.FlagEmoji = country.FlagEmoji;
-                    existing.ScrapedAt = DateTime.UtcNow;
-                    existing.RawData = JsonSerializer.Serialize(country);
-                    await _providerCountryRepo.UpdateAsync(existing);
-                    _logger.LogInformation("↻ Updated country in cache: {Name} ({Code})",
-                        country.Name, country.Code);
-                    updatedCount++;
+                        // Also delete from cache if it exists
+                        var existingCached = await _providerCountryRepo.GetByProviderNameAsync(providerId, country.Name);
+                        if (existingCached != null)
+                        {
+                            await _providerCountryRepo.DeleteAsync(existingCached.Id);
+                            _logger.LogInformation("🗑️ Removed non-country '{Name}' ({Code}) from cache - has inactive mapping",
+                                country.Name, country.Code);
+                        }
+                        continue; // Skip entirely - don't add to cache
+                    }
                 }
 
-                // For BETTING PROVIDERS ONLY: Create CountryProvider mappings
-                // This allows betting providers to scan leagues after country scan
+                // For BETTING PROVIDERS: Try to match country to BetExplorer catalog
+                // Only create ProviderCountry if matched, otherwise create CountryNameMapping for manual review
                 if (provider.Type == Configuration.Entities.ProviderType.BettingProvider)
                 {
                     Configuration.Entities.Country? configCountry = null;
@@ -205,6 +234,14 @@ public class ScanService : IScanService
 
                     if (countryMapping != null)
                     {
+                        // Skip inactive mappings (e.g., Copa Libertadores - not a real country)
+                        if (!countryMapping.IsActive)
+                        {
+                            _logger.LogDebug("Skipping inactive mapping for {CountryName} ({CountryCode})",
+                                country.Name, country.Code);
+                            continue;
+                        }
+
                         configCountry = await _countryRepo.GetByCodeAsync(countryMapping.BetExplorerCode);
                         if (configCountry != null)
                         {
@@ -237,13 +274,48 @@ public class ScanService : IScanService
 
                     if (configCountry != null)
                     {
-                        // Check if CountryProvider mapping already exists
+                        // MATCHED: Create ProviderCountry (scan cache) with link to config country
+                        var existing = await _providerCountryRepo.GetByProviderNameAsync(providerId, country.Name);
+
+                        if (existing == null)
+                        {
+                            var providerCountry = new ProviderCountry
+                            {
+                                ProviderId = providerId,
+                                CountryId = configCountry.Id,
+                                ProviderCode = country.Code,
+                                ProviderName = country.Name,
+                                IsoCode = country.IsoCode,
+                                FlagEmoji = country.FlagEmoji,
+                                ScrapedAt = DateTime.UtcNow,
+                                RawData = JsonSerializer.Serialize(country),
+                                IsImported = false
+                            };
+                            await _providerCountryRepo.CreateAsync(providerCountry);
+                            _logger.LogInformation("✓ Added country to scan: {Name} ({Code}) → {ConfigCountry}",
+                                country.Name, country.Code, configCountry.Name);
+                            newCount++;
+                        }
+                        else
+                        {
+                            existing.CountryId = configCountry.Id;
+                            existing.ProviderName = country.Name;
+                            existing.IsoCode = country.IsoCode;
+                            existing.FlagEmoji = country.FlagEmoji;
+                            existing.ScrapedAt = DateTime.UtcNow;
+                            existing.RawData = JsonSerializer.Serialize(country);
+                            await _providerCountryRepo.UpdateAsync(existing);
+                            _logger.LogInformation("↻ Updated country in scan: {Name} ({Code}) → {ConfigCountry}",
+                                country.Name, country.Code, configCountry.Name);
+                            updatedCount++;
+                        }
+
+                        // Also create/update CountryProvider mapping for league scanning
                         var existingMapping = await _countryProviderRepo.GetByCountryAndProviderAsync(
                             configCountry.Id, providerId);
 
                         if (existingMapping == null)
                         {
-                            // Create new CountryProvider mapping
                             var countryProvider = new Configuration.Entities.CountryProvider
                             {
                                 CountryId = configCountry.Id,
@@ -254,12 +326,20 @@ public class ScanService : IScanService
                             };
                             await _countryProviderRepo.AddAsync(countryProvider);
 
+                            // Auto-activate country when creating CountryProvider mapping for betting provider
+                            if (!configCountry.IsActive)
+                            {
+                                configCountry.IsActive = true;
+                                await _countryRepo.UpdateAsync(configCountry);
+                                _logger.LogInformation("✓ Auto-activated country {CountryName} ({CountryCode}) due to betting provider mapping",
+                                    configCountry.Name, configCountry.Code);
+                            }
+
                             _logger.LogInformation("✓ Created CountryProvider mapping: {CountryName} ({CountryCode}) ↔ Provider {ProviderCode}",
                                 configCountry.Name, configCountry.Code, provider.Code);
                         }
                         else
                         {
-                            // Update existing mapping
                             existingMapping.ProviderCode = country.Code;
                             existingMapping.ProviderName = country.Name;
                             existingMapping.IsActive = true;
@@ -271,10 +351,81 @@ public class ScanService : IScanService
                     }
                     else
                     {
-                        _logger.LogWarning("⚠ No matching country found in configuration for {ProviderName} '{ProviderCode}' - mapping not created. Add manual CountryNameMapping or create country first.",
-                            country.Name, country.Code);
+                        // NOT MATCHED: Create CountryNameMapping for manual review (not ProviderCountry!)
+                        var existingAnyMapping = await _countryNameMappingRepo.FindAnyMappingAsync(
+                            provider.Code.ToLowerInvariant(),
+                            country.Code);
+
+                        if (existingAnyMapping == null)
+                        {
+                            var newMapping = new CountryNameMapping
+                            {
+                                ProviderCode = provider.Code.ToLowerInvariant(),
+                                ProviderCountryName = country.Code,
+                                BetExplorerCode = "", // Empty - not mapped yet
+                                IsActive = false,     // Inactive - requires manual review
+                                Priority = 100,       // Low priority
+                                Notes = $"Auto-created: '{country.Name}' from {provider.Name} scan. Requires manual mapping or deactivation."
+                            };
+
+                            await _countryNameMappingRepo.CreateAsync(newMapping);
+
+                            _logger.LogInformation("📝 Created CountryNameMapping for manual review: '{ProviderName}' ({ProviderCode})",
+                                country.Name, country.Code);
+                        }
+                        else
+                        {
+                            _logger.LogDebug("Mapping already exists for {CountryName} ({CountryCode}), IsActive={IsActive}",
+                                country.Name, country.Code, existingAnyMapping.IsActive);
+                        }
                     }
                 }
+                else
+                {
+                    // For NON-BETTING PROVIDERS (BetExplorer): Always create ProviderCountry
+                    var existing = await _providerCountryRepo.GetByProviderNameAsync(providerId, country.Name);
+
+                    if (existing == null)
+                    {
+                        var providerCountry = new ProviderCountry
+                        {
+                            ProviderId = providerId,
+                            ProviderCode = country.Code,
+                            ProviderName = country.Name,
+                            IsoCode = country.IsoCode,
+                            FlagEmoji = country.FlagEmoji,
+                            ScrapedAt = DateTime.UtcNow,
+                            RawData = JsonSerializer.Serialize(country),
+                            IsImported = false
+                        };
+                        await _providerCountryRepo.CreateAsync(providerCountry);
+                        _logger.LogInformation("✓ Added country to cache: {Name} ({Code}) {Flag}",
+                            country.Name, country.Code, country.FlagEmoji ?? "");
+                        newCount++;
+                    }
+                    else
+                    {
+                        existing.ProviderName = country.Name;
+                        existing.IsoCode = country.IsoCode;
+                        existing.FlagEmoji = country.FlagEmoji;
+                        existing.ScrapedAt = DateTime.UtcNow;
+                        existing.RawData = JsonSerializer.Serialize(country);
+                        await _providerCountryRepo.UpdateAsync(existing);
+                        _logger.LogInformation("↻ Updated country in cache: {Name} ({Code})",
+                            country.Name, country.Code);
+                        updatedCount++;
+                    }
+                }
+            }
+
+            // For BETTING PROVIDERS: Apply any active manual mappings at the end
+            // This ensures countries added via manual mapping are also included
+            int mappingCount = 0;
+            if (provider.Type == Configuration.Entities.ProviderType.BettingProvider)
+            {
+                _logger.LogInformation("Applying manual country mappings for betting provider {ProviderName}...", provider.Name);
+                mappingCount = await ApplyCountryMappingsAsync(providerId);
+                _logger.LogInformation("Applied {Count} country mappings", mappingCount);
             }
 
             // Update sync job as completed
@@ -284,12 +435,13 @@ public class ScanService : IScanService
             {
                 total = scrapedCountries.Count,
                 @new = newCount,
-                updated = updatedCount
+                updated = updatedCount,
+                fromMappings = mappingCount
             });
             await _syncJobRepo.UpdateAsync(syncJob);
 
-            _logger.LogInformation("Country scan completed. New: {New}, Updated: {Updated}",
-                newCount, updatedCount);
+            _logger.LogInformation("Country scan completed. New: {New}, Updated: {Updated}, From mappings: {Mappings}",
+                newCount, updatedCount, mappingCount);
         }
         catch (Exception ex)
         {
@@ -394,10 +546,25 @@ public class ScanService : IScanService
             // For scrapers (BetExplorer), use provider cache countries
             List<Configuration.Entities.Country> countriesToScan;
 
+            // Parse ScanCapabilities to check if provider can scan countries
+            var scanCaps = ParseScanCapabilities(provider.ScanCapabilities);
+            var canScanCountries = scanCaps?.CanScanCountries ?? true;
+
             if (provider.Type == Configuration.Entities.ProviderType.BettingProvider)
             {
-                // Betting providers: use countries with active CountryProvider mapping
-                if (countryIds != null && countryIds.Any())
+                // Special handling for providers that don't scan countries (e.g., Tipsport)
+                // They derive country from league names, so we need ALL countries from database
+                // (not just active ones - we'll activate countries when leagues are found)
+                if (!canScanCountries)
+                {
+                    _logger.LogInformation("Provider {ProviderName} cannot scan countries - using ALL countries from database",
+                        provider.Name);
+                    var allCountries = await _countryRepo.GetAllAsync();
+                    countriesToScan = allCountries.ToList();  // Include inactive countries too
+                    _logger.LogInformation("Using {Count} countries for league scan (active and inactive)", countriesToScan.Count);
+                }
+                // Betting providers with CountryProvider mapping
+                else if (countryIds != null && countryIds.Any())
                 {
                     // Specific countries selected - validate they have provider mapping
                     countriesToScan = new List<Configuration.Entities.Country>();
@@ -444,6 +611,8 @@ public class ScanService : IScanService
                 else
                 {
                     providerCountries = await _providerCountryRepo.GetByProviderIdAsync(providerId);
+                    _logger.LogInformation("Loaded {Count} ProviderCountries for provider {ProviderId}",
+                        providerCountries.Count, providerId);
                 }
 
                 // Map provider countries to configuration countries
@@ -471,6 +640,8 @@ public class ScanService : IScanService
                             pc.Id, pc.ProviderName);
                     }
                 }
+
+                _logger.LogInformation("Mapped {Count} countries for league scan", countriesToScan.Count);
             }
 
             int newCount = 0;
@@ -486,129 +657,253 @@ public class ScanService : IScanService
                     var scrapedLeagues = await leagueScraper.ScrapeLeaguesAsync(defaultSport, country);
                     totalScraped += scrapedLeagues.Count;
 
-                    // ENRICHMENT FLOW: For betting providers, enrich with BetExplorer data
-                    // For BetExplorer provider, use scraped data directly
-                    List<LeagueMetadata> leaguesToCache;
-                    int skippedCount = 0;
-
-                    if (provider.Code.Equals("betexplorer", StringComparison.OrdinalIgnoreCase))
+                    // =====================================================================
+                    // AUTO-CREATE COUNTRY MAPPING: For providers without canScanCountries
+                    // (e.g., Tipsport), create CountryProvider + ProviderCountry when leagues are found
+                    // =====================================================================
+                    if (!canScanCountries && scrapedLeagues.Count > 0)
                     {
-                        // BetExplorer: Use scraped data directly (no enrichment needed)
-                        leaguesToCache = scrapedLeagues;
-                        _logger.LogDebug("Using direct BetExplorer data for {Count} leagues", scrapedLeagues.Count);
-                    }
-                    else
-                    {
-                        // Betting providers (Betano, Fortuna): Enrich with BetExplorer data
-                        _logger.LogInformation("Enriching {Count} leagues from {Provider} with BetExplorer data",
-                            scrapedLeagues.Count, provider.Name);
-
-                        leaguesToCache = new List<LeagueMetadata>();
-                        foreach (var league in scrapedLeagues)
-                        {
-                            var enriched = await _enrichmentService.EnrichLeagueAsync(league, country, provider.Code);
-                            if (enriched != null)
-                            {
-                                leaguesToCache.Add(enriched);
-                            }
-                            else
-                            {
-                                skippedCount++;
-                                _logger.LogDebug("Skipping league '{League}' - not found on BetExplorer", league.Name);
-                            }
-                        }
-
-                        _logger.LogInformation("Enrichment complete: {Enriched} leagues found on BetExplorer, {Skipped} skipped",
-                            leaguesToCache.Count, skippedCount);
-                    }
-
-                    // Apply ExcludedLeagueIds filter (if configured)
-                    if (config?.ExcludedLeagueIds != null && config.ExcludedLeagueIds.Any())
-                    {
-                        var beforeFilter = leaguesToCache.Count;
-                        leaguesToCache = leaguesToCache
-                            .Where(l => !config.ExcludedLeagueIds.Contains(l.Slug))
-                            .ToList();
-
-                        if (beforeFilter != leaguesToCache.Count)
-                        {
-                            _logger.LogInformation("Filtered out {Excluded} leagues based on ExcludedLeagueIds configuration for country {CountryName}",
-                                beforeFilter - leaguesToCache.Count, country.Name);
-                        }
-                    }
-
-                    // Cache the leagues (either direct BetExplorer or enriched betting provider data)
-                    foreach (var league in leaguesToCache)
-                    {
-                        // Check if already exists
-                        var existing = await _providerLeagueRepo.GetByProviderSlugAsync(providerId, league.Slug);
-
-                        if (existing == null)
-                        {
-                            // Create new
-                            var providerLeague = new ProviderLeague
-                            {
-                                ProviderId = providerId,
-                                ProviderCountryId = null,  // Betting providers don't have ProviderCountry
-                                ProviderSlug = league.Slug,
-                                ProviderName = league.Name,
-                                DisplayName = league.DisplayName,
-                                CountryCode = league.CountryCode ?? country.Code,
-                                Priority = league.Priority,
-                                IsBettable = league.IsBettable,
-                                ScrapedAt = DateTime.UtcNow,
-                                RawData = JsonSerializer.Serialize(league),
-                                IsImported = false
-                            };
-                            await _providerLeagueRepo.CreateAsync(providerLeague);
-                            _logger.LogInformation("✓ Added league to cache: {Name} [{Country}]",
-                                league.DisplayName ?? league.Name, country.Name);
-                            newCount++;
-                        }
-                        else
-                        {
-                            // Update existing
-                            existing.ProviderName = league.Name;
-                            existing.DisplayName = league.DisplayName;
-                            existing.CountryCode = league.CountryCode ?? country.Code;
-                            existing.Priority = league.Priority;
-                            existing.IsBettable = league.IsBettable;
-                            existing.ScrapedAt = DateTime.UtcNow;
-                            existing.RawData = JsonSerializer.Serialize(league);
-                            await _providerLeagueRepo.UpdateAsync(existing);
-                            _logger.LogInformation("↻ Updated league in cache: {Name} [{Country}]",
-                                league.DisplayName ?? league.Name, country.Name);
-                            updatedCount++;
-                        }
-                    }
-
-                    // Auto-activate country if leagues were found for betting providers
-                    // Countries start inactive and are activated when betting providers have leagues in them
-                    if (provider.Type == Configuration.Entities.ProviderType.BettingProvider && leaguesToCache.Any())
-                    {
+                        // Auto-activate country if needed
                         if (!country.IsActive)
                         {
                             country.IsActive = true;
                             await _countryRepo.UpdateAsync(country);
-                            _logger.LogInformation("Auto-activated country {CountryId} ({CountryName}) - betting provider {Provider} has {Count} leagues",
-                                country.Id, country.Name, provider.Name, leaguesToCache.Count);
+                            _logger.LogInformation("✓ Auto-activated country {CountryName} ({CountryCode}) - found {LeagueCount} leagues from {Provider}",
+                                country.Name, country.Code, scrapedLeagues.Count, provider.Name);
+                        }
 
-                            // Create CountryProvider mapping for newly activated country
-                            // This ensures the country will be scanned in future league scans
-                            var existingMapping = await _countryProviderRepo.GetByCountryAndProviderAsync(country.Id, providerId);
-                            if (existingMapping == null)
+                        // Create ProviderCountry cache record if not exists
+                        var existingProviderCountry = await _providerCountryRepo.GetByProviderCodeAsync(providerId, country.Code);
+                        if (existingProviderCountry == null)
+                        {
+                            var providerCountry = new ProviderCountry
                             {
-                                var countryProvider = new Configuration.Entities.CountryProvider
+                                ProviderId = providerId,
+                                ProviderCode = country.Code,
+                                ProviderName = country.Name,
+                                IsoCode = country.Code.Length <= 10 ? country.Code : null, // IsoCode max 10 chars
+                                ScrapedAt = DateTime.UtcNow,
+                                IsImported = true,
+                                CountryId = country.Id,
+                                ImportedAt = DateTime.UtcNow
+                            };
+                            await _providerCountryRepo.CreateAsync(providerCountry);
+                            _logger.LogInformation("✓ Created ProviderCountry cache: {CountryName} ({CountryCode}) for {Provider}",
+                                country.Name, country.Code, provider.Name);
+                        }
+
+                        // Create CountryProvider mapping if not exists
+                        var existingCountryProvider = await _countryProviderRepo.GetByCountryAndProviderAsync(
+                            country.Id, providerId);
+
+                        if (existingCountryProvider == null)
+                        {
+                            var countryProvider = new Configuration.Entities.CountryProvider
+                            {
+                                CountryId = country.Id,
+                                ProviderId = providerId,
+                                ProviderCode = country.Code,
+                                ProviderName = country.Name,
+                                IsActive = true
+                            };
+                            await _countryProviderRepo.AddAsync(countryProvider);
+                            _logger.LogInformation("✓ Created CountryProvider mapping: {CountryName} ({CountryCode}) ↔ {Provider}",
+                                country.Name, country.Code, provider.Name);
+                        }
+                    }
+
+                    // DIFFERENT HANDLING FOR BETTING PROVIDERS vs REFERENCE PROVIDERS
+                    int skippedCount = 0;
+
+                    if (provider.Type == Configuration.Entities.ProviderType.BettingProvider)
+                    {
+                        // =====================================================================
+                        // BETTING PROVIDERS: Find or create leagues via BetExplorer enrichment
+                        // - Existing league found → create LeagueProvider mapping
+                        // - No existing league → on-demand BetExplorer scrape → create league
+                        // - No BetExplorer match → save to unmatched_leagues for manual review
+                        // =====================================================================
+                        _logger.LogInformation("Processing {Count} leagues from betting provider {Provider}",
+                            scrapedLeagues.Count, provider.Name);
+
+                        foreach (var scrapedLeague in scrapedLeagues)
+                        {
+                            Guid? leagueId = null;
+
+                            // 1. Check for existing LeagueProvider mapping FIRST
+                            var existingLeagueProvider = await _leagueProviderRepo.GetByProviderAndSlugAsync(
+                                providerId, scrapedLeague.Slug);
+
+                            if (existingLeagueProvider != null)
+                            {
+                                leagueId = existingLeagueProvider.LeagueId;
+                                _logger.LogInformation("✓ Using existing LeagueProvider mapping: {ProviderLeague} → LeagueId={LeagueId} [{Country}]",
+                                    scrapedLeague.Name, leagueId, country.Name);
+                            }
+                            else
+                            {
+                                // 2. No existing mapping - try BetExplorer enrichment
+                                var configLeague = await _enrichmentService.FindOrCreateLeagueFromBetExplorerAsync(
+                                    scrapedLeague, country, provider.Code, defaultSport.Id);
+
+                                if (configLeague != null)
                                 {
-                                    CountryId = country.Id,
+                                    leagueId = configLeague.Id;
+
+                                    // Create LeagueProvider mapping
+                                    var leagueProvider = new Configuration.Entities.LeagueProvider
+                                    {
+                                        LeagueId = configLeague.Id,
+                                        ProviderId = providerId,
+                                        ProviderSlug = scrapedLeague.Slug,
+                                        ProviderName = scrapedLeague.Name,
+                                        IsActive = true
+                                    };
+                                    await _leagueProviderRepo.AddAsync(leagueProvider);
+                                    _logger.LogInformation("✓ Created LeagueProvider mapping: {ProviderLeague} → {ConfigLeague} [{Country}]",
+                                        scrapedLeague.Name, configLeague.Name, country.Name);
+                                    newCount++;
+                                }
+                            }
+
+                            // 3. Save to provider_leagues ONLY if we have a valid leagueId
+                            if (leagueId.HasValue)
+                            {
+                                var existingProviderLeague = await _providerLeagueRepo.GetByProviderSlugAsync(
+                                    providerId, scrapedLeague.Slug);
+
+                                if (existingProviderLeague == null)
+                                {
+                                    var providerLeague = new ProviderLeague
+                                    {
+                                        ProviderId = providerId,
+                                        ProviderName = scrapedLeague.Name,
+                                        ProviderSlug = scrapedLeague.Slug,
+                                        CountryCode = country.Code,
+                                        LeagueId = leagueId.Value,
+                                        IsImported = true,
+                                        ScrapedAt = DateTime.UtcNow,
+                                        RawData = JsonSerializer.Serialize(scrapedLeague)
+                                    };
+                                    await _providerLeagueRepo.CreateAsync(providerLeague);
+                                    _logger.LogDebug("✓ Cached league with mapping: {LeagueName} [{Country}]", scrapedLeague.Name, country.Name);
+                                }
+                                else
+                                {
+                                    existingProviderLeague.LeagueId = leagueId.Value;
+                                    existingProviderLeague.IsImported = true;
+                                    existingProviderLeague.ProviderName = scrapedLeague.Name;
+                                    existingProviderLeague.CountryCode = country.Code;
+                                    existingProviderLeague.ScrapedAt = DateTime.UtcNow;
+                                    existingProviderLeague.RawData = JsonSerializer.Serialize(scrapedLeague);
+                                    await _providerLeagueRepo.UpdateAsync(existingProviderLeague);
+                                }
+                                updatedCount++;
+                            }
+                            else
+                            {
+                                // 4. No match found - save to unmatched_leagues only (NOT to provider_leagues)
+                                skippedCount++;
+
+                                var existingUnmatched = await _unmatchedLeagueRepo.FindExistingAsync(
+                                    providerId, scrapedLeague.Name, country.Code);
+
+                                if (existingUnmatched == null)
+                                {
+                                    var unmatchedLeague = new UnmatchedLeague
+                                    {
+                                        ProviderId = providerId,
+                                        ProviderLeagueId = scrapedLeague.ProviderLeagueId,
+                                        ProviderLeagueName = scrapedLeague.Name,
+                                        ProviderSlug = scrapedLeague.Slug,
+                                        CountryCode = country.Code,
+                                        CountryName = country.Name,
+                                        ScrapedAt = DateTime.UtcNow
+                                    };
+                                    await _unmatchedLeagueRepo.CreateAsync(unmatchedLeague);
+                                    _logger.LogWarning("✗ No BetExplorer match for '{ProviderLeague}' [{Country}] - saved to unmatched_leagues",
+                                        scrapedLeague.Name, country.Name);
+                                }
+                                else
+                                {
+                                    // Already in unmatched - just log
+                                    _logger.LogDebug("'{ProviderLeague}' [{Country}] already in unmatched_leagues",
+                                        scrapedLeague.Name, country.Name);
+                                }
+                            }
+                        }
+
+                        _logger.LogInformation("Betting provider scan complete for {Country}: {New} new mappings, {Updated} updated, {Skipped} unmatched",
+                            country.Name, newCount, updatedCount, skippedCount);
+                    }
+                    else
+                    {
+                        // =====================================================================
+                        // REFERENCE PROVIDERS (BetExplorer): Cache leagues in ProviderLeagues
+                        // These are the source of truth for league data
+                        // =====================================================================
+                        _logger.LogDebug("Using direct BetExplorer data for {Count} leagues", scrapedLeagues.Count);
+
+                        // Apply ExcludedLeagueIds filter (if configured)
+                        var leaguesToCache = scrapedLeagues;
+                        if (config?.ExcludedLeagueIds != null && config.ExcludedLeagueIds.Any())
+                        {
+                            var beforeFilter = leaguesToCache.Count;
+                            leaguesToCache = leaguesToCache
+                                .Where(l => !config.ExcludedLeagueIds.Contains(l.Slug))
+                                .ToList();
+
+                            if (beforeFilter != leaguesToCache.Count)
+                            {
+                                _logger.LogInformation("Filtered out {Excluded} leagues based on ExcludedLeagueIds configuration for country {CountryName}",
+                                    beforeFilter - leaguesToCache.Count, country.Name);
+                            }
+                        }
+
+                        // Cache the leagues from BetExplorer
+                        foreach (var league in leaguesToCache)
+                        {
+                            // Check if already exists
+                            var existing = await _providerLeagueRepo.GetByProviderSlugAsync(providerId, league.Slug);
+
+                            if (existing == null)
+                            {
+                                // Create new - BetExplorer is source of truth, so set MappingStatus to AutoMapped
+                                var providerLeague = new ProviderLeague
+                                {
                                     ProviderId = providerId,
-                                    ProviderCode = country.Code,  // For betting providers, use standard country code
-                                    ProviderName = country.Name,  // For betting providers, use standard country name
-                                    IsActive = true
+                                    ProviderCountryId = null,
+                                    ProviderSlug = league.Slug,
+                                    ProviderName = league.Name,
+                                    DisplayName = league.DisplayName,
+                                    CountryCode = league.CountryCode ?? country.Code,
+                                    Priority = league.Priority,
+                                    IsBettable = league.IsBettable,
+                                    ScrapedAt = DateTime.UtcNow,
+                                    RawData = JsonSerializer.Serialize(league),
+                                    IsImported = false,
+                                    MappingStatus = MappingStatus.AutoMapped  // BetExplorer is source of truth
                                 };
-                                await _countryProviderRepo.AddAsync(countryProvider);
-                                _logger.LogInformation("Created CountryProvider mapping for auto-activated country {CountryId} ({CountryName}) and provider {ProviderId} ({ProviderName})",
-                                    country.Id, country.Name, providerId, provider.Name);
+                                await _providerLeagueRepo.CreateAsync(providerLeague);
+                                _logger.LogInformation("✓ Added league to cache: {Name} [{Country}]",
+                                    league.DisplayName ?? league.Name, country.Name);
+                                newCount++;
+                            }
+                            else
+                            {
+                                // Update existing - ensure MappingStatus is AutoMapped for BetExplorer
+                                existing.ProviderName = league.Name;
+                                existing.DisplayName = league.DisplayName;
+                                existing.CountryCode = league.CountryCode ?? country.Code;
+                                existing.Priority = league.Priority;
+                                existing.IsBettable = league.IsBettable;
+                                existing.ScrapedAt = DateTime.UtcNow;
+                                existing.RawData = JsonSerializer.Serialize(league);
+                                existing.MappingStatus = MappingStatus.AutoMapped;  // BetExplorer is source of truth
+                                await _providerLeagueRepo.UpdateAsync(existing);
+                                _logger.LogInformation("↻ Updated league in cache: {Name} [{Country}]",
+                                    league.DisplayName ?? league.Name, country.Name);
+                                updatedCount++;
                             }
                         }
                     }
@@ -620,6 +915,42 @@ public class ScanService : IScanService
                 }
             }
 
+            // Save leagues that couldn't be mapped to any country
+            int unmappedCountryCount = 0;
+            if (leagueScraper is IUnmappedCountryLeagueProvider unmappedProvider)
+            {
+                var unmappedLeagues = unmappedProvider.GetUnmappedCountryLeagues();
+                foreach (var league in unmappedLeagues)
+                {
+                    // Check if already exists
+                    var existing = await _unmatchedLeagueRepo.FindExistingAsync(
+                        providerId, league.ProviderLeagueName, "UNMAPPED");
+
+                    if (existing == null)
+                    {
+                        var unmatchedLeague = new UnmatchedLeague
+                        {
+                            ProviderId = providerId,
+                            ProviderLeagueId = league.ProviderLeagueId,
+                            ProviderLeagueName = league.ProviderLeagueName,
+                            ProviderSlug = league.ProviderUrl,
+                            CountryCode = "UNMAPPED",
+                            CountryName = "Unknown - no country mapping",
+                            ScrapedAt = DateTime.UtcNow
+                        };
+                        await _unmatchedLeagueRepo.CreateAsync(unmatchedLeague);
+                        unmappedCountryCount++;
+                        _logger.LogWarning("✗ Saved unmapped country league: '{LeagueName}'", league.ProviderLeagueName);
+                    }
+                }
+
+                if (unmappedCountryCount > 0)
+                {
+                    _logger.LogWarning("Saved {Count} leagues with unmapped countries to unmatched_leagues (country_code='UNMAPPED')",
+                        unmappedCountryCount);
+                }
+            }
+
             // Update sync job as completed
             syncJob.Status = SyncJobStatus.Completed;
             syncJob.CompletedAt = DateTime.UtcNow;
@@ -628,12 +959,21 @@ public class ScanService : IScanService
                 countries = countriesToScan.Count,
                 total = totalScraped,
                 @new = newCount,
-                updated = updatedCount
+                updated = updatedCount,
+                unmappedCountry = unmappedCountryCount
             });
             await _syncJobRepo.UpdateAsync(syncJob);
 
-            _logger.LogInformation("League scan completed. New: {New}, Updated: {Updated}",
-                newCount, updatedCount);
+            _logger.LogInformation("League scan completed. New: {New}, Updated: {Updated}, Unmapped countries: {Unmapped}",
+                newCount, updatedCount, unmappedCountryCount);
+
+            // Backfill provider_leagues from resolved unmatched_leagues
+            var (backfillCreated, backfillUpdated) = await BackfillProviderLeaguesFromResolvedAsync(providerId);
+            if (backfillCreated + backfillUpdated > 0)
+            {
+                _logger.LogInformation("Backfilled provider_leagues from resolved unmatched_leagues: {Created} created, {Updated} updated",
+                    backfillCreated, backfillUpdated);
+            }
         }
         catch (Exception ex)
         {
@@ -715,50 +1055,54 @@ public class ScanService : IScanService
                 throw new InvalidOperationException(errorMessage);
             }
 
-            // Get provider leagues to scan (need corresponding League entities)
-            List<ProviderLeague> providerLeagues;
+            // Get leagues from configuration (active leagues)
+            List<Configuration.Entities.League> leagues;
             if (leagueIds != null && leagueIds.Any())
             {
-                providerLeagues = new List<ProviderLeague>();
+                leagues = new List<Configuration.Entities.League>();
                 foreach (var leagueId in leagueIds)
                 {
-                    var pl = await _providerLeagueRepo.GetByIdAsync(leagueId);
-                    if (pl != null) providerLeagues.Add(pl);
+                    var league = await _leagueRepo.GetByIdAsync(leagueId);
+                    if (league != null && league.IsActive) leagues.Add(league);
                 }
             }
             else
             {
-                providerLeagues = await _providerLeagueRepo.GetByProviderIdAsync(providerId);
+                var allLeagues = await _leagueRepo.GetAllAsync(includeRelations: true);
+                leagues = allLeagues.Where(l => l.IsActive).ToList();
             }
+
+            _logger.LogInformation("Scanning seasons for {Count} active leagues", leagues.Count);
 
             int newCount = 0;
             int updatedCount = 0;
             int totalScraped = 0;
+            int skippedCount = 0;
 
-            foreach (var providerLeague in providerLeagues)
+            foreach (var league in leagues)
             {
                 try
                 {
-                    // Need to get the corresponding League entity from Configuration schema
-                    Configuration.Entities.League? league = null;
-                    if (providerLeague.LeagueId.HasValue)
+                    // Find ProviderLeague via LeagueProvider mapping
+                    var leagueProviders = await _leagueProviderRepo.GetByLeagueIdAsync(league.Id);
+                    var leagueProvider = leagueProviders.FirstOrDefault();
+
+                    if (leagueProvider == null)
                     {
-                        league = await _leagueRepo.GetByIdAsync(providerLeague.LeagueId.Value);
-                    }
-                    else if (!string.IsNullOrEmpty(providerLeague.ProviderSlug))
-                    {
-                        // Try to find by slug using LeagueProvider mapping
-                        var allLeagues = await _leagueRepo.GetAllAsync();
-                        // This is simplified - in real scenario we'd query LeagueProvider table
-                        league = allLeagues.FirstOrDefault(l =>
-                            !string.IsNullOrEmpty(l.BetExplorerSlug) &&
-                            l.BetExplorerSlug == providerLeague.ProviderSlug);
+                        _logger.LogDebug("No LeagueProvider mapping for league {LeagueId} ({Name}), skipping",
+                            league.Id, league.Name);
+                        skippedCount++;
+                        continue;
                     }
 
-                    if (league == null)
+                    var providerLeague = await _providerLeagueRepo.GetByProviderSlugAsync(
+                        leagueProvider.ProviderId, leagueProvider.ProviderSlug);
+
+                    if (providerLeague == null)
                     {
-                        _logger.LogWarning("No matching League found for ProviderLeague {ProviderLeagueId} ({LeagueName})",
-                            providerLeague.Id, providerLeague.ProviderName);
+                        _logger.LogDebug("No ProviderLeague found for league {LeagueId} ({Name}), skipping",
+                            league.Id, league.Name);
+                        skippedCount++;
                         continue;
                     }
 
@@ -809,8 +1153,8 @@ public class ScanService : IScanService
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Failed to scrape seasons for league {LeagueSlug}",
-                        providerLeague.ProviderSlug);
+                    _logger.LogWarning(ex, "Failed to scrape seasons for league {LeagueId} ({LeagueName})",
+                        league.Id, league.Name);
                 }
             }
 
@@ -819,15 +1163,16 @@ public class ScanService : IScanService
             syncJob.CompletedAt = DateTime.UtcNow;
             syncJob.ProgressData = JsonSerializer.Serialize(new
             {
-                leagues = providerLeagues.Count,
+                leagues = leagues.Count,
+                skipped = skippedCount,
                 total = totalScraped,
                 @new = newCount,
                 updated = updatedCount
             });
             await _syncJobRepo.UpdateAsync(syncJob);
 
-            _logger.LogInformation("Season scan completed. New: {New}, Updated: {Updated}",
-                newCount, updatedCount);
+            _logger.LogInformation("Season scan completed. Leagues: {Leagues}, Skipped: {Skipped}, New: {New}, Updated: {Updated}",
+                leagues.Count, skippedCount, newCount, updatedCount);
         }
         catch (Exception ex)
         {
@@ -855,6 +1200,492 @@ public class ScanService : IScanService
     public async Task<List<ProviderSeason>> GetUnimportedSeasonsAsync(Guid providerId)
     {
         return await _providerSeasonRepo.GetUnimportedAsync(providerId);
+    }
+
+    /// <summary>
+    /// Applies active country name mappings to create missing ProviderCountry entries.
+    /// </summary>
+    public async Task<int> ApplyCountryMappingsAsync(Guid providerId)
+    {
+        var provider = await _dataProviderRepo.GetByIdAsync(providerId);
+        if (provider == null)
+        {
+            throw new ArgumentException($"Provider {providerId} not found", nameof(providerId));
+        }
+
+        var providerCode = provider.Code.ToLowerInvariant();
+        var activeMappings = await _countryNameMappingRepo.GetActiveByProviderAsync(providerCode);
+
+        int createdCount = 0;
+
+        foreach (var mapping in activeMappings)
+        {
+            // Skip mappings without a target country code
+            if (string.IsNullOrWhiteSpace(mapping.BetExplorerCode))
+            {
+                _logger.LogDebug("Skipping mapping {MappingId} - no BetExplorerCode set", mapping.Id);
+                continue;
+            }
+
+            // Find the target country
+            var country = await _countryRepo.GetByCodeAsync(mapping.BetExplorerCode);
+            if (country == null)
+            {
+                _logger.LogWarning("Mapping {MappingId} references non-existent country code '{Code}'",
+                    mapping.Id, mapping.BetExplorerCode);
+                continue;
+            }
+
+            // Check if ProviderCountry already exists for this mapping
+            var existing = await _providerCountryRepo.GetByProviderCodeAsync(providerId, mapping.ProviderCountryName);
+            if (existing != null)
+            {
+                _logger.LogDebug("ProviderCountry already exists for {ProviderCountryName}", mapping.ProviderCountryName);
+                continue;
+            }
+
+            // Create new ProviderCountry
+            var providerCountry = new ProviderCountry
+            {
+                ProviderId = providerId,
+                CountryId = country.Id,
+                ProviderName = country.Name, // Use name from catalog
+                ProviderCode = mapping.ProviderCountryName,
+                ScrapedAt = DateTime.UtcNow,
+                RawData = JsonSerializer.Serialize(new { fromMapping = mapping.Id, mappedTo = mapping.BetExplorerCode }),
+                IsImported = false
+            };
+
+            await _providerCountryRepo.CreateAsync(providerCountry);
+            createdCount++;
+
+            // Track usage
+            await _countryNameMappingRepo.TrackUsageAsync(mapping.Id, providerCountry.Id);
+
+            // Also create CountryProvider mapping for league scanning
+            var existingCountryProvider = await _countryProviderRepo.GetByCountryAndProviderAsync(country.Id, providerId);
+            if (existingCountryProvider == null)
+            {
+                var countryProvider = new Configuration.Entities.CountryProvider
+                {
+                    CountryId = country.Id,
+                    ProviderId = providerId,
+                    ProviderCode = mapping.ProviderCountryName,
+                    ProviderName = country.Name, // Use name from catalog
+                    IsActive = true
+                };
+                await _countryProviderRepo.AddAsync(countryProvider);
+                _logger.LogInformation("✓ Created CountryProvider mapping from manual mapping: {CountryName} ↔ Provider {ProviderCode}",
+                    country.Name, provider.Code);
+            }
+
+            _logger.LogInformation("✓ Created ProviderCountry from mapping: {ProviderCountryName} → {CountryName}",
+                mapping.ProviderCountryName, country.Name);
+        }
+
+        _logger.LogInformation("ApplyCountryMappings completed for provider {ProviderName}: {Created} entries created",
+            provider.Name, createdCount);
+
+        return createdCount;
+    }
+
+    /// <summary>
+    /// Backfills provider_leagues from resolved unmatched_leagues.
+    /// Creates provider_leagues entries for all resolved (mapped) unmatched leagues
+    /// that don't yet have a corresponding provider_leagues record.
+    /// </summary>
+    public async Task<(int Created, int Updated)> BackfillProviderLeaguesFromResolvedAsync(Guid providerId)
+    {
+        var provider = await _dataProviderRepo.GetByIdAsync(providerId);
+        if (provider == null)
+        {
+            throw new ArgumentException($"Provider {providerId} not found", nameof(providerId));
+        }
+
+        _logger.LogInformation("Starting backfill of provider_leagues from resolved unmatched_leagues for provider {ProviderName}",
+            provider.Name);
+
+        // Get all resolved (mapped) unmatched leagues for this provider
+        var resolvedUnmatchedLeagues = await _unmatchedLeagueRepo.GetResolvedAsMappedByProviderAsync(providerId);
+
+        int createdCount = 0;
+        int updatedCount = 0;
+
+        foreach (var unmatchedLeague in resolvedUnmatchedLeagues)
+        {
+            if (!unmatchedLeague.ResolvedLeagueId.HasValue)
+            {
+                continue;
+            }
+
+            var providerSlug = unmatchedLeague.ProviderSlug
+                ?? unmatchedLeague.ProviderLeagueName.ToLowerInvariant().Replace(" ", "-");
+
+            // Check if provider_leagues record already exists
+            var existingProviderLeague = await _providerLeagueRepo.GetByProviderSlugAsync(providerId, providerSlug);
+
+            if (existingProviderLeague == null)
+            {
+                // Create new provider_leagues record
+                var providerLeague = new ProviderLeague
+                {
+                    ProviderId = providerId,
+                    ProviderName = unmatchedLeague.ProviderLeagueName,
+                    ProviderSlug = providerSlug,
+                    CountryCode = unmatchedLeague.CountryCode,
+                    LeagueId = unmatchedLeague.ResolvedLeagueId.Value,
+                    IsImported = true,
+                    ScrapedAt = DateTime.UtcNow
+                };
+                await _providerLeagueRepo.CreateAsync(providerLeague);
+                createdCount++;
+
+                _logger.LogDebug("✓ Created provider_leagues: {LeagueName} → LeagueId {LeagueId}",
+                    unmatchedLeague.ProviderLeagueName, unmatchedLeague.ResolvedLeagueId.Value);
+            }
+            else if (!existingProviderLeague.LeagueId.HasValue)
+            {
+                // Update existing record with league_id
+                existingProviderLeague.LeagueId = unmatchedLeague.ResolvedLeagueId.Value;
+                existingProviderLeague.IsImported = true;
+                await _providerLeagueRepo.UpdateAsync(existingProviderLeague);
+                updatedCount++;
+
+                _logger.LogDebug("✓ Updated provider_leagues: {LeagueName} → LeagueId {LeagueId}",
+                    unmatchedLeague.ProviderLeagueName, unmatchedLeague.ResolvedLeagueId.Value);
+            }
+        }
+
+        _logger.LogInformation("BackfillProviderLeagues completed for provider {ProviderName}: {Created} created, {Updated} updated",
+            provider.Name, createdCount, updatedCount);
+
+        return (createdCount, updatedCount);
+    }
+
+    /// <summary>
+    /// Internal method: Scans both countries AND leagues in a single pass using an existing job.
+    /// Optimized for Betano where both come from a single HTTP request.
+    /// </summary>
+    public async Task ScanCountriesAndLeaguesInternalAsync(Guid providerId, Guid jobId)
+    {
+        _logger.LogInformation("Starting combined countries+leagues scan for provider {ProviderId}, job {JobId}",
+            providerId, jobId);
+
+        // Load sync job and update status
+        var syncJob = await _syncJobRepo.GetByIdAsync(jobId);
+        if (syncJob == null)
+        {
+            throw new ArgumentException($"Sync job {jobId} not found");
+        }
+
+        syncJob.Status = SyncJobStatus.Running;
+        syncJob.StartedAt = DateTime.UtcNow;
+        await _syncJobRepo.UpdateAsync(syncJob);
+
+        try
+        {
+            // Validate provider exists and is Betano
+            var provider = await _dataProviderRepo.GetByIdAsync(providerId);
+            if (provider == null)
+            {
+                throw new ArgumentException($"Provider {providerId} not found");
+            }
+
+            if (provider.Code.ToLowerInvariant() != "betano")
+            {
+                throw new InvalidOperationException($"Combined scan is only supported for Betano provider, got {provider.Code}");
+            }
+
+            // Get default sport (Football)
+            var sports = await _sportRepo.GetAllAsync();
+            var defaultSport = sports.FirstOrDefault(s => s.Name == "Football") ?? sports.First();
+
+            // === SINGLE HTTP REQUEST ===
+            _logger.LogInformation("Calling GetFullDataAsync for single HTTP request to Betano...");
+            var fullDataResult = await _betanoFullDataProvider.GetFullDataAsync("football");
+            if (!fullDataResult.IsSuccess)
+            {
+                throw new InvalidOperationException($"Failed to get full data from Betano: {fullDataResult.Error}");
+            }
+
+            var betanoData = fullDataResult.Value;
+            _logger.LogInformation("Got {RegionCount} regions and {LeagueCount} leagues from Betano in single request",
+                betanoData.Regions.Count, betanoData.Leagues.Count);
+
+            // === PHASE 1: PROCESS COUNTRIES ===
+            int countriesNew = 0;
+            int countriesUpdated = 0;
+            var processedCountries = new Dictionary<string, Configuration.Entities.Country>(); // regionCode → Country
+
+            foreach (var region in betanoData.Regions)
+            {
+                // Check for inactive mapping (non-countries like Copa Libertadores)
+                var providerCodeLower = provider.Code.ToLowerInvariant();
+                var existingInactiveMapping = await _countryNameMappingRepo.FindAnyMappingAsync(
+                    providerCodeLower, region.Code);
+
+                if (existingInactiveMapping != null && !existingInactiveMapping.IsActive)
+                {
+                    _logger.LogDebug("Skipping non-country region: {Name} ({Code}) - has inactive mapping",
+                        region.Name, region.Code);
+                    continue;
+                }
+
+                // Try to match country to BetExplorer catalog
+                Configuration.Entities.Country? configCountry = null;
+
+                // Step 1: Manual country name mapping
+                var countryMapping = await _countryNameMappingRepo.FindMappingAsync(providerCodeLower, region.Code);
+                if (countryMapping != null)
+                {
+                    if (!countryMapping.IsActive)
+                    {
+                        _logger.LogDebug("Skipping inactive mapping for {CountryName} ({CountryCode})",
+                            region.Name, region.Code);
+                        continue;
+                    }
+                    configCountry = await _countryRepo.GetByCodeAsync(countryMapping.BetExplorerCode);
+                    if (configCountry != null)
+                    {
+                        _logger.LogDebug("Country found via mapping: {Name} → {BetExplorerCode}",
+                            region.Name, countryMapping.BetExplorerCode);
+                    }
+                }
+
+                // Step 2: Try by region code
+                if (configCountry == null)
+                {
+                    configCountry = await _countryRepo.GetByCodeAsync(region.Code);
+                }
+
+                if (configCountry != null)
+                {
+                    processedCountries[region.Code] = configCountry;
+
+                    // Create/update ProviderCountry cache
+                    var existing = await _providerCountryRepo.GetByProviderNameAsync(providerId, region.Name);
+                    if (existing == null)
+                    {
+                        var providerCountry = new ProviderCountry
+                        {
+                            ProviderId = providerId,
+                            CountryId = configCountry.Id,
+                            ProviderCode = region.Code,
+                            ProviderName = region.Name,
+                            ScrapedAt = DateTime.UtcNow,
+                            RawData = JsonSerializer.Serialize(region),
+                            IsImported = false
+                        };
+                        await _providerCountryRepo.CreateAsync(providerCountry);
+                        countriesNew++;
+                    }
+                    else
+                    {
+                        existing.CountryId = configCountry.Id;
+                        existing.ScrapedAt = DateTime.UtcNow;
+                        await _providerCountryRepo.UpdateAsync(existing);
+                        countriesUpdated++;
+                    }
+
+                    // Create/update CountryProvider mapping
+                    var existingCp = await _countryProviderRepo.GetByCountryAndProviderAsync(configCountry.Id, providerId);
+                    if (existingCp == null)
+                    {
+                        var countryProvider = new Configuration.Entities.CountryProvider
+                        {
+                            CountryId = configCountry.Id,
+                            ProviderId = providerId,
+                            ProviderCode = region.Code,
+                            ProviderName = region.Name,
+                            IsActive = true
+                        };
+                        await _countryProviderRepo.AddAsync(countryProvider);
+
+                        // Auto-activate country
+                        if (!configCountry.IsActive)
+                        {
+                            configCountry.IsActive = true;
+                            await _countryRepo.UpdateAsync(configCountry);
+                            _logger.LogInformation("✓ Auto-activated country {CountryName}", configCountry.Name);
+                        }
+                    }
+                }
+                else
+                {
+                    // Create CountryNameMapping for manual review
+                    var existingAnyMapping = await _countryNameMappingRepo.FindAnyMappingAsync(providerCodeLower, region.Code);
+                    if (existingAnyMapping == null)
+                    {
+                        var newMapping = new CountryNameMapping
+                        {
+                            ProviderCode = providerCodeLower,
+                            ProviderCountryName = region.Code,
+                            BetExplorerCode = "",
+                            IsActive = false,
+                            Priority = 100,
+                            Notes = $"Auto-created: '{region.Name}' from Betano full scan"
+                        };
+                        await _countryNameMappingRepo.CreateAsync(newMapping);
+                        _logger.LogInformation("📝 Created CountryNameMapping for: {Name} ({Code})",
+                            region.Name, region.Code);
+                    }
+                }
+            }
+
+            _logger.LogInformation("Countries phase complete: {New} new, {Updated} updated, {Mapped} mapped to config",
+                countriesNew, countriesUpdated, processedCountries.Count);
+
+            // === PHASE 2: PROCESS LEAGUES ===
+            int leaguesNew = 0;
+            int leaguesUpdated = 0;
+            int leaguesUnmatched = 0;
+
+            // Group leagues by country code for efficient processing
+            var leaguesByCountry = betanoData.Leagues
+                .GroupBy(l => l.CountryCode ?? "unknown")
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            foreach (var (countryCode, leagues) in leaguesByCountry)
+            {
+                // Skip if country wasn't matched
+                if (!processedCountries.TryGetValue(countryCode, out var country))
+                {
+                    _logger.LogDebug("Skipping {Count} leagues for unmatched country {CountryCode}",
+                        leagues.Count, countryCode);
+                    leaguesUnmatched += leagues.Count;
+                    continue;
+                }
+
+                foreach (var league in leagues)
+                {
+                    // Convert LeagueAvailability to LeagueMetadata for enrichment service
+                    var leagueMetadata = new Scrapers.LeagueMetadata
+                    {
+                        Name = league.ProviderLeagueName,
+                        Slug = league.ProviderUrl?.Replace("https://www.betano.cz", "").TrimEnd('/') ?? "",
+                        ProviderLeagueId = league.ProviderLeagueId
+                    };
+
+                    // === ALWAYS save to provider_leagues cache first ===
+                    var existingProviderLeague = await _providerLeagueRepo.GetByProviderSlugAsync(
+                        providerId, leagueMetadata.Slug);
+
+                    ProviderLeague providerLeague;
+                    if (existingProviderLeague == null)
+                    {
+                        providerLeague = new ProviderLeague
+                        {
+                            ProviderId = providerId,
+                            ProviderName = league.ProviderLeagueName,
+                            ProviderSlug = leagueMetadata.Slug,
+                            CountryCode = country.Code,
+                            ScrapedAt = DateTime.UtcNow,
+                            RawData = JsonSerializer.Serialize(league),
+                            IsImported = false
+                        };
+                        await _providerLeagueRepo.CreateAsync(providerLeague);
+                        _logger.LogDebug("✓ Cached league: {LeagueName} [{Country}]", league.ProviderLeagueName, country.Name);
+                    }
+                    else
+                    {
+                        providerLeague = existingProviderLeague;
+                        providerLeague.ProviderName = league.ProviderLeagueName;
+                        providerLeague.ScrapedAt = DateTime.UtcNow;
+                        providerLeague.RawData = JsonSerializer.Serialize(league);
+                        await _providerLeagueRepo.UpdateAsync(providerLeague);
+                    }
+
+                    // === Now try to match with BetExplorer and create mappings ===
+                    var configLeague = await _enrichmentService.FindOrCreateLeagueFromBetExplorerAsync(
+                        leagueMetadata, country, provider.Code, defaultSport.Id);
+
+                    if (configLeague != null)
+                    {
+                        // Update provider_league with LeagueId reference
+                        providerLeague.LeagueId = configLeague.Id;
+                        providerLeague.IsImported = true;
+                        await _providerLeagueRepo.UpdateAsync(providerLeague);
+
+                        // Create/update LeagueProvider mapping
+                        var existingMapping = await _leagueProviderRepo.GetByLeagueAndProviderAsync(
+                            configLeague.Id, providerId);
+
+                        if (existingMapping == null)
+                        {
+                            var leagueProvider = new Configuration.Entities.LeagueProvider
+                            {
+                                LeagueId = configLeague.Id,
+                                ProviderId = providerId,
+                                ProviderSlug = leagueMetadata.Slug,
+                                ProviderName = league.ProviderLeagueName,
+                                IsActive = true
+                            };
+                            await _leagueProviderRepo.AddAsync(leagueProvider);
+                            leaguesNew++;
+                        }
+                        else
+                        {
+                            existingMapping.ProviderSlug = leagueMetadata.Slug;
+                            existingMapping.ProviderName = league.ProviderLeagueName;
+                            existingMapping.IsActive = true;
+                            await _leagueProviderRepo.UpdateAsync(existingMapping);
+                            leaguesUpdated++;
+                        }
+                    }
+                    else
+                    {
+                        // Save to unmatched_leagues
+                        var existingUnmatched = await _unmatchedLeagueRepo.FindExistingAsync(
+                            providerId, league.ProviderLeagueName, country.Code);
+
+                        if (existingUnmatched == null)
+                        {
+                            var unmatchedLeague = new UnmatchedLeague
+                            {
+                                ProviderId = providerId,
+                                ProviderLeagueId = league.ProviderLeagueId,
+                                ProviderLeagueName = league.ProviderLeagueName,
+                                ProviderSlug = leagueMetadata.Slug,
+                                CountryCode = country.Code,
+                                CountryName = country.Name,
+                                ScrapedAt = DateTime.UtcNow
+                            };
+                            await _unmatchedLeagueRepo.CreateAsync(unmatchedLeague);
+                        }
+                        leaguesUnmatched++;
+                    }
+                }
+            }
+
+            _logger.LogInformation("Leagues phase complete: {New} new mappings, {Updated} updated, {Unmatched} unmatched",
+                leaguesNew, leaguesUpdated, leaguesUnmatched);
+
+            // Update job as completed
+            syncJob.Status = SyncJobStatus.Completed;
+            syncJob.CompletedAt = DateTime.UtcNow;
+            syncJob.ProgressData = JsonSerializer.Serialize(new
+            {
+                countriesNew,
+                countriesUpdated,
+                countriesMapped = processedCountries.Count,
+                leaguesNew,
+                leaguesUpdated,
+                leaguesUnmatched
+            });
+            await _syncJobRepo.UpdateAsync(syncJob);
+
+            _logger.LogInformation("Combined scan completed for Betano. Countries: {CountriesNew}+{CountriesUpdated}, Leagues: {LeaguesNew}+{LeaguesUpdated}, Unmatched: {Unmatched}",
+                countriesNew, countriesUpdated, leaguesNew, leaguesUpdated, leaguesUnmatched);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Combined scan failed for provider {ProviderId}", providerId);
+            syncJob.Status = SyncJobStatus.Failed;
+            syncJob.ErrorMessage = ex.Message;
+            syncJob.CompletedAt = DateTime.UtcNow;
+            await _syncJobRepo.UpdateAsync(syncJob);
+            throw;
+        }
     }
 
     // Helper methods
@@ -897,5 +1728,40 @@ public class ScanService : IScanService
 
         // For single year seasons, check if it's current year
         return currentYear == startYear;
+    }
+
+    /// <summary>
+    /// Helper class for deserialized ScanCapabilities JSON
+    /// </summary>
+    private class ScanCapabilitiesDto
+    {
+        public bool CanScanCountries { get; set; } = true;
+        public bool CanScanLeagues { get; set; } = true;
+        public bool CanScanSeasons { get; set; } = true;
+    }
+
+    /// <summary>
+    /// Parses the ScanCapabilities JSON string from DataProvider.
+    /// Returns null if the string is empty or invalid.
+    /// </summary>
+    private ScanCapabilitiesDto? ParseScanCapabilities(string? scanCapabilitiesJson)
+    {
+        if (string.IsNullOrWhiteSpace(scanCapabilitiesJson))
+        {
+            return null;
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<ScanCapabilitiesDto>(scanCapabilitiesJson, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogWarning(ex, "Failed to parse ScanCapabilities JSON: {Json}", scanCapabilitiesJson);
+            return null;
+        }
     }
 }

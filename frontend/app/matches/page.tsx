@@ -16,6 +16,7 @@ import { configApi } from "@/lib/api/client";
 import type { Match, MatchFilter } from "@/lib/api/types";
 import { MatchResult, MatchSortBy } from "@/lib/api/types";
 import { getLeagueDisplayName } from "@/lib/utils/league";
+import { useLanguage } from "@/contexts/UserContext";
 import Link from "next/link";
 import {
   Select,
@@ -28,6 +29,7 @@ import {
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
 export default function MatchesPage() {
+  const { language } = useLanguage();
   const [viewMode, setViewMode] = useState<"chronological" | "grouped">("grouped");
   const [filters, setFilters] = useState<MatchFilter>({
     take: 50,
@@ -169,7 +171,7 @@ export default function MatchesPage() {
                   <SelectItem value="all">Všechny ligy</SelectItem>
                   {leagues?.map((league) => (
                     <SelectItem key={league.id} value={league.id}>
-                      {getLeagueDisplayName(league)}
+                      {getLeagueDisplayName(league, language)}
                     </SelectItem>
                   ))}
                 </SelectContent>

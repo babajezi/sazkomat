@@ -44,8 +44,9 @@ public class BetExplorerLeagueMetadataScraper : ILeagueMetadataScraper
             // BetExplorer lists leagues as links within the country page
             // Example: <a href="/football/england/premier-league/">Premier League</a>
 
+            // Find all league links - don't require hyphen in slug (e.g., "npfl" has no hyphen)
             var leagueLinks = doc.DocumentNode.SelectNodes(
-                $"//a[starts-with(@href, '/{sportSlug}/{countrySlug}/') and contains(@href, '-')]");
+                $"//a[starts-with(@href, '/{sportSlug}/{countrySlug}/')]");
 
             if (leagueLinks != null)
             {
@@ -66,8 +67,8 @@ public class BetExplorerLeagueMetadataScraper : ILeagueMetadataScraper
                     {
                         var leagueSlug = parts[2];
 
-                        // Skip season-specific pages (contain year patterns)
-                        if (System.Text.RegularExpressions.Regex.IsMatch(leagueSlug, @"20\d{2}"))
+                        // Skip season-specific pages (contain year patterns - both 19XX and 20XX)
+                        if (System.Text.RegularExpressions.Regex.IsMatch(leagueSlug, @"(19|20)\d{2}"))
                             continue;
 
                         // Skip cup/archive pages if needed
@@ -191,8 +192,9 @@ public class BetExplorerLeagueMetadataScraper : ILeagueMetadataScraper
             _logger.LogInformation("Processing leagues from current season: {Season}", currentSeasonName);
 
             // Extract league links from the current season section only
+            // Don't require hyphen in slug (e.g., "npfl" has no hyphen)
             var leagueLinks = currentSeasonSection.SelectNodes(
-                $".//a[starts-with(@href, '/{sportSlug}/{countrySlug}/') and contains(@href, '-')]");
+                $".//a[starts-with(@href, '/{sportSlug}/{countrySlug}/')]");
 
             if (leagueLinks != null)
             {

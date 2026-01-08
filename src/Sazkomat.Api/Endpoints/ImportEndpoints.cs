@@ -383,15 +383,17 @@ public static class ImportEndpoints
         {
             try
             {
-                var jobId = await importService.ImportCountriesFromCacheAsync(request.ProviderId, request.ProviderCountryIds);
-                var countryCount = request.ProviderCountryIds?.Count ?? 0;
-                var message = countryCount > 0
-                    ? $"Country import started for {countryCount} countries"
-                    : "Country import started for all cached countries";
+                var result = await importService.ImportCountriesFromCacheAsync(request.ProviderId, request.ProviderCountryIds);
                 return Results.Ok(new
                 {
-                    jobId,
-                    message
+                    jobId = result.JobId,
+                    total = result.Total,
+                    created = result.Created,
+                    updated = result.Updated,
+                    imported = result.Created + result.Updated,
+                    skipped = result.Skipped,
+                    errors = result.Errors,
+                    message = $"Import dokončen: {result.Created} vytvořeno, {result.Updated} aktualizováno, {result.Skipped} přeskočeno"
                 });
             }
             catch (ArgumentException ex)
@@ -410,15 +412,17 @@ public static class ImportEndpoints
         {
             try
             {
-                var jobId = await importService.ImportLeaguesFromCacheAsync(request.ProviderId, request.ProviderLeagueIds);
-                var leagueCount = request.ProviderLeagueIds?.Count ?? 0;
-                var message = leagueCount > 0
-                    ? $"League import started for {leagueCount} leagues"
-                    : "League import started for all cached leagues";
+                var result = await importService.ImportLeaguesFromCacheAsync(request.ProviderId, request.ProviderLeagueIds);
                 return Results.Ok(new
                 {
-                    jobId,
-                    message
+                    jobId = result.JobId,
+                    total = result.Total,
+                    created = result.Created,
+                    updated = result.Updated,
+                    imported = result.Created + result.Updated,
+                    skipped = result.Skipped,
+                    errors = result.Errors,
+                    message = $"Import dokončen: {result.Created} vytvořeno, {result.Updated} aktualizováno, {result.Skipped} přeskočeno"
                 });
             }
             catch (ArgumentException ex)
@@ -437,15 +441,17 @@ public static class ImportEndpoints
         {
             try
             {
-                var jobId = await importService.ImportSeasonsFromCacheAsync(request.ProviderId, request.ProviderSeasonIds);
-                var seasonCount = request.ProviderSeasonIds?.Count ?? 0;
-                var message = seasonCount > 0
-                    ? $"Season import started for {seasonCount} seasons"
-                    : "Season import started for all cached seasons";
+                var result = await importService.ImportSeasonsFromCacheAsync(request.ProviderId, request.ProviderSeasonIds);
                 return Results.Ok(new
                 {
-                    jobId,
-                    message
+                    jobId = result.JobId,
+                    total = result.Total,
+                    created = result.Created,
+                    updated = result.Updated,
+                    imported = result.Created + result.Updated,
+                    skipped = result.Skipped,
+                    errors = result.Errors,
+                    message = $"Import dokončen: {result.Created} vytvořeno, {result.Updated} aktualizováno, {result.Skipped} přeskočeno"
                 });
             }
             catch (ArgumentException ex)

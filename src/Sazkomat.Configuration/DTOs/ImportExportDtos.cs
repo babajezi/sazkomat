@@ -338,9 +338,6 @@ public class LeagueExportDto
     [JsonPropertyName("betExplorerSlug")]
     public string? BetExplorerSlug { get; set; }
 
-    [JsonPropertyName("isSyncEnabled")]
-    public bool IsSyncEnabled { get; set; }
-
     [JsonPropertyName("isBettable")]
     public bool IsBettable { get; set; }
 

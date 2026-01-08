@@ -7,10 +7,41 @@
 - **Fáze 1** (aktuální): Infrastruktura pro import dat
 - **Fáze 2** (plánovaná): AI-powered analýza sázkových strategií
 
+## ⚠️ KRITICKÁ ARCHITEKTURA - Zdroje dat
+
+**TOTO JE NEJDŮLEŽITĚJŠÍ PRAVIDLO CELÉHO PROJEKTU:**
+
+### BetExplorer = Jediný zdroj pravdy
+- **BetExplorer.com** je **JEDINÝ** zdroj pro:
+  - Země (countries)
+  - Ligy (leagues)
+  - Sezóny (seasons)
+  - Kola a zápasy (rounds, matches)
+  - Výsledky a kurzy
+
+### Betting Providers (Betano, Fortuna, Tipsport, ...) = Pouze mapování
+- Betting providers **NEVYTVÁŘÍ** nová data o ligách/zemích
+- Pouze zjišťujeme **které existující ligy podporují**
+- Vytváříme pouze **vazební záznamy**:
+  - `LeagueProvider` - vazba liga ↔ betting provider
+  - `CountryProvider` - vazba země ↔ betting provider
+
+### Praktické důsledky
+1. **Scan zemí/lig z betting providera** = hledání shody s existujícími BetExplorer daty
+2. **NIKDY** nevytvářet nové ligy/země z betting providera
+3. **ProviderLeagues** pro betting providery = dočasná cache pro mapování, ne nová data
+4. Pokud liga z betting providera nemá shodu v BetExploreru = nelze importovat
+
+### Typy providerů (DataProviderType)
+- `Reference` (1) = BetExplorer, Oddsportal - zdroj pravdy
+- `Betting` (4) = Betano, Fortuna, Tipsport - pouze mapování
+
+**NIKDY TOTO PRAVIDLO NEPORUŠUJ PŘI IMPLEMENTACI NOVÝCH PROVIDERŮ!**
+
 ## Technologický stack
 
 ### Backend
-- **.NET 9** s ASP.NET Core Minimal APIs
+- **.NET 10** s ASP.NET Core Minimal APIs
 - **Entity Framework Core 9** (Code-First)
 - **PostgreSQL 16** (hlavní databáze)
 - **Hangfire** (background job processing s PostgreSQL storage)
@@ -574,7 +605,7 @@ docker-compose restart postgres
 
 ## Užitečné odkazy
 
-- [.NET 9 Docs](https://learn.microsoft.com/en-us/dotnet/core/whats-new/dotnet-9)
+- [.NET 10 Docs](https://learn.microsoft.com/en-us/dotnet/core/whats-new/dotnet-9)
 - [Entity Framework Core](https://learn.microsoft.com/en-us/ef/core/)
 - [Next.js 15 Docs](https://nextjs.org/docs)
 - [shadcn/ui Components](https://ui.shadcn.com/)
@@ -601,7 +632,7 @@ docker-compose restart postgres
 - Kompletní BUILD.md dokumentace
 
 **Fáze 1 Features - Všechny Implementováno:**
-- Backend infrastruktura (.NET 9, EF Core, PostgreSQL)
+- Backend infrastruktura (.NET 10, EF Core, PostgreSQL)
 - HTML scraping s Playwright (production-tested na 3,272 zápasech)
 - Multi-league & multi-season import s paralelním zpracováním
 - Frontend CRUD pro správu lig (Create, Edit, Delete)

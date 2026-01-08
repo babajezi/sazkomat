@@ -19,11 +19,13 @@ import { CountryProviderDialog } from "@/components/CountryProviderDialog";
 import { PaginationControls } from "@/components/PaginationControls";
 import { CountryFlag } from "@/components/CountryFlag";
 import { getCountryDisplayName } from "@/lib/utils/country";
+import { useLanguage } from "@/contexts/UserContext";
 import type { Country, CountryProvider } from "@/lib/api/types";
 import { ProviderType } from "@/lib/api/types";
 
 export default function CountriesPage() {
   const queryClient = useQueryClient();
+  const { language } = useLanguage();
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedCountry, setSelectedCountry] = useState<Country | null>(null);
   const [providerDialogOpen, setProviderDialogOpen] = useState(false);
@@ -90,7 +92,7 @@ export default function CountriesPage() {
   const handleDelete = async (country: Country) => {
     if (
       window.confirm(
-        `Opravdu chcete smazat zemi "${getCountryDisplayName(country)}"? Tato akce je nevratná.`
+        `Opravdu chcete smazat zemi "${getCountryDisplayName(country, language)}"? Tato akce je nevratná.`
       )
     ) {
       deleteMutation.mutate(country.id);
@@ -109,7 +111,7 @@ export default function CountriesPage() {
     // Validate: Cannot enable sync if country is not active
     if (checked && !country.isActive) {
       alert(
-        `Nelze aktivovat synchronizaci pro neaktivní zemi "${getCountryDisplayName(country)}". Prosím nejprve aktivujte zemi.`
+        `Nelze aktivovat synchronizaci pro neaktivní zemi "${getCountryDisplayName(country, language)}". Prosím nejprve aktivujte zemi.`
       );
       return;
     }
@@ -413,7 +415,7 @@ export default function CountriesPage() {
                   <div>
                     <CardTitle className="flex items-center gap-2 text-xl">
                       <CountryFlag isoCode={country.isoCode} className="text-3xl" />
-                      {getCountryDisplayName(country)}
+                      {getCountryDisplayName(country, language)}
                     </CardTitle>
                     <CardDescription className="mt-1">
                       Kód: {country.code}

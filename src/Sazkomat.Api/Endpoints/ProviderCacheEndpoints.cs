@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Sazkomat.Configuration.Data;
+using Sazkomat.Configuration.Entities;
 using Sazkomat.DataImport.Data;
 
 namespace Sazkomat.Api.Endpoints;
@@ -80,29 +82,89 @@ public static class ProviderCacheEndpoints
         // Get cached seasons
         group.MapGet("/seasons", async (
             [FromQuery] Guid providerId,
-            DataImportDbContext context) =>
+            DataImportDbContext context,
+            ConfigurationDbContext configContext) =>
         {
-            var seasons = await context.ProviderSeasons
-                .Where(ps => ps.ProviderId == providerId)
-                .OrderByDescending(ps => ps.ScrapedAt)
-                .Select(ps => new
+            var currentYear = DateTime.UtcNow.Year;
+
+            // First, load seasons with provider leagues from DataImport context
+            var rawSeasons = await (
+                from ps in context.ProviderSeasons
+                join pl in context.ProviderLeagues on ps.ProviderLeagueId equals pl.Id into plJoin
+                from pl in plJoin.DefaultIfEmpty()
+                where ps.ProviderId == providerId
+                // Filter out future seasons (only show current season and older)
+                && ps.StartYear <= currentYear
+                select new
                 {
-                    id = ps.Id.ToString(),
-                    providerId = ps.ProviderId.ToString(),
-                    providerLeagueId = ps.ProviderLeagueId.ToString(),
-                    providerLeagueSlug = ps.ProviderLeague.ProviderSlug,
+                    id = ps.Id,
+                    providerId = ps.ProviderId,
+                    providerLeagueId = ps.ProviderLeagueId,
+                    providerSlug = pl != null ? pl.ProviderSlug : null,
+                    providerLeagueName = pl != null ? (pl.DisplayName ?? pl.ProviderName) : "Unknown",
+                    providerCountryCode = pl != null ? pl.CountryCode : "unknown",
                     seasonName = ps.SeasonName,
                     startYear = ps.StartYear,
                     endYear = ps.EndYear,
                     isCurrentSeason = ps.IsCurrentSeason,
                     data = ps.RawData,
-                    scannedAt = ps.ScrapedAt,
+                    scrapedAt = ps.ScrapedAt,
                     createdAt = ps.CreatedAt,
                     isImported = ps.IsImported,
-                    seasonId = ps.SeasonId != null ? ps.SeasonId.ToString() : null,
+                    seasonId = ps.SeasonId,
                     importedAt = ps.ImportedAt
-                })
+                }
+            ).ToListAsync();
+
+            // Get all slugs to lookup
+            var slugs = rawSeasons.Where(s => s.providerSlug != null).Select(s => s.providerSlug!).Distinct().ToList();
+
+            // Load matching leagues from configuration context
+            // Use GroupBy to handle potential duplicate slugs (e.g., "super-league" in multiple countries)
+            var leaguesBySlug = await configContext.Leagues
+                .Include(l => l.Country)
+                .Where(l => slugs.Contains(l.BetExplorerSlug))
                 .ToListAsync();
+
+            // Group by slug and take the first match (or could be enhanced to match by country)
+            var leaguesBySlugDict = leaguesBySlug
+                .GroupBy(l => l.BetExplorerSlug)
+                .ToDictionary(g => g.Key, g => g.First());
+
+            // Enrich and transform
+            var seasons = rawSeasons.Select(s =>
+            {
+                var league = s.providerSlug != null && leaguesBySlugDict.TryGetValue(s.providerSlug, out var l) ? l : null;
+                var country = league?.Country;
+
+                return new
+                {
+                    id = s.id.ToString(),
+                    providerId = s.providerId.ToString(),
+                    providerLeagueId = s.providerLeagueId.ToString(),
+                    providerLeagueSlug = s.providerSlug,
+                    // Use configuration data with fallback to provider data
+                    leagueName = league?.Name ?? s.providerLeagueName,
+                    leagueSlug = league?.BetExplorerSlug ?? s.providerSlug ?? "unknown",
+                    countryCode = country?.Code?.ToLower() ?? s.providerCountryCode ?? "unknown",
+                    countryName = country?.Name ?? s.providerCountryCode ?? "Unknown",
+                    countrySlug = country?.Code?.ToLower() ?? s.providerCountryCode ?? "unknown",
+                    seasonName = s.seasonName,
+                    startYear = s.startYear,
+                    endYear = s.endYear,
+                    isCurrentSeason = s.isCurrentSeason,
+                    data = s.data,
+                    scannedAt = s.scrapedAt,
+                    createdAt = s.createdAt,
+                    isImported = s.isImported,
+                    seasonId = s.seasonId?.ToString(),
+                    importedAt = s.importedAt
+                };
+            })
+            .OrderBy(s => s.countryName)
+            .ThenBy(s => s.leagueName)
+            .ThenByDescending(s => s.startYear)
+            .ToList();
 
             return Results.Ok(seasons);
         })
@@ -178,6 +240,202 @@ public static class ProviderCacheEndpoints
             return Results.Ok(new { deleted = seasons.Count, message = $"Deleted {seasons.Count} seasons from cache" });
         })
         .WithName("DeleteCachedSeasons")
+        .Produces(200)
+        .Produces(404);
+
+        // Get mapping details for a country
+        group.MapGet("/countries/{id}/mapping", async (
+            Guid id,
+            DataImportDbContext context,
+            ConfigurationDbContext configContext) =>
+        {
+            var providerCountry = await context.ProviderCountries
+                .FirstOrDefaultAsync(pc => pc.Id == id);
+
+            if (providerCountry == null)
+            {
+                return Results.NotFound(new { error = $"ProviderCountry {id} not found" });
+            }
+
+            // Get the provider from configuration context
+            var provider = await configContext.DataProviders
+                .FirstOrDefaultAsync(p => p.Id == providerCountry.ProviderId);
+
+            // Find matching BetExplorer country by ISO code or code
+            var matchedCountry = await configContext.Countries
+                .Include(c => c.CountryProviders)
+                    .ThenInclude(cp => cp.Provider)
+                .FirstOrDefaultAsync(c =>
+                    c.IsoCode == providerCountry.IsoCode ||
+                    c.Code.ToLower() == providerCountry.ProviderCode.ToLower());
+
+            // Find country name mappings for this provider
+            var providerCode = provider?.Code ?? "";
+            var nameMappings = await context.CountryNameMappings
+                .Where(m => m.ProviderCode == providerCode &&
+                           (m.ProviderCountryName == providerCountry.ProviderName ||
+                            m.BetExplorerCode == providerCountry.ProviderCode))
+                .OrderBy(m => m.Priority)
+                .ToListAsync();
+
+            // Find CountryProvider mapping if exists
+            var countryProvider = matchedCountry?.CountryProviders
+                .FirstOrDefault(cp => cp.ProviderId == providerCountry.ProviderId);
+
+            return Results.Ok(new
+            {
+                providerCountry = new
+                {
+                    id = providerCountry.Id.ToString(),
+                    providerId = providerCountry.ProviderId.ToString(),
+                    providerCode = providerCountry.ProviderCode,
+                    providerName = providerCountry.ProviderName,
+                    isoCode = providerCountry.IsoCode,
+                    flagEmoji = providerCountry.FlagEmoji,
+                    isImported = providerCountry.IsImported,
+                    countryId = providerCountry.CountryId?.ToString(),
+                    scannedAt = providerCountry.ScrapedAt
+                },
+                matchedCountry = matchedCountry != null ? new
+                {
+                    id = matchedCountry.Id.ToString(),
+                    name = matchedCountry.Name,
+                    nameCs = matchedCountry.NameCs,
+                    code = matchedCountry.Code,
+                    isoCode = matchedCountry.IsoCode,
+                    flagEmoji = matchedCountry.FlagEmoji,
+                    isActive = matchedCountry.IsActive
+                } : null,
+                countryProvider = countryProvider != null ? new
+                {
+                    id = countryProvider.Id.ToString(),
+                    providerCode = countryProvider.ProviderCode,
+                    providerName = countryProvider.ProviderName,
+                    isActive = countryProvider.IsActive
+                } : null,
+                nameMappings = nameMappings.Select(m => new
+                {
+                    id = m.Id.ToString(),
+                    providerCountryName = m.ProviderCountryName,
+                    betExplorerCode = m.BetExplorerCode,
+                    isActive = m.IsActive,
+                    priority = m.Priority,
+                    usageCount = m.UsageCount,
+                    lastUsedAt = m.LastUsedAt
+                }).ToList(),
+                mappingStatus = providerCountry.CountryId != null ? "Imported" :
+                               countryProvider != null ? "Mapped" :
+                               nameMappings.Any(m => m.IsActive) ? "HasNameMapping" : "Unmapped"
+            });
+        })
+        .WithName("GetCountryMappingDetails")
+        .Produces(200)
+        .Produces(404);
+
+        // Get mapping details for a league
+        group.MapGet("/leagues/{id}/mapping", async (
+            Guid id,
+            DataImportDbContext context,
+            ConfigurationDbContext configContext) =>
+        {
+            var providerLeague = await context.ProviderLeagues
+                .FirstOrDefaultAsync(pl => pl.Id == id);
+
+            if (providerLeague == null)
+            {
+                return Results.NotFound(new { error = $"ProviderLeague {id} not found" });
+            }
+
+            // Get the provider from configuration context
+            var provider = await configContext.DataProviders
+                .FirstOrDefaultAsync(p => p.Id == providerLeague.ProviderId);
+
+            // Find matching BetExplorer league - FIRST by LeagueId, then fallback to slug
+            League? matchedLeague = null;
+            if (providerLeague.LeagueId.HasValue)
+            {
+                matchedLeague = await configContext.Leagues
+                    .Include(l => l.Country)
+                    .Include(l => l.LeagueProviders)
+                        .ThenInclude(lp => lp.Provider)
+                    .FirstOrDefaultAsync(l => l.Id == providerLeague.LeagueId.Value);
+            }
+            else if (!string.IsNullOrEmpty(providerLeague.ProviderSlug))
+            {
+                // Fallback: try to find by slug (unlikely to work for betting providers)
+                matchedLeague = await configContext.Leagues
+                    .Include(l => l.Country)
+                    .Include(l => l.LeagueProviders)
+                        .ThenInclude(lp => lp.Provider)
+                    .FirstOrDefaultAsync(l => l.BetExplorerSlug == providerLeague.ProviderSlug);
+            }
+
+            // Find league name mappings for this provider and country
+            var countryCode = providerLeague.CountryCode ?? "";
+            var providerCode = provider?.Code ?? "";
+            var nameMappings = await context.LeagueNameMappings
+                .Where(m => m.ProviderCode == providerCode &&
+                           (m.ProviderLeagueName == providerLeague.ProviderName ||
+                            m.ProviderLeagueName == providerLeague.DisplayName ||
+                            m.BetExplorerSlug == providerLeague.ProviderSlug))
+                .OrderBy(m => m.Priority)
+                .ToListAsync();
+
+            // Find LeagueProvider mapping if exists
+            var leagueProvider = matchedLeague?.LeagueProviders
+                .FirstOrDefault(lp => lp.ProviderId == providerLeague.ProviderId);
+
+            return Results.Ok(new
+            {
+                providerLeague = new
+                {
+                    id = providerLeague.Id.ToString(),
+                    providerId = providerLeague.ProviderId.ToString(),
+                    providerName = providerLeague.ProviderName,
+                    displayName = providerLeague.DisplayName,
+                    providerSlug = providerLeague.ProviderSlug,
+                    countryCode = countryCode,
+                    mappingStatus = providerLeague.MappingStatus.ToString(),
+                    isImported = providerLeague.IsImported,
+                    leagueId = providerLeague.LeagueId?.ToString(),
+                    scannedAt = providerLeague.ScrapedAt
+                },
+                matchedLeague = matchedLeague != null ? new
+                {
+                    id = matchedLeague.Id.ToString(),
+                    name = matchedLeague.Name,
+                    nameCs = matchedLeague.NameCs,
+                    betExplorerSlug = matchedLeague.BetExplorerSlug,
+                    country = matchedLeague.Country != null ? new
+                    {
+                        id = matchedLeague.Country.Id.ToString(),
+                        name = matchedLeague.Country.Name,
+                        code = matchedLeague.Country.Code
+                    } : null,
+                    isActive = matchedLeague.IsActive
+                } : null,
+                leagueProvider = leagueProvider != null ? new
+                {
+                    id = leagueProvider.Id.ToString(),
+                    providerLeagueId = leagueProvider.ProviderLeagueId,
+                    providerName = leagueProvider.ProviderName,
+                    providerSlug = leagueProvider.ProviderSlug,
+                    isActive = leagueProvider.IsActive
+                } : null,
+                nameMappings = nameMappings.Select(m => new
+                {
+                    id = m.Id.ToString(),
+                    providerLeagueName = m.ProviderLeagueName,
+                    countryCode = m.CountryCode,
+                    betExplorerSlug = m.BetExplorerSlug,
+                    isActive = m.IsActive,
+                    priority = m.Priority,
+                    usageCount = m.UsageCount,
+                    lastUsedAt = m.LastUsedAt
+                }).ToList()
+            });
+        })
+        .WithName("GetLeagueMappingDetails")
         .Produces(200)
         .Produces(404);
 

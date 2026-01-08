@@ -55,4 +55,25 @@ public class CountryNameMapping : Entity
     /// ID of the last ProviderCountry that used this mapping
     /// </summary>
     public Guid? LastProviderCountryId { get; set; }
+
+    /// <summary>
+    /// Type of pattern matching to use: "exact", "substring", "regex"
+    /// </summary>
+    public string MatchType { get; set; } = "substring";
+
+    /// <summary>
+    /// Whether matching should be case-sensitive
+    /// </summary>
+    public bool IsCaseSensitive { get; set; } = false;
+
+    /// <summary>
+    /// Whether this is a special case (tournaments like "Liga mistrů", acronyms like "SAE")
+    /// Special cases are checked first before regular country mappings
+    /// </summary>
+    public bool IsSpecialCase { get; set; } = false;
+
+    /// <summary>
+    /// Localized country name to return (e.g., "Anglie", "SAE", "Severní Irsko")
+    /// </summary>
+    public string? LocalizedName { get; set; }
 }

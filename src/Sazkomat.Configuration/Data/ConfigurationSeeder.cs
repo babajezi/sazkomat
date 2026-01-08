@@ -7,29 +7,51 @@ public static class ConfigurationSeeder
 {
     public static async Task SeedAsync(ConfigurationDbContext context)
     {
+        // ScanCapabilities constants for different provider types
+        // BetExplorer = reference provider, seasons come from here
+        const string BetExplorerCapabilities = "{\"canScanCountries\":true,\"canScanLeagues\":false,\"canScanSeasons\":true}";
+        // Betting providers - only countries + leagues mapping, seasons from BetExplorer
+        const string BettingProviderCapabilities = "{\"canScanCountries\":true,\"canScanLeagues\":true,\"canScanSeasons\":false}";
+        // Tipsport - derives countries from league names, so only leagues
+        const string TipsportCapabilities = "{\"canScanCountries\":false,\"canScanLeagues\":true,\"canScanSeasons\":false}";
+        const string DefaultCapabilities = "{\"canScanCountries\":true,\"canScanLeagues\":true,\"canScanSeasons\":true}";
+
         // Always check and update Data Providers (even if already seeded)
         var betExplorer = await context.DataProviders.FindAsync(Guid.Parse("a0000000-0000-0000-0000-000000000001"));
-        if (betExplorer != null && (string.IsNullOrEmpty(betExplorer.CurrentSeasonPatterns) || betExplorer.CurrentSeasonPatterns == "[]"))
+        if (betExplorer != null)
         {
-            // Update existing provider with current season patterns
-            betExplorer.CurrentSeasonPatterns = "[\"2025\",\"2025-2026\"]";
-            context.DataProviders.Update(betExplorer);
-            await context.SaveChangesAsync();
+            var needsUpdate = false;
+            if (string.IsNullOrEmpty(betExplorer.CurrentSeasonPatterns) || betExplorer.CurrentSeasonPatterns == "[]")
+            {
+                betExplorer.CurrentSeasonPatterns = "[\"2025\",\"2025-2026\"]";
+                needsUpdate = true;
+            }
+            if (betExplorer.ScanCapabilities != BetExplorerCapabilities)
+            {
+                betExplorer.ScanCapabilities = BetExplorerCapabilities;
+                needsUpdate = true;
+            }
+            if (needsUpdate)
+            {
+                context.DataProviders.Update(betExplorer);
+                await context.SaveChangesAsync();
+            }
         }
 
         // Create Data Providers (check existence for each one)
         if (betExplorer == null)
         {
             betExplorer = new DataProvider
-        {
-            Id = Guid.Parse("a0000000-0000-0000-0000-000000000001"),
-            Name = "BetExplorer",
-            Code = "betexplorer",
-            BaseUrl = "https://www.betexplorer.com",
-            IsActive = true,
-            Priority = 10,
-            Type = ProviderType.Scraper,
-            CurrentSeasonPatterns = "[\"2025\",\"2025-2026\"]"
+            {
+                Id = Guid.Parse("a0000000-0000-0000-0000-000000000001"),
+                Name = "BetExplorer",
+                Code = "betexplorer",
+                BaseUrl = "https://www.betexplorer.com",
+                IsActive = true,
+                Priority = 10,
+                Type = ProviderType.Scraper,
+                CurrentSeasonPatterns = "[\"2025\",\"2025-2026\"]",
+                ScanCapabilities = BetExplorerCapabilities
             };
             context.DataProviders.Add(betExplorer);
         }
@@ -46,7 +68,8 @@ public static class ConfigurationSeeder
                 IsActive = false,
                 Priority = 5,
                 Type = ProviderType.Scraper,
-                Notes = "Prepared for future use"
+                Notes = "Prepared for future use",
+                ScanCapabilities = DefaultCapabilities
             };
             context.DataProviders.Add(oddsportal);
         }
@@ -64,9 +87,15 @@ public static class ConfigurationSeeder
                 IsActive = true,
                 Priority = 10,
                 Type = ProviderType.BettingProvider,
-                Notes = "Czech betting provider - Kaizen Gaming"
+                Notes = "Czech betting provider - Kaizen Gaming",
+                ScanCapabilities = BettingProviderCapabilities
             };
             context.DataProviders.Add(betano);
+        }
+        else if (betano.ScanCapabilities != BettingProviderCapabilities)
+        {
+            betano.ScanCapabilities = BettingProviderCapabilities;
+            context.DataProviders.Update(betano);
         }
 
         var chance = await context.DataProviders.FindAsync(Guid.Parse("b0000000-0000-0000-0000-000000000002"));
@@ -81,7 +110,8 @@ public static class ConfigurationSeeder
                 IsActive = false,
                 Priority = 8,
                 Type = ProviderType.BettingProvider,
-                Notes = "Czech betting provider - Aggressive Cloudflare protection"
+                Notes = "Czech betting provider - Aggressive Cloudflare protection",
+                ScanCapabilities = BettingProviderCapabilities
             };
             context.DataProviders.Add(chance);
         }
@@ -98,7 +128,8 @@ public static class ConfigurationSeeder
                 IsActive = false,
                 Priority = 9,
                 Type = ProviderType.BettingProvider,
-                Notes = "Czech betting provider"
+                Notes = "Czech betting provider",
+                ScanCapabilities = BettingProviderCapabilities
             };
             context.DataProviders.Add(fortuna);
         }
@@ -112,12 +143,40 @@ public static class ConfigurationSeeder
                 Name = "Tipsport",
                 Code = "tipsport",
                 BaseUrl = "https://www.tipsport.cz",
-                IsActive = false,
+                IsActive = true,  // Enabled - uses FlareSolverr to bypass Cloudflare
                 Priority = 9,
                 Type = ProviderType.BettingProvider,
-                Notes = "Largest Czech bookmaker"
+                Notes = "Largest Czech bookmaker - uses FlareSolverr for Cloudflare bypass",
+                ScanCapabilities = TipsportCapabilities
             };
             context.DataProviders.Add(tipsport);
+        }
+        else
+        {
+            var needsUpdate = false;
+            const string correctTipsportNotes = "Largest Czech bookmaker - uses FlareSolverr for Cloudflare bypass";
+
+            // Activate Tipsport - now uses FlareSolverr to bypass Cloudflare
+            if (!tipsport.IsActive)
+            {
+                tipsport.IsActive = true;
+                needsUpdate = true;
+            }
+            // Fix outdated notes
+            if (tipsport.Notes != correctTipsportNotes)
+            {
+                tipsport.Notes = correctTipsportNotes;
+                needsUpdate = true;
+            }
+            if (tipsport.ScanCapabilities != TipsportCapabilities)
+            {
+                tipsport.ScanCapabilities = TipsportCapabilities;
+                needsUpdate = true;
+            }
+            if (needsUpdate)
+            {
+                context.DataProviders.Update(tipsport);
+            }
         }
 
         var kingsbet = await context.DataProviders.FindAsync(Guid.Parse("b0000000-0000-0000-0000-000000000005"));
@@ -132,7 +191,8 @@ public static class ConfigurationSeeder
                 IsActive = false,
                 Priority = 7,
                 Type = ProviderType.BettingProvider,
-                Notes = "Czech betting provider"
+                Notes = "Czech betting provider",
+                ScanCapabilities = BettingProviderCapabilities
             };
             context.DataProviders.Add(kingsbet);
         }

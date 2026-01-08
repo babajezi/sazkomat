@@ -39,3 +39,26 @@ public class LeagueMetadata
     public string? SeasonName { get; set; }
     public bool IsCurrentSeason { get; set; } = false;
 }
+
+/// <summary>
+/// Interface for scrapers that track leagues without country mapping.
+/// Implement this to enable saving of unmapped leagues for manual review.
+/// </summary>
+public interface IUnmappedCountryLeagueProvider
+{
+    /// <summary>
+    /// Returns leagues that couldn't be mapped to any country.
+    /// Call this after scraping to get unmapped leagues for saving.
+    /// </summary>
+    List<UnmappedCountryLeague> GetUnmappedCountryLeagues();
+}
+
+/// <summary>
+/// Represents a league that couldn't be mapped to a country
+/// </summary>
+public class UnmappedCountryLeague
+{
+    public string ProviderLeagueId { get; set; } = string.Empty;
+    public string ProviderLeagueName { get; set; } = string.Empty;
+    public string? ProviderUrl { get; set; }
+}

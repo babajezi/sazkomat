@@ -12,6 +12,7 @@ public class MatchRepositoryTests : IDisposable
     private readonly MatchRepository _repository;
     private readonly Guid _roundId;
     private readonly Guid _providerId;
+    private readonly Round _round;
 
     public MatchRepositoryTests()
     {
@@ -23,6 +24,25 @@ public class MatchRepositoryTests : IDisposable
         _repository = new MatchRepository(_context);
         _roundId = Guid.NewGuid();
         _providerId = Guid.NewGuid();
+
+        // Create a Round entity that matches can reference (required for Include)
+        _round = new Round
+        {
+            Id = _roundId,
+            LeagueId = Guid.NewGuid(),
+            SeasonId = Guid.NewGuid(),
+            ProviderId = _providerId,
+            RoundNumber = 1,
+            MatchesCount = 0,
+            HomeWins = 0,
+            Draws = 0,
+            AwayWins = 0,
+            SummaryResult = "0-0-0",
+            OddsComplete = "Yes",
+            ScrapedAt = DateTime.UtcNow
+        };
+        _context.Rounds.Add(_round);
+        _context.SaveChanges();
     }
 
     [Trait("Category", "Fast")]
@@ -320,9 +340,11 @@ public class MatchRepositoryTests : IDisposable
     [Trait("Category", "Fast")]
     [Trait("Type", "Repository")]
     [Fact]
-    public async Task GetByRoundIdAsync_OrdersMatches()
+    public async Task GetByRoundIdAsync_OrdersMatchesByCreatedAt()
     {
-        // Arrange
+        // Arrange - Create matches in specific order with CreatedAt timestamps
+        // Note: GetByRoundIdAsync orders by CreatedAt, not MatchDate
+        var now = DateTime.UtcNow;
         var matches = new List<Match>
         {
             new()
@@ -335,7 +357,8 @@ public class MatchRepositoryTests : IDisposable
                 HomeScore = 1,
                 AwayScore = 1,
                 Result = "D",
-                MatchDate = new DateTime(2024, 10, 28)
+                MatchDate = new DateTime(2024, 10, 28),
+                CreatedAt = now.AddMinutes(2) // Created third
             },
             new()
             {
@@ -347,7 +370,8 @@ public class MatchRepositoryTests : IDisposable
                 HomeScore = 2,
                 AwayScore = 1,
                 Result = "H",
-                MatchDate = new DateTime(2024, 10, 26)
+                MatchDate = new DateTime(2024, 10, 26),
+                CreatedAt = now // Created first
             },
             new()
             {
@@ -359,7 +383,8 @@ public class MatchRepositoryTests : IDisposable
                 HomeScore = 0,
                 AwayScore = 0,
                 Result = "D",
-                MatchDate = new DateTime(2024, 10, 27)
+                MatchDate = new DateTime(2024, 10, 27),
+                CreatedAt = now.AddMinutes(1) // Created second
             }
         };
 
@@ -371,9 +396,13 @@ public class MatchRepositoryTests : IDisposable
 
         // Assert
         Assert.Equal(3, result.Count);
-        // Verify chronological order
-        Assert.True(result[0].MatchDate <= result[1].MatchDate);
-        Assert.True(result[1].MatchDate <= result[2].MatchDate);
+        // Verify order by CreatedAt (ascending)
+        Assert.True(result[0].CreatedAt <= result[1].CreatedAt);
+        Assert.True(result[1].CreatedAt <= result[2].CreatedAt);
+        // First should be Team A (created first), last should be Team C (created last)
+        Assert.Equal("Team A", result[0].HomeTeam);
+        Assert.Equal("Team E", result[1].HomeTeam);
+        Assert.Equal("Team C", result[2].HomeTeam);
     }
 
     public void Dispose()

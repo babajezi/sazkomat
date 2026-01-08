@@ -173,7 +173,7 @@ public class ConfigurationServiceTests
             BetExplorerSlug = "england/premier-league",
             SportId = Guid.NewGuid(),
             CountryId = Guid.NewGuid(),
-            IsSyncEnabled = false,
+            IsActive = false,
             IsBettable = true,
             Priority = 1,
             Country = new Country
@@ -185,11 +185,10 @@ public class ConfigurationServiceTests
             }
         };
 
-        var request = new UpdateLeagueRequest
-        {
-            IsSyncEnabled = true,
-            Priority = 5
-        };
+        var request = new UpdateLeagueRequest(
+            IsActive: true,
+            Priority: 5
+        );
 
         _mockLeagueRepository.Setup(r => r.GetByIdAsync(leagueId))
             .ReturnsAsync(league);
@@ -211,10 +210,9 @@ public class ConfigurationServiceTests
     {
         // Arrange
         var leagueId = Guid.NewGuid();
-        var request = new UpdateLeagueRequest
-        {
-            IsSyncEnabled = true
-        };
+        var request = new UpdateLeagueRequest(
+            IsActive: true
+        );
 
         _mockLeagueRepository.Setup(r => r.GetByIdAsync(leagueId))
             .ReturnsAsync((League?)null);
@@ -243,7 +241,7 @@ public class ConfigurationServiceTests
             BetExplorerSlug = "england/premier-league",
             SportId = Guid.NewGuid(),
             CountryId = Guid.NewGuid(),
-            IsSyncEnabled = true,
+            IsActive = true,
             IsBettable = true,
             Priority = 1
         };

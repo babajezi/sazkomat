@@ -261,7 +261,7 @@ public static class ConfigurationEndpoints
         group.MapGet("/providers/betting", async (IDataProviderRepository repository) =>
         {
             var providers = await repository.GetAllAsync();
-            var bettingProviders = providers.Where(p => p.Type == ProviderType.BettingProvider);
+            var bettingProviders = providers.Where(p => p.Type == ProviderType.BettingProvider && p.IsActive);
             return Results.Ok(bettingProviders);
         })
         .WithName("GetBettingProviders")

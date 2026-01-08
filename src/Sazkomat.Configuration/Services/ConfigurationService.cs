@@ -102,7 +102,7 @@ public class ConfigurationService : IConfigurationService
             IsBettable = request.IsBettable,
             Priority = request.Priority,
             Notes = request.Notes,
-            IsSyncEnabled = false // Default to disabled
+            IsActive = true // Default to active
         };
 
         var createdLeague = await _leagueRepository.CreateAsync(league);
@@ -143,11 +143,6 @@ public class ConfigurationService : IConfigurationService
             league.BetExplorerSlug = request.BetExplorerSlug;
         }
 
-        if (request.IsSyncEnabled.HasValue)
-        {
-            league.IsSyncEnabled = request.IsSyncEnabled.Value;
-        }
-
         if (request.IsBettable.HasValue)
         {
             league.IsBettable = request.IsBettable.Value;
@@ -170,8 +165,8 @@ public class ConfigurationService : IConfigurationService
 
         var updatedLeague = await _leagueRepository.UpdateAsync(league);
         _logger.LogInformation(
-            "Successfully updated league {LeagueId} ({OriginalName} → {NewName}). IsSyncEnabled={IsSyncEnabled}, IsActive={IsActive}",
-            updatedLeague.Id, originalName, updatedLeague.Name, updatedLeague.IsSyncEnabled, updatedLeague.IsActive);
+            "Successfully updated league {LeagueId} ({OriginalName} → {NewName}). IsActive={IsActive}",
+            updatedLeague.Id, originalName, updatedLeague.Name, updatedLeague.IsActive);
 
         return Result<League>.Success(updatedLeague);
     }

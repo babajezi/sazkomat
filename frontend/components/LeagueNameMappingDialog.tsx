@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { mappingApi } from "@/lib/api/client";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { mappingApi, configApi } from "@/lib/api/client";
 import {
   Dialog,
   DialogContent,
@@ -41,6 +41,12 @@ export function LeagueNameMappingDialog({
   });
 
   const isEditMode = !!editingMapping;
+
+  // Fetch betting providers
+  const { data: bettingProviders } = useQuery({
+    queryKey: ["bettingProviders"],
+    queryFn: () => configApi.getBettingProviders(),
+  });
 
   // Load data for edit mode
   useEffect(() => {
@@ -152,8 +158,11 @@ export function LeagueNameMappingDialog({
                 required
               >
                 <option value="">-- Vyberte providera --</option>
-                <option value="betano">Betano</option>
-                <option value="fortuna">Fortuna</option>
+                {bettingProviders?.map((provider) => (
+                  <option key={provider.id} value={provider.code}>
+                    {provider.name}
+                  </option>
+                ))}
               </select>
             </div>
 

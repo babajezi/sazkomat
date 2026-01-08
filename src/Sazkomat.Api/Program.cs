@@ -1,10 +1,18 @@
+using System.Text;
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using Sazkomat.Api.Endpoints;
 using Sazkomat.Api.Middleware;
 using Sazkomat.Api.Services;
 using Sazkomat.Configuration.Data;
+using Sazkomat.Configuration.Entities;
 using Sazkomat.Configuration.Repositories;
 using Sazkomat.Configuration.Services;
+using Sazkomat.Configuration.Settings;
 using Sazkomat.DataImport.Data;
 using Sazkomat.DataImport.Repositories;
 using Sazkomat.DataImport.Scrapers;
@@ -93,7 +101,8 @@ builder.Services.AddCors(options =>
                 "http://localhost:3000",
                 "http://localhost:3001",
                 "http://127.0.0.1:3000",
-                "http://127.0.0.1:3001")
+                "http://127.0.0.1:3001",
+                "https://sazkomat.herma.cz")
             .AllowAnyHeader()
             .AllowAnyMethod()
             .AllowCredentials();
@@ -106,6 +115,82 @@ builder.Services.AddDbContext<ConfigurationDbContext>(options =>
 
 builder.Services.AddDbContext<DataImportDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// === JWT Settings ===
+builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JwtSettings"));
+var jwtSettings = builder.Configuration.GetSection("JwtSettings").Get<JwtSettings>()
+    ?? throw new InvalidOperationException("JwtSettings not configured");
+
+// === Admin Settings ===
+builder.Services.Configure<AdminSettings>(builder.Configuration.GetSection("AdminSettings"));
+
+// === ASP.NET Core Identity ===
+builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
+{
+    // Strict password policy
+    options.Password.RequiredLength = 8;
+    options.Password.RequireDigit = true;
+    options.Password.RequireLowercase = true;
+    options.Password.RequireUppercase = true;
+    options.Password.RequireNonAlphanumeric = true;
+    options.Password.RequiredUniqueChars = 4;
+
+    // Lockout policy
+    options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
+    options.Lockout.MaxFailedAccessAttempts = 5;
+    options.Lockout.AllowedForNewUsers = true;
+
+    // User settings
+    options.User.RequireUniqueEmail = true;
+    options.SignIn.RequireConfirmedEmail = false;
+})
+.AddEntityFrameworkStores<ConfigurationDbContext>()
+.AddDefaultTokenProviders();
+
+// === JWT Authentication ===
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = jwtSettings.Issuer,
+        ValidAudience = jwtSettings.Audience,
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.SecretKey)),
+        ClockSkew = TimeSpan.Zero
+    };
+});
+
+builder.Services.AddAuthorization();
+
+// === Rate Limiting ===
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    // Strict limit for registration (5 requests per minute per IP)
+    options.AddFixedWindowLimiter("auth_register", opt =>
+    {
+        opt.PermitLimit = 5;
+        opt.Window = TimeSpan.FromMinutes(1);
+        opt.QueueLimit = 0;
+    });
+
+    // Login limit (10 requests per minute per IP)
+    options.AddFixedWindowLimiter("auth_login", opt =>
+    {
+        opt.PermitLimit = 10;
+        opt.Window = TimeSpan.FromMinutes(1);
+        opt.QueueLimit = 0;
+    });
+});
 
 // Register Configuration repositories
 builder.Services.AddScoped<ISportRepository, SportRepository>();
@@ -128,6 +213,7 @@ builder.Services.AddScoped<IProviderLogoService, ProviderLogoService>();
 builder.Services.AddScoped<IDatabaseResetService, DatabaseResetService>();
 builder.Services.AddScoped<ISyncWorkflowService, SyncWorkflowService>();
 builder.Services.AddScoped<IUniversalImportExportService, UniversalImportExportService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
 
 // Register DataImport repositories
 builder.Services.AddScoped<IRoundRepository, RoundRepository>();
@@ -141,6 +227,7 @@ builder.Services.AddScoped<IProviderSeasonRepository, ProviderSeasonRepository>(
 builder.Services.AddScoped<ISyncJobRepository, SyncJobRepository>();
 builder.Services.AddScoped<ILeagueNameMappingRepository, LeagueNameMappingRepository>();
 builder.Services.AddScoped<ICountryNameMappingRepository, CountryNameMappingRepository>();
+builder.Services.AddScoped<IUnmatchedLeagueRepository, UnmatchedLeagueRepository>();
 
 // Register DataImport scrapers
 builder.Services.AddScoped<ILeagueScraper, FootballBetExplorerScraper>();
@@ -169,6 +256,16 @@ builder.Services.AddScoped<IBettingProviderScraper, BetanoScraper>();
 builder.Services.AddScoped<ILeagueMetadataScraper, BetanoLeagueMetadataScraper>();
 builder.Services.AddScoped<ICountryScraper, BetanoCountryScraper>();
 builder.Services.AddScoped<ISeasonScraper, BetanoSeasonScraper>();
+builder.Services.AddScoped<IBetanoFullDataProvider, Sazkomat.BettingProviders.Services.BetanoFullDataProviderAdapter>();
+
+// Register FlareSolverr client for Cloudflare bypass
+builder.Services.AddHttpClient<Sazkomat.BettingProviders.Services.FlareSolverrClient>();
+builder.Services.AddScoped<Sazkomat.BettingProviders.Services.FlareSolverrClient>();
+
+// Register Tipsport scrapers and services
+builder.Services.AddScoped<Sazkomat.BettingProviders.Services.TipsportJsonExtractor>();
+builder.Services.AddScoped<Sazkomat.BettingProviders.Scrapers.TipsportScraper>();
+builder.Services.AddScoped<ILeagueMetadataScraper, Sazkomat.BettingProviders.Scrapers.TipsportLeagueMetadataScraper>();
 
 // Register Fortuna scrapers (skeleton for future implementation)
 builder.Services.AddScoped<ILeagueMetadataScraper, Sazkomat.BettingProviders.Scrapers.FortunaLeagueMetadataScraper>();
@@ -198,6 +295,7 @@ builder.Services.AddScoped<IImportService, ImportService>();
 builder.Services.AddScoped<ILiveSyncService, LiveSyncService>();
 builder.Services.AddScoped<ISyncJobProcessor, SyncJobProcessor>();
 builder.Services.AddScoped<IBetExplorerEnrichmentService, BetExplorerEnrichmentService>();
+builder.Services.AddScoped<ICountryMappingService, CountryMappingService>();
 
 // Register Hangfire background services
 builder.Services.AddHostedService<RecurringSyncScheduler>();
@@ -237,11 +335,18 @@ app.UseMiddleware<ErrorHandlingMiddleware>();
 app.UseSerilogRequestLogging();
 app.UseCors();
 
-// Use Hangfire Dashboard
+// Authentication & Authorization middleware
+app.UseRateLimiter();
+app.UseAuthentication();
+app.UseAuthorization();
+
+// Use Hangfire Dashboard with authentication in production
 var dashboardPath = app.Configuration.GetValue<string>("Hangfire:DashboardPath") ?? "/hangfire";
 app.UseHangfireDashboard(dashboardPath, new DashboardOptions
 {
-    Authorization = Array.Empty<Hangfire.Dashboard.IDashboardAuthorizationFilter>(), // TODO: Add authentication in production
+    Authorization = app.Environment.IsDevelopment()
+        ? Array.Empty<Hangfire.Dashboard.IDashboardAuthorizationFilter>()
+        : new[] { new HangfireAuthorizationFilter() },
     StatsPollingInterval = 5000, // 5 seconds
     DisplayStorageConnectionString = false
 });
@@ -271,6 +376,11 @@ app.MapLiveSyncEndpoints();
 app.MapProviderCacheEndpoints();
 app.MapLeagueNameMappingEndpoints();
 app.MapCountryNameMappingEndpoints();
+app.MapUnmatchedLeagueEndpoints();
+app.MapBetExplorerEndpoints();
+app.MapAuthEndpoints();
+app.MapUserAdminEndpoints();
+app.MapTipsportEndpoints();
 
 // Auto migration and seed on startup
 using (var scope = app.Services.CreateScope())
@@ -293,6 +403,24 @@ using (var scope = app.Services.CreateScope())
         logger.LogInformation("Seeding configuration data...");
         await ConfigurationSeeder.SeedAsync(configContext);
         logger.LogInformation("Configuration data seeded successfully");
+
+        // Seed country name mappings
+        logger.LogInformation("Seeding country name mappings...");
+        await CountryNameMappingSeeder.SeedTipsportMappingsAsync(dataImportContext);
+        logger.LogInformation("Country name mappings seeded successfully");
+
+        // Cleanup orphaned jobs (stuck in Running status from previous crash/restart)
+        logger.LogInformation("Checking for orphaned jobs...");
+        var orphanedJobsCount = await dataImportContext.SyncJobs
+            .Where(j => j.Status == Sazkomat.DataImport.Entities.SyncJobStatus.Running)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(j => j.Status, Sazkomat.DataImport.Entities.SyncJobStatus.Failed)
+                .SetProperty(j => j.CompletedAt, DateTime.UtcNow)
+                .SetProperty(j => j.ErrorMessage, "Job orphaned after application restart"));
+        if (orphanedJobsCount > 0)
+        {
+            logger.LogWarning("Cleaned up {Count} orphaned job(s) that were stuck in Running status", orphanedJobsCount);
+        }
     }
     catch (Exception ex)
     {

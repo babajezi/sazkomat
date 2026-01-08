@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { countryMappingApi } from "@/lib/api/client";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { countryMappingApi, configApi } from "@/lib/api/client";
 import {
   Dialog,
   DialogContent,
@@ -37,9 +37,19 @@ export function CountryNameMappingDialog({
     isActive: true,
     notes: "",
     priority: 0,
+    matchType: "substring" as "exact" | "substring" | "regex",
+    isCaseSensitive: false,
+    isSpecialCase: false,
+    localizedName: "",
   });
 
   const isEditMode = !!editingMapping;
+
+  // Fetch betting providers
+  const { data: bettingProviders } = useQuery({
+    queryKey: ["bettingProviders"],
+    queryFn: () => configApi.getBettingProviders(),
+  });
 
   // Load data for edit mode
   useEffect(() => {
@@ -51,6 +61,10 @@ export function CountryNameMappingDialog({
         isActive: editingMapping.isActive ?? true,
         notes: editingMapping.notes || "",
         priority: editingMapping.priority ?? 0,
+        matchType: editingMapping.matchType || "substring",
+        isCaseSensitive: editingMapping.isCaseSensitive ?? false,
+        isSpecialCase: editingMapping.isSpecialCase ?? false,
+        localizedName: editingMapping.localizedName || "",
       });
     } else {
       // Reset form for create mode
@@ -61,6 +75,10 @@ export function CountryNameMappingDialog({
         isActive: true,
         notes: "",
         priority: 0,
+        matchType: "substring",
+        isCaseSensitive: false,
+        isSpecialCase: false,
+        localizedName: "",
       });
     }
   }, [editingMapping, open]);
@@ -74,6 +92,10 @@ export function CountryNameMappingDialog({
         isActive: data.isActive,
         notes: data.notes || undefined,
         priority: data.priority,
+        matchType: data.matchType,
+        isCaseSensitive: data.isCaseSensitive,
+        isSpecialCase: data.isSpecialCase,
+        localizedName: data.localizedName || undefined,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["country-mappings"] });
@@ -89,6 +111,10 @@ export function CountryNameMappingDialog({
         isActive: data.isActive,
         notes: data.notes || undefined,
         priority: data.priority,
+        matchType: data.matchType,
+        isCaseSensitive: data.isCaseSensitive,
+        isSpecialCase: data.isSpecialCase,
+        localizedName: data.localizedName || undefined,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["country-mappings"] });
@@ -147,8 +173,11 @@ export function CountryNameMappingDialog({
                 required
               >
                 <option value="">-- Vyberte providera --</option>
-                <option value="betano">Betano</option>
-                <option value="fortuna">Fortuna</option>
+                {bettingProviders?.map((provider) => (
+                  <option key={provider.id} value={provider.code}>
+                    {provider.name}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -190,6 +219,44 @@ export function CountryNameMappingDialog({
               </p>
             </div>
 
+            {/* Localized Name */}
+            <div className="grid gap-2">
+              <Label htmlFor="localizedName">Lokalizovaný název</Label>
+              <Input
+                id="localizedName"
+                type="text"
+                placeholder="např. Anglie, Německo, Španělsko"
+                value={formData.localizedName}
+                onChange={(e) =>
+                  setFormData({ ...formData, localizedName: e.target.value })
+                }
+                maxLength={100}
+              />
+              <p className="text-xs text-muted-foreground">
+                Název země v cílovém jazyce (pro zobrazení uživateli)
+              </p>
+            </div>
+
+            {/* Match Type */}
+            <div className="grid gap-2">
+              <Label htmlFor="matchType">Typ shody</Label>
+              <select
+                id="matchType"
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={formData.matchType}
+                onChange={(e) =>
+                  setFormData({ ...formData, matchType: e.target.value as "exact" | "substring" | "regex" })
+                }
+              >
+                <option value="substring">Substring (obsahuje)</option>
+                <option value="exact">Exact (přesná shoda)</option>
+                <option value="regex">Regex (regulární výraz)</option>
+              </select>
+              <p className="text-xs text-muted-foreground">
+                Jak se má pattern matchovat: substring hledá uvnitř textu, exact vyžaduje přesnou shodu
+              </p>
+            </div>
+
             {/* Priority */}
             <div className="grid gap-2">
               <Label htmlFor="priority">Priorita</Label>
@@ -203,25 +270,62 @@ export function CountryNameMappingDialog({
                 }
               />
               <p className="text-xs text-muted-foreground">
-                Nižší číslo = vyšší priorita (pro případy s více mapováními)
+                Vyšší číslo = vyšší priorita (kontroluje se dříve). Doporučeno: 50 standard, 100 pro konflikty, 200 pro special cases
               </p>
             </div>
 
-            {/* Active Checkbox */}
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="isActive"
-                checked={formData.isActive}
-                onChange={(e) =>
-                  setFormData({ ...formData, isActive: e.target.checked })
-                }
-              />
-              <Label
-                htmlFor="isActive"
-                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-              >
-                Aktivní
-              </Label>
+            {/* Checkboxes row */}
+            <div className="flex flex-wrap gap-6">
+              {/* Active Checkbox */}
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="isActive"
+                  checked={formData.isActive}
+                  onChange={(e) =>
+                    setFormData({ ...formData, isActive: e.target.checked })
+                  }
+                />
+                <Label
+                  htmlFor="isActive"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                  Aktivní
+                </Label>
+              </div>
+
+              {/* Case Sensitive Checkbox */}
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="isCaseSensitive"
+                  checked={formData.isCaseSensitive}
+                  onChange={(e) =>
+                    setFormData({ ...formData, isCaseSensitive: e.target.checked })
+                  }
+                />
+                <Label
+                  htmlFor="isCaseSensitive"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                  Rozlišovat velká/malá
+                </Label>
+              </div>
+
+              {/* Special Case Checkbox */}
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="isSpecialCase"
+                  checked={formData.isSpecialCase}
+                  onChange={(e) =>
+                    setFormData({ ...formData, isSpecialCase: e.target.checked })
+                  }
+                />
+                <Label
+                  htmlFor="isSpecialCase"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                  Special case (turnaje, zkratky)
+                </Label>
+              </div>
             </div>
 
             {/* Notes */}

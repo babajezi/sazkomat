@@ -463,7 +463,7 @@ public class ProviderSyncService : ISyncService
                                         Name = leagueMetadata.Name,
                                         DisplayName = leagueMetadata.DisplayName,
                                         BetExplorerSlug = leagueMetadata.Slug,
-                                        IsSyncEnabled = false, // Default to disabled
+                                        IsActive = true, // Activate immediately
                                         IsBettable = leagueMetadata.IsBettable,
                                         Priority = leagueMetadata.Priority
                                     };

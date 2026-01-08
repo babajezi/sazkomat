@@ -157,7 +157,8 @@
       "Bash(docker rmi:*)"
     ],
     "additionalDirectories": [
-      "c:\\projects\\claude-share"
+      "c:\\projects\\claude-share",
+      "/home/hermik/projekty/share"
     ]
   },
   "hooks": {

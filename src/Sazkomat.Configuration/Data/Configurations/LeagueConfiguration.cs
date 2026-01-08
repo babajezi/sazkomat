@@ -42,10 +42,6 @@ public class LeagueConfiguration : IEntityTypeConfiguration<League>
             .HasMaxLength(200)
             .IsRequired();
 
-        builder.Property(l => l.IsSyncEnabled)
-            .HasColumnName("is_enabled")
-            .IsRequired();
-
         builder.Property(l => l.IsBettable)
             .HasColumnName("is_bettable")
             .IsRequired();
@@ -85,7 +81,6 @@ public class LeagueConfiguration : IEntityTypeConfiguration<League>
         builder.HasIndex(l => l.SportId);
         builder.HasIndex(l => l.CountryId);
         builder.HasIndex(l => l.Name); // Non-unique index for faster queries
-        builder.HasIndex(l => l.IsSyncEnabled);
         builder.HasIndex(l => l.IsBettable);
         builder.HasIndex(l => l.IsActive);
     }

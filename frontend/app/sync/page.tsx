@@ -1,22 +1,26 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ArrowLeft, Database, ScanLine, Download, Activity, Info } from "lucide-react";
+import { ArrowLeft, Database, ScanLine, Download, Activity, Info, RefreshCw } from "lucide-react";
 import { ScanDialog } from "@/components/ScanDialog";
 import { CacheTablesView } from "@/components/CacheTablesView";
+import { JobsPanel } from "@/components/JobsPanel";
 import { ProviderLogo } from "@/components/ProviderLogo";
-import { SyncEntityType } from "@/lib/api/types";
+import { SyncEntityType, parseScanCapabilities, DataProvider } from "@/lib/api/types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 const BETANO_PROVIDER_ID = "b0000000-0000-0000-0000-000000000001";
 
 export default function SyncPage() {
   const [selectedProviderId, setSelectedProviderId] = useState<string>(BETANO_PROVIDER_ID);
+  const [isBackfilling, setIsBackfilling] = useState(false);
+  const [isBackfillingLP, setIsBackfillingLP] = useState(false);
+  const queryClient = useQueryClient();
 
   // Fetch all providers
   const { data: providers = [] } = useQuery({
@@ -28,8 +32,63 @@ export default function SyncPage() {
     },
   });
 
-  const activeProviders = providers.filter((p: any) => p.isActive);
-  const selectedProvider = providers.find((p: any) => p.id === selectedProviderId);
+  const activeProviders = providers.filter((p: DataProvider) => p.isActive);
+  const selectedProvider = providers.find((p: DataProvider) => p.id === selectedProviderId);
+  const scanCapabilities = parseScanCapabilities(selectedProvider?.scanCapabilities);
+
+  const handleBackfillProviderLeagues = async () => {
+    setIsBackfilling(true);
+    try {
+      const response = await fetch(`${API_URL}/api/scan/backfill-provider-leagues`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ providerId: selectedProviderId }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to backfill");
+      }
+
+      const result = await response.json();
+      alert(`Backfill provider_leagues dokončen: ${result.created} vytvořeno, ${result.updated} aktualizováno`);
+
+      // Refresh the cache tables view
+      queryClient.invalidateQueries({ queryKey: ["provider-cache"] });
+    } catch (error) {
+      console.error("Backfill error:", error);
+      alert(`Chyba: ${error instanceof Error ? error.message : "Unknown error"}`);
+    } finally {
+      setIsBackfilling(false);
+    }
+  };
+
+  const handleBackfillLeagueProviders = async () => {
+    setIsBackfillingLP(true);
+    try {
+      const response = await fetch(`${API_URL}/api/scan/backfill-league-providers`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ providerId: selectedProviderId }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to backfill");
+      }
+
+      const result = await response.json();
+      alert(`Backfill LeagueProvider dokončen: ${result.created} vytvořeno, ${result.skipped} již existovalo`);
+
+      // Refresh the leagues view
+      queryClient.invalidateQueries({ queryKey: ["leagues"] });
+    } catch (error) {
+      console.error("Backfill LP error:", error);
+      alert(`Chyba: ${error instanceof Error ? error.message : "Unknown error"}`);
+    } finally {
+      setIsBackfillingLP(false);
+    }
+  };
 
   return (
     <div className="container mx-auto py-8 space-y-6">
@@ -50,10 +109,16 @@ export default function SyncPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Link href="/mappings">
+          <Link href="/country-mappings">
             <Button variant="outline">
               <Database className="mr-2 h-4 w-4" />
-              Mapování Názvů
+              Mapování Zemí
+            </Button>
+          </Link>
+          <Link href="/unmatched-leagues">
+            <Button variant="outline">
+              <Database className="mr-2 h-4 w-4" />
+              Nespárované Ligy
             </Button>
           </Link>
           <Link href="/jobs">
@@ -100,6 +165,9 @@ export default function SyncPage() {
         </CardContent>
       </Card>
 
+      {/* Jobs Panel - Live status */}
+      <JobsPanel providerId={selectedProviderId} maxJobs={5} refreshInterval={2000} />
+
       {/* Workflow Info */}
       <Alert>
         <Info className="h-4 w-4" />
@@ -108,7 +176,7 @@ export default function SyncPage() {
             <p className="font-semibold">Jak synchronizace funguje:</p>
             <ol className="list-decimal list-inside space-y-1 text-sm">
               <li>
-                <strong>SCAN</strong> - Načte data z BetExplorer do cache tabulek
+                <strong>SCAN</strong> - Načte data z providera do cache tabulek
               </li>
               <li>
                 <strong>PREVIEW</strong> - Zkontroluj data před importem (v tabulkách níže)
@@ -142,48 +210,70 @@ export default function SyncPage() {
             </p>
 
             <div className="flex flex-wrap gap-3">
-              <ScanDialog
-                entityType={SyncEntityType.Countries}
-                providerId={selectedProviderId}
-                trigger={
-                  <Button variant="default">
-                    <ScanLine className="mr-2 h-4 w-4" />
-                    Scan Countries
-                  </Button>
-                }
-              />
+              {scanCapabilities.canScanCountries && (
+                <ScanDialog
+                  entityType={SyncEntityType.Countries}
+                  providerId={selectedProviderId}
+                  trigger={
+                    <Button variant="default">
+                      <ScanLine className="mr-2 h-4 w-4" />
+                      Scan Countries
+                    </Button>
+                  }
+                />
+              )}
 
-              <ScanDialog
-                entityType={SyncEntityType.Leagues}
-                providerId={selectedProviderId}
-                trigger={
-                  <Button variant="default">
-                    <ScanLine className="mr-2 h-4 w-4" />
-                    Scan Leagues
-                  </Button>
-                }
-              />
+              {scanCapabilities.canScanLeagues && (
+                <ScanDialog
+                  entityType={SyncEntityType.Leagues}
+                  providerId={selectedProviderId}
+                  trigger={
+                    <Button variant="default">
+                      <ScanLine className="mr-2 h-4 w-4" />
+                      Scan Leagues
+                    </Button>
+                  }
+                />
+              )}
 
-              <ScanDialog
-                entityType={SyncEntityType.Seasons}
-                providerId={selectedProviderId}
-                trigger={
-                  <Button variant="default">
-                    <ScanLine className="mr-2 h-4 w-4" />
-                    Scan Seasons
-                  </Button>
-                }
-              />
+              {scanCapabilities.canScanSeasons && (
+                <ScanDialog
+                  entityType={SyncEntityType.Seasons}
+                  providerId={selectedProviderId}
+                  trigger={
+                    <Button variant="default">
+                      <ScanLine className="mr-2 h-4 w-4" />
+                      Scan Seasons
+                    </Button>
+                  }
+                />
+              )}
+
+              {/* Backfill resolved leagues buttons */}
+              <Button
+                variant="secondary"
+                onClick={handleBackfillProviderLeagues}
+                disabled={isBackfilling}
+                title="Doplní provider_leagues záznamy z vyřešených unmatched_leagues"
+              >
+                <RefreshCw className={`mr-2 h-4 w-4 ${isBackfilling ? "animate-spin" : ""}`} />
+                {isBackfilling ? "Backfilling..." : "Backfill Cache"}
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={handleBackfillLeagueProviders}
+                disabled={isBackfillingLP}
+                title="Doplní LeagueProvider mapování z vyřešených unmatched_leagues (pro filtrování lig)"
+              >
+                <RefreshCw className={`mr-2 h-4 w-4 ${isBackfillingLP ? "animate-spin" : ""}`} />
+                {isBackfillingLP ? "Backfilling..." : "Backfill Mappings"}
+              </Button>
             </div>
 
             <Alert className="bg-blue-50 border-blue-200">
               <Database className="h-4 w-4 text-blue-600" />
               <AlertDescription className="text-blue-900 text-sm">
-                Scan operace běží na pozadí. Můžeš sledovat průběh na stránce{" "}
-                <Link href="/jobs" className="font-semibold underline">
-                  Job Monitoring
-                </Link>
-                .
+                Scan operace běží na pozadí. Průběh vidíš v panelu &quot;Průběh jobů&quot; výše.
               </AlertDescription>
             </Alert>
           </div>
@@ -242,7 +332,7 @@ export default function SyncPage() {
         <AlertDescription className="text-sm">
           Pro pokročilý monitoring background jobů můžeš použít{" "}
           <a
-            href="http://localhost:3001/hangfire"
+            href={`${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || ''}/hangfire`}
             target="_blank"
             rel="noopener noreferrer"
             className="font-semibold underline"

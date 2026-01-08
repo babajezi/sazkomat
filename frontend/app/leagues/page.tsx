@@ -23,11 +23,13 @@ import { PaginationControls } from "@/components/PaginationControls";
 import { CountryFlag } from "@/components/CountryFlag";
 import { getCountryDisplayName } from "@/lib/utils/country";
 import { getLeagueDisplayName } from "@/lib/utils/league";
+import { useLanguage } from "@/contexts/UserContext";
 import type { League, LeagueProvider } from "@/lib/api/types";
 import { ProviderType, BooleanFilterValue, HasProvidersFilter } from "@/lib/api/types";
 
 export default function LeaguesPage() {
   const queryClient = useQueryClient();
+  const { language } = useLanguage();
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedLeague, setSelectedLeague] = useState<League | null>(null);
   const [providerDialogOpen, setProviderDialogOpen] = useState(false);
@@ -64,14 +66,6 @@ export default function LeaguesPage() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => configApi.deleteLeague(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["leagues"] });
-    },
-  });
-
-  const toggleSyncEnabledMutation = useMutation({
-    mutationFn: ({ id, isSyncEnabled }: { id: string; isSyncEnabled: boolean }) =>
-      configApi.updateLeague(id, { isSyncEnabled }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["leagues"] });
     },
@@ -123,7 +117,7 @@ export default function LeaguesPage() {
   const handleDelete = async (league: League) => {
     if (
       window.confirm(
-        `Opravdu chcete smazat ligu "${getLeagueDisplayName(league)}"? Tato akce je nevratná.`
+        `Opravdu chcete smazat ligu "${getLeagueDisplayName(league, language)}"? Tato akce je nevratná.`
       )
     ) {
       deleteMutation.mutate(league.id);
@@ -142,7 +136,7 @@ export default function LeaguesPage() {
     // Validate: Cannot enable sync if league or country is not active
     if (checked && !league.isActive) {
       alert(
-        `Nelze aktivovat synchronizaci pro neaktivní ligu "${getLeagueDisplayName(league)}". Prosím nejprve aktivujte ligu.`
+        `Nelze aktivovat synchronizaci pro neaktivní ligu "${getLeagueDisplayName(league, language)}". Prosím nejprve aktivujte ligu.`
       );
       return;
     }
@@ -150,7 +144,7 @@ export default function LeaguesPage() {
     const country = countries?.find((c) => c.id === league.countryId);
     if (checked && country && !country.isActive) {
       alert(
-        `Nelze aktivovat synchronizaci pro ligu "${getLeagueDisplayName(league)}", protože země "${getCountryDisplayName(country)}" není aktivní. Prosím nejprve aktivujte zemi.`
+        `Nelze aktivovat synchronizaci pro ligu "${getLeagueDisplayName(league, language)}", protože země "${getCountryDisplayName(country, language)}" není aktivní. Prosím nejprve aktivujte zemi.`
       );
       return;
     }
@@ -228,8 +222,8 @@ export default function LeaguesPage() {
 
     if (filterSportId && league.sportId !== filterSportId) return false;
     if (filterCountryId && league.countryId !== filterCountryId) return false;
-    if (filterEnabled === BooleanFilterValue.True && !league.isSyncEnabled) return false;
-    if (filterEnabled === BooleanFilterValue.False && league.isSyncEnabled) return false;
+    if (filterEnabled === BooleanFilterValue.True && !league.isActive) return false;
+    if (filterEnabled === BooleanFilterValue.False && league.isActive) return false;
     if (filterBettable === BooleanFilterValue.True && !league.isBettable) return false;
     if (filterBettable === BooleanFilterValue.False && league.isBettable) return false;
 
@@ -286,9 +280,9 @@ export default function LeaguesPage() {
           <Card>
             <CardContent className="pt-6">
               <div className="text-2xl font-bold text-green-600">
-                {leagues?.filter(l => l.isSyncEnabled).length || 0}
+                {leagues?.filter(l => l.isActive).length || 0}
               </div>
-              <p className="text-xs text-muted-foreground">Aktivní synchronizace</p>
+              <p className="text-xs text-muted-foreground">Aktivních lig</p>
             </CardContent>
           </Card>
           <Card>
@@ -339,7 +333,7 @@ export default function LeaguesPage() {
                   <select
                     id="filter-sport"
                     value={filterSportId}
-                    onChange={(e) => setFilterSportId(e.target.value)}
+                    onChange={(e) => { setFilterSportId(e.target.value); setPage(0); }}
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <option value="">Všechny sporty</option>
@@ -356,15 +350,18 @@ export default function LeaguesPage() {
                   <select
                     id="filter-country"
                     value={filterCountryId}
-                    onChange={(e) => setFilterCountryId(e.target.value)}
+                    onChange={(e) => { setFilterCountryId(e.target.value); setPage(0); }}
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <option value="">Všechny země</option>
-                    {countries?.filter((c) => c.isActive).map((country) => (
-                      <option key={country.id} value={country.id}>
-                        {country.flagEmoji} {country.name}
-                      </option>
-                    ))}
+                    {countries
+                      ?.filter((c) => c.isActive)
+                      .sort((a, b) => a.name.localeCompare(b.name))
+                      .map((country) => (
+                        <option key={country.id} value={country.id}>
+                          {country.flagEmoji} {country.name}
+                        </option>
+                      ))}
                   </select>
                 </div>
 
@@ -373,7 +370,7 @@ export default function LeaguesPage() {
                   <select
                     id="filter-enabled"
                     value={filterEnabled}
-                    onChange={(e) => setFilterEnabled(e.target.value)}
+                    onChange={(e) => { setFilterEnabled(e.target.value); setPage(0); }}
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <option value={BooleanFilterValue.All}>Vše</option>
@@ -387,7 +384,7 @@ export default function LeaguesPage() {
                   <select
                     id="filter-bettable"
                     value={filterBettable}
-                    onChange={(e) => setFilterBettable(e.target.value)}
+                    onChange={(e) => { setFilterBettable(e.target.value); setPage(0); }}
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <option value={BooleanFilterValue.All}>Vše</option>
@@ -401,7 +398,7 @@ export default function LeaguesPage() {
                   <select
                     id="filter-has-providers"
                     value={filterHasProviders}
-                    onChange={(e) => setFilterHasProviders(e.target.value)}
+                    onChange={(e) => { setFilterHasProviders(e.target.value); setPage(0); }}
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <option value={HasProvidersFilter.All}>Vše</option>
@@ -415,7 +412,7 @@ export default function LeaguesPage() {
                   <select
                     id="filter-provider"
                     value={filterProviderId}
-                    onChange={(e) => setFilterProviderId(e.target.value)}
+                    onChange={(e) => { setFilterProviderId(e.target.value); setPage(0); }}
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <option value="">Všichni provideři</option>
@@ -486,7 +483,7 @@ export default function LeaguesPage() {
           <PaginationControls
             page={page}
             pageSize={pageSize}
-            totalCount={leagues?.length || 0}
+            totalCount={filteredLeagues.length}
             displayedCount={filteredLeagues.length}
             itemName="lig"
             onPageChange={setPage}
@@ -518,14 +515,11 @@ export default function LeaguesPage() {
                       {getCountry(league.countryId) && (
                         <>
                           <CountryFlag isoCode={getCountry(league.countryId)!.isoCode} className="text-xl" />
-                          <span>{getCountryDisplayName(getCountry(league.countryId)!)}</span>
+                          <span>{getCountryDisplayName(getCountry(league.countryId)!, language)}</span>
                         </>
                       )}
                       {!getCountry(league.countryId) && <span>Unknown</span>}
-                      {getLeagueDisplayName(league)}
-                      <Badge variant={league.isSyncEnabled ? "default" : "secondary"}>
-                        {league.isSyncEnabled ? "Sync povolen" : "Sync zakázán"}
-                      </Badge>
+                      {getLeagueDisplayName(league, language)}
                       <Badge variant={league.isActive ? "default" : "outline"}>
                         {league.isActive ? "Aktivní" : "Neaktivní"}
                       </Badge>

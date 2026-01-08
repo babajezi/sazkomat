@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Sazkomat.DataImport.Entities;
 using Sazkomat.DataImport.Repositories;
+using Sazkomat.DataImport.Services;
 
 namespace Sazkomat.Api.Endpoints;
 
@@ -85,6 +86,10 @@ public static class CountryNameMappingEndpoints
                 IsActive = request.IsActive ?? true,
                 Notes = request.Notes,
                 Priority = request.Priority ?? 0,
+                MatchType = request.MatchType ?? "substring",
+                IsCaseSensitive = request.IsCaseSensitive ?? false,
+                IsSpecialCase = request.IsSpecialCase ?? false,
+                LocalizedName = request.LocalizedName,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
             };
@@ -134,6 +139,26 @@ public static class CountryNameMappingEndpoints
             if (request.Priority.HasValue)
             {
                 mapping.Priority = request.Priority.Value;
+            }
+
+            if (!string.IsNullOrWhiteSpace(request.MatchType))
+            {
+                mapping.MatchType = request.MatchType;
+            }
+
+            if (request.IsCaseSensitive.HasValue)
+            {
+                mapping.IsCaseSensitive = request.IsCaseSensitive.Value;
+            }
+
+            if (request.IsSpecialCase.HasValue)
+            {
+                mapping.IsSpecialCase = request.IsSpecialCase.Value;
+            }
+
+            if (request.LocalizedName != null)
+            {
+                mapping.LocalizedName = request.LocalizedName;
             }
 
             var updated = await repository.UpdateAsync(mapping);
@@ -186,6 +211,36 @@ public static class CountryNameMappingEndpoints
         .WithName("ToggleCountryNameMappingActive")
         .Produces<CountryNameMapping>(200)
         .Produces(404);
+
+        // POST /api/country-mappings/test - Test pattern matching
+        group.MapPost("/test", async (
+            [FromBody] TestMappingRequest request,
+            ICountryMappingService mappingService) =>
+        {
+            if (string.IsNullOrWhiteSpace(request.ProviderCode))
+            {
+                return Results.BadRequest(new { error = "Provider code is required" });
+            }
+
+            if (string.IsNullOrWhiteSpace(request.InputText))
+            {
+                return Results.BadRequest(new { error = "Input text is required" });
+            }
+
+            var (countryCode, localizedName) = await mappingService.ResolveCountryAsync(
+                request.ProviderCode,
+                request.InputText);
+
+            return Results.Ok(new TestMappingResponse(
+                request.InputText,
+                countryCode,
+                localizedName,
+                countryCode != null
+            ));
+        })
+        .WithName("TestCountryNameMapping")
+        .Produces<TestMappingResponse>(200)
+        .Produces(400);
     }
 }
 
@@ -196,7 +251,11 @@ public record CreateCountryNameMappingRequest(
     string BetExplorerCode,
     bool? IsActive = true,
     string? Notes = null,
-    int? Priority = 0
+    int? Priority = 0,
+    string? MatchType = "substring",
+    bool? IsCaseSensitive = false,
+    bool? IsSpecialCase = false,
+    string? LocalizedName = null
 );
 
 public record UpdateCountryNameMappingRequest(
@@ -204,5 +263,21 @@ public record UpdateCountryNameMappingRequest(
     string? BetExplorerCode = null,
     bool? IsActive = null,
     string? Notes = null,
-    int? Priority = null
+    int? Priority = null,
+    string? MatchType = null,
+    bool? IsCaseSensitive = null,
+    bool? IsSpecialCase = null,
+    string? LocalizedName = null
+);
+
+public record TestMappingRequest(
+    string ProviderCode,
+    string InputText
+);
+
+public record TestMappingResponse(
+    string InputText,
+    string? CountryCode,
+    string? LocalizedName,
+    bool Matched
 );

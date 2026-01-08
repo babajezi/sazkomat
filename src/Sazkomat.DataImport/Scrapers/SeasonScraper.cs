@@ -77,7 +77,13 @@ public class BetExplorerSeasonScraper : ISeasonScraper
                     foreach (var link in links)
                     {
                         var href = link.GetAttributeValue("href", "");
-                        var match = System.Text.RegularExpressions.Regex.Match(href, @"20\d{2}[-/]20\d{2}|20\d{2}");
+                        // First try to match XXXX-YYYY format (preferred)
+                        var match = System.Text.RegularExpressions.Regex.Match(href, @"20\d{2}[-/]20\d{2}");
+                        if (!match.Success)
+                        {
+                            // Fallback: try single year (only if not part of XXXX-YYYY)
+                            match = System.Text.RegularExpressions.Regex.Match(href, @"(?<!\d)20\d{2}(?!\d|[-/]20\d{2})");
+                        }
                         if (match.Success)
                         {
                             var seasonText = match.Value;
@@ -100,7 +106,13 @@ public class BetExplorerSeasonScraper : ISeasonScraper
                     foreach (var element in seasonElements)
                     {
                         var text = element.InnerText.Trim();
-                        var match = System.Text.RegularExpressions.Regex.Match(text, @"20\d{2}[-/]20\d{2}|20\d{2}");
+                        // First try to match XXXX-YYYY format (preferred)
+                        var match = System.Text.RegularExpressions.Regex.Match(text, @"20\d{2}[-/]20\d{2}");
+                        if (!match.Success)
+                        {
+                            // Fallback: try single year (only if not part of XXXX-YYYY)
+                            match = System.Text.RegularExpressions.Regex.Match(text, @"(?<!\d)20\d{2}(?!\d|[-/]20\d{2})");
+                        }
                         if (match.Success)
                         {
                             var normalizedSeason = NormalizeSeason(match.Value);
@@ -113,10 +125,18 @@ public class BetExplorerSeasonScraper : ISeasonScraper
                 }
             }
 
-            _logger.LogInformation("Found {Count} seasons for {League}: {Seasons}",
-                seasons.Count, league.Name, string.Join(", ", seasons));
+            // Deduplicate: if we have "2024-2025", remove standalone "2024"
+            var deduplicatedSeasons = seasons.Where(s =>
+            {
+                if (s.Contains("-")) return true; // Keep XXXX-YYYY format
+                // Keep single year only if no XXXX-YYYY exists starting with same year
+                return !seasons.Any(other => other.StartsWith(s + "-"));
+            }).ToList();
 
-            return seasons.Distinct().ToList();
+            _logger.LogInformation("Found {Count} seasons for {League}: {Seasons}",
+                deduplicatedSeasons.Count, league.Name, string.Join(", ", deduplicatedSeasons));
+
+            return deduplicatedSeasons.Distinct().ToList();
         }
         catch (Exception ex)
         {

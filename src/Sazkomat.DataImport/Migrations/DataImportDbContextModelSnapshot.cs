@@ -195,6 +195,18 @@ namespace Sazkomat.DataImport.Migrations
                         .HasDefaultValue(true)
                         .HasColumnName("is_active");
 
+                    b.Property<bool>("IsCaseSensitive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_case_sensitive");
+
+                    b.Property<bool>("IsSpecialCase")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_special_case");
+
                     b.Property<Guid?>("LastProviderCountryId")
                         .HasColumnType("uuid")
                         .HasColumnName("last_provider_country_id");
@@ -202,6 +214,19 @@ namespace Sazkomat.DataImport.Migrations
                     b.Property<DateTime?>("LastUsedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("last_used_at");
+
+                    b.Property<string>("LocalizedName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("localized_name");
+
+                    b.Property<string>("MatchType")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("substring")
+                        .HasColumnName("match_type");
 
                     b.Property<string>("Notes")
                         .HasMaxLength(500)
@@ -243,6 +268,9 @@ namespace Sazkomat.DataImport.Migrations
 
                     b.HasIndex("ProviderCode", "ProviderCountryName", "IsActive")
                         .HasDatabaseName("ix_country_name_mappings_lookup");
+
+                    b.HasIndex("ProviderCode", "IsSpecialCase", "IsActive", "Priority")
+                        .HasDatabaseName("ix_country_name_mappings_special_cases");
 
                     b.ToTable("country_name_mappings", "data_import");
                 });
@@ -793,6 +821,98 @@ namespace Sazkomat.DataImport.Migrations
                     b.HasIndex("Status", "Priority");
 
                     b.ToTable("sync_jobs", "data_import");
+                });
+
+            modelBuilder.Entity("Sazkomat.DataImport.Entities.UnmatchedLeague", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("CountryCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("country_code");
+
+                    b.Property<string>("CountryName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("country_name");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<bool>("IsResolved")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_resolved");
+
+                    b.Property<Guid>("ProviderId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("provider_id");
+
+                    b.Property<string>("ProviderLeagueId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("provider_league_id");
+
+                    b.Property<string>("ProviderLeagueName")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("provider_league_name");
+
+                    b.Property<string>("ProviderSlug")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("provider_slug");
+
+                    b.Property<DateTime?>("ResolvedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("resolved_at");
+
+                    b.Property<Guid?>("ResolvedLeagueId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("resolved_league_id");
+
+                    b.Property<string>("ResolutionNotes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("resolution_notes");
+
+                    b.Property<string>("ResolutionType")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("resolution_type");
+
+                    b.Property<DateTime>("ScrapedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("scraped_at");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CountryCode")
+                        .HasDatabaseName("ix_unmatched_leagues_country_code");
+
+                    b.HasIndex("IsResolved")
+                        .HasDatabaseName("ix_unmatched_leagues_is_resolved");
+
+                    b.HasIndex("ProviderId")
+                        .HasDatabaseName("ix_unmatched_leagues_provider_id");
+
+                    b.HasIndex("ProviderId", "ProviderLeagueName", "CountryCode")
+                        .IsUnique()
+                        .HasDatabaseName("ix_unmatched_leagues_unique");
+
+                    b.ToTable("unmatched_leagues", "data_import");
                 });
 
             modelBuilder.Entity("Sazkomat.DataImport.Entities.Match", b =>

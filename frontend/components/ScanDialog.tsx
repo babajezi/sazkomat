@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
@@ -41,6 +41,7 @@ export function ScanDialog({
 }: ScanDialogProps) {
   const [open, setOpen] = useState(false);
   const [selectedProviderIds, setSelectedProviderIds] = useState<string[]>([]);
+  const [hasPreselected, setHasPreselected] = useState(false);
   const queryClient = useQueryClient();
 
   // Load selected provider details for display in alert message
@@ -62,6 +63,22 @@ export function ScanDialog({
     enabled: entityType === "Leagues" && open,
   });
 
+  // Pre-select provider from sync page when dialog opens
+  useEffect(() => {
+    if (open && entityType === "Leagues" && providerId && bettingProviders && !hasPreselected) {
+      // Check if the providerId is a betting provider (available in the list)
+      const isBettingProvider = bettingProviders.some(p => p.id === providerId);
+      if (isBettingProvider) {
+        setSelectedProviderIds([providerId]);
+        setHasPreselected(true);
+      }
+    }
+    // Reset preselection flag when dialog closes
+    if (!open) {
+      setHasPreselected(false);
+    }
+  }, [open, entityType, providerId, bettingProviders, hasPreselected]);
+
   const scanMutation = useMutation<ScanJobResponse | ScanJobResponse[]>({
     mutationFn: async () => {
       // For Leagues with multi-provider selection
@@ -69,19 +86,28 @@ export function ScanDialog({
         const results: ScanJobResponse[] = [];
 
         // Scan each selected provider
-        for (const providerId of selectedProviderIds) {
-          const res = await fetch(`${API_URL}/api/scan/leagues`, {
+        for (const provId of selectedProviderIds) {
+          // Find provider to determine which endpoint to use
+          const provider = bettingProviders?.find(p => p.id === provId);
+          const providerCode = provider?.code?.toLowerCase() || "";
+
+          // Betano uses /api/scan/full (combined countries+leagues in single HTTP request)
+          // Other providers use /api/scan/leagues (requires countryIds, pass empty for providers like Tipsport)
+          const isBetano = providerCode === "betano";
+          const endpoint = isBetano ? "/api/scan/full" : "/api/scan/leagues";
+          const body = isBetano
+            ? { providerId: provId }
+            : { providerId: provId, countryIds: [] }; // Empty countryIds = scan all countries
+
+          const res = await fetch(`${API_URL}${endpoint}`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              providerId,
-              countryIds: entityIds,
-            }),
+            body: JSON.stringify(body),
           });
 
           if (!res.ok) {
             const error = await res.json();
-            throw new Error(error.error || `Scan failed for provider ${providerId}`);
+            throw new Error(error.error || `Scan failed for provider ${provider?.name || provId}`);
           }
 
           const result = await res.json() as ScanJobResponse;
@@ -101,13 +127,8 @@ export function ScanDialog({
           body = { providerId: providerId || BET_EXPLORER_PROVIDER_ID };
           break;
         case "Leagues":
-          // Fallback to BetExplorer if no providers selected
-          endpoint = "/api/scan/leagues";
-          body = {
-            providerId: providerId || BET_EXPLORER_PROVIDER_ID,
-            countryIds: entityIds,
-          };
-          break;
+          // This should not be reached - Leagues scan requires provider selection above
+          throw new Error("League scan requires selecting at least one betting provider");
         case "Seasons":
           endpoint = "/api/scan/seasons";
           body = {

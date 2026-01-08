@@ -55,25 +55,21 @@ public class SyncJobProcessor : ISyncJobProcessor
                     break;
 
                 case SyncEntityType.Leagues:
-                    if (job.CountryIds != null && job.CountryIds.Any())
-                    {
-                        await _scanService.ScanLeaguesInternalAsync(job.ProviderId, job.CountryIds, job.Id);
-                    }
-                    else
-                    {
-                        _logger.LogWarning("Scan job {JobId} for leagues has no country IDs", jobId);
-                    }
+                    // Pass countryIds (can be empty - method handles loading all countries from provider cache)
+                    await _scanService.ScanLeaguesInternalAsync(job.ProviderId, job.CountryIds ?? new List<Guid>(), job.Id);
                     break;
 
                 case SyncEntityType.Seasons:
-                    if (job.LeagueIds != null && job.LeagueIds.Any())
-                    {
-                        await _scanService.ScanSeasonsInternalAsync(job.ProviderId, job.LeagueIds, job.Id);
-                    }
-                    else
-                    {
-                        _logger.LogWarning("Scan job {JobId} for seasons has no league IDs", jobId);
-                    }
+                    // Always call - method handles empty leagueIds by loading all active leagues
+                    await _scanService.ScanSeasonsInternalAsync(
+                        job.ProviderId,
+                        job.LeagueIds ?? new List<Guid>(),
+                        job.Id);
+                    break;
+
+                case SyncEntityType.CountriesAndLeagues:
+                    // Combined scan for Betano - single HTTP request for both countries and leagues
+                    await _scanService.ScanCountriesAndLeaguesInternalAsync(job.ProviderId, job.Id);
                     break;
 
                 default:

@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { CountryFlag } from "@/components/CountryFlag";
 import { getLeagueDisplayName } from "@/lib/utils/league";
+import { useLanguage } from "@/contexts/UserContext";
 import type { ImportJob } from "@/lib/api/types";
 import { ImportJobStatus } from "@/lib/api/types";
 
@@ -30,6 +31,7 @@ const getStatusLabel = (status: ImportJobStatus): string => {
 };
 
 export default function ImportPage() {
+  const { language } = useLanguage();
   const [selectedLeagues, setSelectedLeagues] = useState<string[]>([]);
   const [seasons, setSeasons] = useState<string[]>([]);
   const [includeWithoutOdds, setIncludeWithoutOdds] = useState(false);
@@ -187,7 +189,7 @@ export default function ImportPage() {
                                 htmlFor={league.id}
                                 className="text-sm cursor-pointer"
                               >
-                                {getLeagueDisplayName(league)}
+                                {getLeagueDisplayName(league, language)}
                               </label>
                             </div>
                           ))}

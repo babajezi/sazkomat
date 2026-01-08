@@ -5,28 +5,27 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace Sazkomat.Configuration.Migrations
 {
     /// <inheritdoc />
-    public partial class AddLeagueNameCs : Migration
+    public partial class AddScanCapabilities : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            // Add name_cs column to leagues table
             migrationBuilder.AddColumn<string>(
-                name: "name_cs",
+                name: "scan_capabilities",
                 schema: "configuration",
-                table: "leagues",
-                type: "character varying(200)",
-                maxLength: 200,
-                nullable: true);
+                table: "data_providers",
+                type: "jsonb",
+                nullable: false,
+                defaultValue: "{\"canScanCountries\":true,\"canScanLeagues\":true,\"canScanSeasons\":true}");
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropColumn(
-                name: "name_cs",
+                name: "scan_capabilities",
                 schema: "configuration",
-                table: "leagues");
+                table: "data_providers");
         }
     }
 }

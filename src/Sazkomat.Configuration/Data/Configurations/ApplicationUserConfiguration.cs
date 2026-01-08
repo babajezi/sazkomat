@@ -35,10 +35,24 @@ public class ApplicationUserConfiguration : IEntityTypeConfiguration<Application
             .IsRequired()
             .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
+        builder.Property(u => u.IsApproved)
+            .HasColumnName("is_approved")
+            .IsRequired()
+            .HasDefaultValue(false);
+
+        builder.Property(u => u.ApprovedAt)
+            .HasColumnName("approved_at");
+
+        builder.Property(u => u.ApprovedBy)
+            .HasColumnName("approved_by")
+            .HasMaxLength(256);
+
         // Indexes
         builder.HasIndex(u => u.Email)
             .IsUnique();
 
         builder.HasIndex(u => u.CreatedAt);
+
+        builder.HasIndex(u => u.IsApproved);
     }
 }

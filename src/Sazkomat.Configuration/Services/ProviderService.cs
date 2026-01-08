@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using Sazkomat.Configuration.DTOs;
 using Sazkomat.Configuration.Entities;
 using Sazkomat.Configuration.Repositories;
@@ -12,19 +13,22 @@ public class ProviderService : IProviderService
     private readonly ICountryProviderRepository _countryProviderRepository;
     private readonly ICountryRepository _countryRepository;
     private readonly ILeagueRepository _leagueRepository;
+    private readonly ILogger<ProviderService> _logger;
 
     public ProviderService(
         IDataProviderRepository dataProviderRepository,
         ILeagueProviderRepository leagueProviderRepository,
         ICountryProviderRepository countryProviderRepository,
         ICountryRepository countryRepository,
-        ILeagueRepository leagueRepository)
+        ILeagueRepository leagueRepository,
+        ILogger<ProviderService> logger)
     {
         _dataProviderRepository = dataProviderRepository;
         _leagueProviderRepository = leagueProviderRepository;
         _countryProviderRepository = countryProviderRepository;
         _countryRepository = countryRepository;
         _leagueRepository = leagueRepository;
+        _logger = logger;
     }
 
     // DataProvider management
@@ -187,6 +191,16 @@ public class ProviderService : IProviderService
         };
 
         await _countryProviderRepository.AddAsync(countryProvider);
+
+        // Auto-activate country when creating CountryProvider mapping for betting provider
+        if (provider.Type == ProviderType.BettingProvider && !country.IsActive)
+        {
+            country.IsActive = true;
+            await _countryRepository.UpdateAsync(country);
+            _logger.LogInformation("Auto-activated country {CountryName} ({CountryCode}) due to betting provider mapping",
+                country.Name, country.Code);
+        }
+
         return Result<CountryProvider>.Success(countryProvider);
     }
 

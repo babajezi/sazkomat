@@ -1,5 +1,58 @@
 // API Response types matching backend DTOs
 
+// ==================== AUTH TYPES ====================
+
+export enum LanguagePreference {
+  Czech = "Czech",
+  English = "English"
+}
+
+export interface User {
+  id: string;
+  email: string;
+  displayName: string | null;
+  languagePreference: LanguagePreference;
+  createdAt: string;
+  isApproved: boolean;
+  isAdmin: boolean;
+}
+
+export interface AuthResponse {
+  token: string;
+  expiresAt: string;
+  user: User;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface RegisterRequest {
+  email: string;
+  password: string;
+  displayName?: string;
+  languagePreference?: LanguagePreference;
+}
+
+export interface GoogleLoginRequest {
+  idToken: string;
+  languagePreference?: LanguagePreference;
+}
+
+export interface UpdateLanguageRequest {
+  languagePreference: LanguagePreference;
+}
+
+// Admin types
+export interface UpdateUserRequest {
+  displayName?: string;
+  languagePreference?: LanguagePreference;
+  isApproved?: boolean;
+}
+
+// ==================== OTHER TYPES ====================
+
 // Enums
 export enum ProviderType {
   Scraper = "Scraper",
@@ -102,7 +155,6 @@ export interface League {
   nameCs?: string | null;
   displayName: string;
   betExplorerSlug: string;
-  isSyncEnabled: boolean;
   isBettable: boolean;
   isActive: boolean;
   priority: number;
@@ -146,8 +198,8 @@ export interface CreateLeagueRequest {
   name: string;
   displayName: string;
   betExplorerSlug: string;
-  isSyncEnabled: boolean;
   isBettable: boolean;
+  isActive?: boolean;
   priority: number;
   notes?: string;
 }
@@ -156,7 +208,6 @@ export interface UpdateLeagueRequest {
   name?: string;
   displayName?: string;
   betExplorerSlug?: string;
-  isSyncEnabled?: boolean;
   isBettable?: boolean;
   isActive?: boolean;
   priority?: number;
@@ -409,6 +460,13 @@ export interface RoundFilter {
   sortDescending?: boolean;
 }
 
+// Scan Capabilities
+export interface ScanCapabilities {
+  canScanCountries: boolean;
+  canScanLeagues: boolean;
+  canScanSeasons: boolean;
+}
+
 // Data Provider types
 export interface DataProvider {
   id: string;
@@ -420,10 +478,30 @@ export interface DataProvider {
   type: ProviderType;
   notes?: string | null;
   configuration?: string | null;
+  scanCapabilities?: string | null;  // JSON string of ScanCapabilities
   hasLogo: boolean;
   logoUploadedAt?: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+// Helper function to parse scanCapabilities
+export function parseScanCapabilities(scanCapabilitiesJson?: string | null): ScanCapabilities {
+  const defaultCapabilities: ScanCapabilities = {
+    canScanCountries: true,
+    canScanLeagues: true,
+    canScanSeasons: true
+  };
+
+  if (!scanCapabilitiesJson) {
+    return defaultCapabilities;
+  }
+
+  try {
+    return JSON.parse(scanCapabilitiesJson) as ScanCapabilities;
+  } catch {
+    return defaultCapabilities;
+  }
 }
 
 export type LogoSize = 'sm' | 'md' | 'lg';
@@ -548,7 +626,8 @@ export enum SyncEntityType {
   Countries = "Countries",
   Leagues = "Leagues",
   Seasons = "Seasons",
-  Rounds = "Rounds"
+  Rounds = "Rounds",
+  CountriesAndLeagues = "CountriesAndLeagues"
 }
 
 export enum MappingStatus {
@@ -584,11 +663,23 @@ export interface ProviderLeague {
 export interface ProviderSeason {
   id: string;
   providerId: string;
+  providerLeagueId: string;
   providerLeagueSlug: string;
+  leagueName: string;
+  leagueSlug: string;
+  countryCode: string;
+  countryName: string;
+  countrySlug: string;
   seasonName: string;
+  startYear: number;
+  endYear: number | null;
+  isCurrentSeason: boolean;
   data: any;
   scannedAt: string;
   createdAt: string;
+  isImported: boolean;
+  seasonId: string | null;
+  importedAt: string | null;
 }
 
 export interface SyncJob {
@@ -686,6 +777,10 @@ export interface CountryNameMapping {
   isActive: boolean;
   notes: string | null;
   priority: number;
+  matchType: 'exact' | 'substring' | 'regex';
+  isCaseSensitive: boolean;
+  isSpecialCase: boolean;
+  localizedName: string | null;
   lastUsedAt: string | null;
   usageCount: number;
   lastProviderCountryId: string | null;
@@ -700,6 +795,10 @@ export interface CreateCountryNameMappingRequest {
   isActive?: boolean;
   notes?: string;
   priority?: number;
+  matchType?: 'exact' | 'substring' | 'regex';
+  isCaseSensitive?: boolean;
+  isSpecialCase?: boolean;
+  localizedName?: string;
 }
 
 export interface UpdateCountryNameMappingRequest {
@@ -708,4 +807,48 @@ export interface UpdateCountryNameMappingRequest {
   isActive?: boolean;
   notes?: string;
   priority?: number;
+  matchType?: 'exact' | 'substring' | 'regex';
+  isCaseSensitive?: boolean;
+  isSpecialCase?: boolean;
+  localizedName?: string;
+}
+
+// ==================== BETEXPLORER TYPES ====================
+
+export interface BetExplorerLeague {
+  name: string;
+  slug: string;
+  displayName: string;
+  fromCache: boolean;
+  cachedAt?: string;
+}
+
+// ==================== UNMATCHED LEAGUES ====================
+
+export interface UnmatchedLeague {
+  id: string;
+  providerId: string;
+  providerName?: string;
+  providerLeagueId?: string;
+  providerLeagueName: string;
+  providerSlug?: string;
+  countryCode: string;
+  countryName?: string;
+  scrapedAt: string;
+  isResolved: boolean;
+  resolutionType?: "Mapped" | "Ignored" | "Unavailable";
+  resolvedLeagueId?: string;
+  resolvedLeagueName?: string;
+  resolvedAt?: string;
+  resolutionNotes?: string;
+}
+
+export interface UnmatchedLeagueStats {
+  total: number;
+  unresolved: number;
+  mapped: number;
+  ignored: number;
+  unavailable: number;
+  byProvider: Array<{ provider: string; total: number; unresolved: number }>;
+  topUnresolvedCountries: Array<{ country: string; count: number }>;
 }

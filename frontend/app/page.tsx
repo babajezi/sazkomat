@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
 import {
   Card,
@@ -7,8 +10,102 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useUser } from "@/contexts/UserContext";
+import { LoginDialog } from "@/components/auth/LoginDialog";
+import { RegisterDialog } from "@/components/auth/RegisterDialog";
+import { LogIn, UserPlus, Loader2 } from "lucide-react";
 
-export default function Home() {
+// Landing page for unauthenticated users
+function LandingPage() {
+  const [showLogin, setShowLogin] = useState(false);
+  const [showRegister, setShowRegister] = useState(false);
+
+  const handleSwitchToRegister = () => {
+    setShowLogin(false);
+    setShowRegister(true);
+  };
+
+  const handleSwitchToLogin = () => {
+    setShowRegister(false);
+    setShowLogin(true);
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 flex items-center justify-center">
+      <div className="container mx-auto px-4">
+        <div className="max-w-2xl mx-auto text-center">
+          <div className="mb-12">
+            <h1 className="text-5xl font-bold tracking-tight text-gray-900 sm:text-7xl mb-6">
+              Sazkomat
+            </h1>
+            <p className="text-xl text-gray-600 mb-8">
+              Platforma pro import a analýzu historických sázkových dat
+            </p>
+            <p className="text-sm text-gray-500 mb-8">
+              Pro přístup k aplikaci se musíte přihlásit.
+            </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
+            <Button
+              size="lg"
+              onClick={() => setShowLogin(true)}
+              className="gap-2"
+            >
+              <LogIn className="h-5 w-5" />
+              Přihlásit se
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              onClick={() => setShowRegister(true)}
+              className="gap-2"
+            >
+              <UserPlus className="h-5 w-5" />
+              Registrovat se
+            </Button>
+          </div>
+
+          <Card className="text-left">
+            <CardHeader>
+              <CardTitle>O platformě</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm text-gray-600">
+              <p>
+                Sazkomat je platforma určená pro import historických dat z
+                webové stránky BetExplorer.com a jejich následnou analýzu pro
+                predikce sportovních výsledků.
+              </p>
+              <p>
+                <strong>Fáze 1:</strong> Konfigurace lig, import historických
+                dat, perzistence do PostgreSQL
+              </p>
+              <p>
+                <strong>Technologie:</strong> .NET 10, PostgreSQL 16, Next.js 15,
+                Docker
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      <LoginDialog
+        open={showLogin}
+        onOpenChange={setShowLogin}
+        onSwitchToRegister={handleSwitchToRegister}
+      />
+
+      <RegisterDialog
+        open={showRegister}
+        onOpenChange={setShowRegister}
+        onSwitchToLogin={handleSwitchToLogin}
+      />
+    </div>
+  );
+}
+
+// Dashboard for authenticated users
+function Dashboard() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
       <div className="container mx-auto px-4 py-16">
@@ -116,7 +213,7 @@ export default function Home() {
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
               <Card>
                 <CardHeader>
-                  <CardTitle>Sporty</CardTitle>
+                  <CardTitle>🏆 Sporty</CardTitle>
                   <CardDescription>
                     Aktivujte nebo deaktivujte sporty v systému
                   </CardDescription>
@@ -130,7 +227,7 @@ export default function Home() {
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Země</CardTitle>
+                  <CardTitle>🌐 Země</CardTitle>
                   <CardDescription>
                     Spravujte číselník zemí pro sportovní ligy
                   </CardDescription>
@@ -144,7 +241,7 @@ export default function Home() {
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Ligy</CardTitle>
+                  <CardTitle>🏟️ Ligy</CardTitle>
                   <CardDescription>
                     Spravujte sportovní ligy a jejich nastavení
                   </CardDescription>
@@ -196,6 +293,20 @@ export default function Home() {
                 <CardContent>
                   <Link href="/country-mappings">
                     <Button className="w-full" variant="outline">Správa mapování zemí</Button>
+                  </Link>
+                </CardContent>
+              </Card>
+
+              <Card className="border-yellow-200">
+                <CardHeader>
+                  <CardTitle>⚠️ Nespárované Ligy</CardTitle>
+                  <CardDescription>
+                    Ligy z betting providerů bez shody v BetExploreru
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Link href="/unmatched-leagues">
+                    <Button className="w-full" variant="outline">Zobrazit nespárované</Button>
                   </Link>
                 </CardContent>
               </Card>
@@ -276,7 +387,7 @@ export default function Home() {
                 dat, perzistence do PostgreSQL
               </p>
               <p>
-                <strong>Technologie:</strong> .NET 9, PostgreSQL 16, Next.js 15,
+                <strong>Technologie:</strong> .NET 10, PostgreSQL 16, Next.js 15,
                 Docker
               </p>
             </CardContent>
@@ -285,4 +396,28 @@ export default function Home() {
       </div>
     </div>
   );
+}
+
+export default function Home() {
+  const { isAuthenticated, isLoading } = useUser();
+
+  // Show loading state while checking auth
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-gray-400 mx-auto mb-4" />
+          <p className="text-gray-500">Načítání...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show landing page for unauthenticated users
+  if (!isAuthenticated) {
+    return <LandingPage />;
+  }
+
+  // Show dashboard for authenticated users
+  return <Dashboard />;
 }

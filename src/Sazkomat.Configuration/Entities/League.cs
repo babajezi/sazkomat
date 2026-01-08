@@ -11,9 +11,8 @@ public class League : Entity
     public string DisplayName { get; set; } = string.Empty;
     [Obsolete("Use LeagueProvider mapping instead")]
     public string BetExplorerSlug { get; set; } = string.Empty; // Will be removed in next migration
-    public bool IsSyncEnabled { get; set; } = false;
     public bool IsBettable { get; set; } = true;
-    public bool IsActive { get; set; } = false;
+    public bool IsActive { get; set; } = true;
     public int Priority { get; set; } = 5;
     public string? Notes { get; set; }
 

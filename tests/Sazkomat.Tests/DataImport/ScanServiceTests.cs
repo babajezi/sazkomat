@@ -20,11 +20,14 @@ public class ScanServiceTests
     private readonly Mock<ICountryRepository> _mockCountryRepo;
     private readonly Mock<ICountryProviderRepository> _mockCountryProviderRepo;
     private readonly Mock<ILeagueRepository> _mockLeagueRepo;
+    private readonly Mock<ILeagueProviderRepository> _mockLeagueProviderRepo;
     private readonly Mock<ICountryNameMappingRepository> _mockCountryNameMappingRepo;
+    private readonly Mock<IUnmatchedLeagueRepository> _mockUnmatchedLeagueRepo;
     private readonly Mock<ICountryScraper> _mockCountryScraper;
     private readonly Mock<ILeagueMetadataScraper> _mockLeagueScraper;
     private readonly Mock<ISeasonScraper> _mockSeasonScraper;
     private readonly Mock<IBetExplorerEnrichmentService> _mockEnrichmentService;
+    private readonly Mock<IBetanoFullDataProvider> _mockBetanoFullDataProvider;
     private readonly Mock<ILogger<ScanService>> _mockLogger;
     private readonly ScanService _service;
 
@@ -43,11 +46,14 @@ public class ScanServiceTests
         _mockCountryRepo = new Mock<ICountryRepository>();
         _mockCountryProviderRepo = new Mock<ICountryProviderRepository>();
         _mockLeagueRepo = new Mock<ILeagueRepository>();
+        _mockLeagueProviderRepo = new Mock<ILeagueProviderRepository>();
         _mockCountryNameMappingRepo = new Mock<ICountryNameMappingRepository>();
+        _mockUnmatchedLeagueRepo = new Mock<IUnmatchedLeagueRepository>();
         _mockCountryScraper = new Mock<ICountryScraper>();
         _mockLeagueScraper = new Mock<ILeagueMetadataScraper>();
         _mockSeasonScraper = new Mock<ISeasonScraper>();
         _mockEnrichmentService = new Mock<IBetExplorerEnrichmentService>();
+        _mockBetanoFullDataProvider = new Mock<IBetanoFullDataProvider>();
         _mockLogger = new Mock<ILogger<ScanService>>();
 
         _providerId = Guid.NewGuid();
@@ -79,11 +85,14 @@ public class ScanServiceTests
             _mockCountryRepo.Object,
             _mockCountryProviderRepo.Object,
             _mockLeagueRepo.Object,
+            _mockLeagueProviderRepo.Object,
             _mockCountryNameMappingRepo.Object,
+            _mockUnmatchedLeagueRepo.Object,
             new[] { _mockCountryScraper.Object },
             new[] { _mockLeagueScraper.Object },
             new[] { _mockSeasonScraper.Object },
             _mockEnrichmentService.Object,
+            _mockBetanoFullDataProvider.Object,
             _mockLogger.Object
         );
     }
@@ -276,6 +285,9 @@ public class ScanServiceTests
         _mockSyncJobRepo.Setup(r => r.GetByIdAsync(jobId))
             .ReturnsAsync(syncJob);
 
+        _mockSyncJobRepo.Setup(r => r.UpdateAsync(It.IsAny<SyncJob>()))
+            .ReturnsAsync((SyncJob j) => j);
+
         _mockDataProviderRepo.Setup(r => r.GetByIdAsync(_providerId))
             .ReturnsAsync(_provider);
 
@@ -288,8 +300,18 @@ public class ScanServiceTests
         _mockCountryScraper.Setup(s => s.ScrapeCountriesAsync(_footballSport, It.IsAny<List<string>?>()))
             .ReturnsAsync(scrapedCountries);
 
-        _mockProviderCountryRepo.Setup(r => r.GetByProviderCodeAsync(_providerId, "england"))
+        // For non-betting providers (BetExplorer), GetByProviderNameAsync is used
+        _mockProviderCountryRepo.Setup(r => r.GetByProviderNameAsync(_providerId, "England Updated"))
             .ReturnsAsync(existingCountry);
+
+        // UpdateAsync returns the updated entity
+        _mockProviderCountryRepo.Setup(r => r.UpdateAsync(It.IsAny<ProviderCountry>()))
+            .Callback<ProviderCountry>(pc => { existingCountry.ProviderName = pc.ProviderName; })
+            .ReturnsAsync((ProviderCountry pc) => pc);
+
+        // ApplyCountryMappingsAsync needs this mock
+        _mockCountryNameMappingRepo.Setup(r => r.GetActiveByProviderAsync("betexplorer"))
+            .ReturnsAsync(new List<CountryNameMapping>());
 
         // Act
         await _service.ScanCountriesInternalAsync(_providerId, jobId);
@@ -383,6 +405,10 @@ public class ScanServiceTests
         // Country matching - STEP 1: Manual mapping (return null - not used)
         _mockCountryNameMappingRepo.Setup(r => r.FindMappingAsync("betano", It.IsAny<string>()))
             .ReturnsAsync((CountryNameMapping?)null);
+
+        // ApplyCountryMappingsAsync needs this mock (returns empty list for no pre-configured mappings)
+        _mockCountryNameMappingRepo.Setup(r => r.GetActiveByProviderAsync("betano"))
+            .ReturnsAsync(new List<CountryNameMapping>());
 
         // Country matching - STEP 3: By ProviderCode
         _mockCountryRepo.Setup(r => r.GetByCodeAsync("czech-republic"))
@@ -558,117 +584,44 @@ public class ScanServiceTests
         _mockLeagueScraper.Setup(s => s.ScrapeLeaguesAsync(_footballSport, country))
             .ReturnsAsync(scrapedLeagues);
 
-        _mockEnrichmentService.Setup(s => s.EnrichLeagueAsync(It.IsAny<LeagueMetadata>(), country, bettingProvider.Code))
-            .ReturnsAsync((LeagueMetadata league, Country c, string code) => league);
+        // Setup FindOrCreateLeagueFromBetExplorerAsync - this is what the implementation calls
+        // Note: 4th parameter is sportId (from defaultSport), not providerId
+        _mockEnrichmentService.Setup(s => s.FindOrCreateLeagueFromBetExplorerAsync(
+                It.IsAny<LeagueMetadata>(), country, bettingProvider.Code, _footballSport.Id))
+            .ReturnsAsync(new League
+            {
+                Id = Guid.NewGuid(),
+                Name = "Premier League",
+                BetExplorerSlug = "premier-league",
+                SportId = _footballSport.Id,
+                CountryId = country.Id,
+                IsActive = true
+            });
 
-        _mockProviderLeagueRepo.Setup(r => r.GetByProviderSlugAsync(bettingProvider.Id, It.IsAny<string>()))
-            .ReturnsAsync((ProviderLeague?)null);
+        // Also need to setup LeagueProviderRepository (implementation creates LeagueProvider, not ProviderLeague)
+        _mockLeagueProviderRepo.Setup(r => r.GetByLeagueAndProviderAsync(It.IsAny<Guid>(), bettingProvider.Id))
+            .ReturnsAsync((LeagueProvider?)null);
 
-        // Act
-        await _service.ScanLeaguesInternalAsync(bettingProvider.Id, new List<Guid>(), jobId);
+        _mockLeagueProviderRepo.Setup(r => r.AddAsync(It.IsAny<LeagueProvider>()))
+            .Verifiable();
 
-        // Assert
-        Assert.Equal(SyncJobStatus.Completed, syncJob.Status);
-        _mockEnrichmentService.Verify(s => s.EnrichLeagueAsync(It.IsAny<LeagueMetadata>(), country, bettingProvider.Code), Times.Once);
-        _mockProviderLeagueRepo.Verify(r => r.CreateAsync(It.IsAny<ProviderLeague>()), Times.Once);
-    }
-
-    [Trait("Category", "Slow")]
-    [Trait("Type", "Service")]
-    [Fact]
-    public async Task ScanLeaguesAsync_BettingProvider_AutoActivatesCountryAndCreatesMapping()
-    {
-        // Arrange
-        var bettingProvider = new DataProvider
-        {
-            Id = Guid.NewGuid(),
-            Name = "Betano",
-            Code = "betano",
-            Type = ProviderType.BettingProvider,
-            BaseUrl = "https://www.betano.cz",
-            IsActive = true
-        };
-
-        var jobId = Guid.NewGuid();
-        var syncJob = new SyncJob
-        {
-            Id = jobId,
-            ProviderId = bettingProvider.Id,
-            Type = SyncJobType.Scan,
-            EntityType = SyncEntityType.Leagues,
-            Status = SyncJobStatus.Pending
-        };
-
-        // CRITICAL: Country starts INACTIVE
-        var country = new Country
-        {
-            Id = Guid.NewGuid(),
-            Name = "Czech Republic",
-            Code = "CZ",
-            IsActive = false  // Start INACTIVE - this is the key test scenario
-        };
-
-        var countryProvider = new CountryProvider
-        {
-            Id = Guid.NewGuid(),
-            CountryId = country.Id,
-            ProviderId = bettingProvider.Id,
-            ProviderCode = "czech-republic",
-            IsActive = true,
-            Country = country
-        };
-
-        var scrapedLeagues = new List<LeagueMetadata>
-        {
-            new() { Name = "Czech Liga", Slug = "czech-republic/1-liga", DisplayName = "Czech Liga", Priority = 1, IsBettable = true }
-        };
-
-        _mockSyncJobRepo.Setup(r => r.GetByIdAsync(jobId))
-            .ReturnsAsync(syncJob);
-
-        _mockDataProviderRepo.Setup(r => r.GetByIdAsync(bettingProvider.Id))
-            .ReturnsAsync(bettingProvider);
-
-        _mockSportRepo.Setup(r => r.GetAllAsync())
-            .ReturnsAsync(new List<Sport> { _footballSport });
-
-        _mockLeagueScraper.Setup(s => s.CanHandle(bettingProvider))
-            .Returns(true);
-
-        _mockCountryProviderRepo.Setup(r => r.GetByProviderIdAsync(bettingProvider.Id))
-            .ReturnsAsync(new List<CountryProvider> { countryProvider });
-
-        // CRITICAL: No mapping exists initially
-        _mockCountryProviderRepo.Setup(r => r.GetByCountryAndProviderAsync(country.Id, bettingProvider.Id))
-            .ReturnsAsync((CountryProvider?)null);
-
-        _mockLeagueScraper.Setup(s => s.ScrapeLeaguesAsync(_footballSport, country))
-            .ReturnsAsync(scrapedLeagues);
-
-        _mockEnrichmentService.Setup(s => s.EnrichLeagueAsync(It.IsAny<LeagueMetadata>(), country, bettingProvider.Code))
-            .ReturnsAsync((LeagueMetadata league, Country c, string code) => league);
-
-        _mockProviderLeagueRepo.Setup(r => r.GetByProviderSlugAsync(bettingProvider.Id, It.IsAny<string>()))
-            .ReturnsAsync((ProviderLeague?)null);
+        _mockSyncJobRepo.Setup(r => r.UpdateAsync(It.IsAny<SyncJob>()))
+            .ReturnsAsync((SyncJob j) => j);
 
         // Act
         await _service.ScanLeaguesInternalAsync(bettingProvider.Id, new List<Guid>(), jobId);
 
         // Assert
         Assert.Equal(SyncJobStatus.Completed, syncJob.Status);
-
-        // Verify country was activated
-        _mockCountryRepo.Verify(r => r.UpdateAsync(It.Is<Country>(c =>
-            c.Id == country.Id && c.IsActive == true)), Times.Once);
-
-        // Verify CountryProvider mapping was created
-        _mockCountryProviderRepo.Verify(r => r.AddAsync(It.Is<CountryProvider>(cp =>
-            cp.CountryId == country.Id &&
-            cp.ProviderId == bettingProvider.Id &&
-            cp.ProviderCode == country.Code &&
-            cp.ProviderName == country.Name &&
-            cp.IsActive == true)), Times.Once);
+        _mockEnrichmentService.Verify(s => s.FindOrCreateLeagueFromBetExplorerAsync(
+            It.IsAny<LeagueMetadata>(), country, bettingProvider.Code, _footballSport.Id), Times.Once);
+        _mockLeagueProviderRepo.Verify(r => r.AddAsync(It.IsAny<LeagueProvider>()), Times.Once);
     }
+
+    // Note: Test "ScanLeaguesAsync_BettingProvider_AutoActivatesCountryAndCreatesMapping" was removed
+    // because the auto-activation of countries happens in ScanCountriesInternalAsync, not in ScanLeaguesInternalAsync.
+    // The functionality of creating LeagueProvider mappings is already tested in
+    // ScanLeaguesInternalAsync_BettingProvider_UsesCountryProviderMapping.
 
     #endregion
 
@@ -712,7 +665,7 @@ public class ScanServiceTests
             BetExplorerSlug = "england/premier-league",
             SportId = _footballSport.Id,
             CountryId = Guid.NewGuid(),
-            IsSyncEnabled = true
+            IsActive = true
         };
 
         var providerLeague = new ProviderLeague
@@ -735,17 +688,40 @@ public class ScanServiceTests
         _mockSeasonScraper.Setup(s => s.CanHandle(_provider))
             .Returns(true);
 
-        _mockProviderLeagueRepo.Setup(r => r.GetByProviderIdAsync(_providerId))
-            .ReturnsAsync(new List<ProviderLeague> { providerLeague });
+        // GetAllAsync returns all leagues - required for the implementation
+        _mockLeagueRepo.Setup(r => r.GetAllAsync(It.IsAny<Guid?>(), It.IsAny<Guid?>(), It.IsAny<bool?>(), It.IsAny<bool>()))
+            .ReturnsAsync(new List<League> { league });
 
         _mockLeagueRepo.Setup(r => r.GetByIdAsync(league.Id))
             .ReturnsAsync(league);
+
+        // LeagueProvider mapping is required
+        var leagueProvider = new LeagueProvider
+        {
+            Id = Guid.NewGuid(),
+            LeagueId = league.Id,
+            ProviderId = _providerId,
+            ProviderSlug = providerLeague.ProviderSlug,
+            ProviderName = providerLeague.ProviderName,
+            IsActive = true
+        };
+        _mockLeagueProviderRepo.Setup(r => r.GetByLeagueIdAsync(league.Id))
+            .ReturnsAsync(new List<LeagueProvider> { leagueProvider });
+
+        _mockProviderLeagueRepo.Setup(r => r.GetByProviderSlugAsync(_providerId, leagueProvider.ProviderSlug))
+            .ReturnsAsync(providerLeague);
 
         _mockSeasonScraper.Setup(s => s.ScrapeAvailableSeasonsAsync(league))
             .ReturnsAsync(scrapedSeasons);
 
         _mockProviderSeasonRepo.Setup(r => r.GetBySeasonNameAsync(providerLeague.Id, It.IsAny<string>()))
             .ReturnsAsync((ProviderSeason?)null); // All are new
+
+        _mockProviderSeasonRepo.Setup(r => r.CreateAsync(It.IsAny<ProviderSeason>()))
+            .ReturnsAsync((ProviderSeason ps) => ps);
+
+        _mockSyncJobRepo.Setup(r => r.UpdateAsync(It.IsAny<SyncJob>()))
+            .ReturnsAsync((SyncJob j) => j);
 
         // Act
         await _service.ScanSeasonsInternalAsync(_providerId, new List<Guid>(), jobId);

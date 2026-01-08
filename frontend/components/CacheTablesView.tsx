@@ -15,8 +15,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Download, CheckCircle2, AlertCircle, Database, Trash2 } from "lucide-react";
+import { Loader2, Download, CheckCircle2, AlertCircle, Database, Trash2, Info } from "lucide-react";
 import type { ProviderCountry, ProviderLeague, ProviderSeason } from "@/lib/api/types";
+import { MappingDetailDialog } from "@/components/MappingDetailDialog";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
@@ -29,6 +30,17 @@ export function CacheTablesView({ providerId }: CacheTablesViewProps) {
   const [selectedCountries, setSelectedCountries] = useState<Set<string>>(new Set());
   const [selectedLeagues, setSelectedLeagues] = useState<Set<string>>(new Set());
   const [selectedSeasons, setSelectedSeasons] = useState<Set<string>>(new Set());
+
+  // Mapping detail dialog state
+  const [mappingDialogOpen, setMappingDialogOpen] = useState(false);
+  const [mappingDialogType, setMappingDialogType] = useState<"country" | "league">("country");
+  const [mappingDialogEntityId, setMappingDialogEntityId] = useState<string | null>(null);
+
+  const openMappingDetail = (type: "country" | "league", id: string) => {
+    setMappingDialogType(type);
+    setMappingDialogEntityId(id);
+    setMappingDialogOpen(true);
+  };
 
   // Fetch cached countries
   const { data: rawCountries = [], isLoading: loadingCountries } = useQuery<ProviderCountry[]>({
@@ -101,6 +113,43 @@ export function CacheTablesView({ providerId }: CacheTablesViewProps) {
   const cachedLeagues = rawLeagues.sort((a, b) =>
     (a.displayName || a.providerName).localeCompare(b.displayName || b.providerName, "cs")
   );
+
+  // Group seasons by country slug -> league slug
+  const seasonsByCountryAndLeague = rawSeasons.reduce((acc, season) => {
+    const countrySlug = season.countrySlug || season.countryCode || "unknown";
+    const leagueSlug = season.leagueSlug || season.providerLeagueSlug || "unknown";
+    const leagueKey = `${countrySlug}|${leagueSlug}`;
+    if (!acc[countrySlug]) {
+      acc[countrySlug] = {};
+    }
+    if (!acc[countrySlug][leagueKey]) {
+      acc[countrySlug][leagueKey] = {
+        countryName: season.countryName || countrySlug,
+        countrySlug: countrySlug,
+        leagueName: season.leagueName || leagueSlug,
+        leagueSlug: leagueSlug,
+        seasons: []
+      };
+    }
+    acc[countrySlug][leagueKey].seasons.push(season);
+    return acc;
+  }, {} as Record<string, Record<string, { countryName: string; countrySlug: string; leagueName: string; leagueSlug: string; seasons: typeof rawSeasons }>>);
+
+  // Sort countries and leagues alphabetically, and seasons by year descending
+  const sortedSeasonCountryCodes = Object.keys(seasonsByCountryAndLeague).sort((a, b) => {
+    // Get country names for sorting
+    const aName = Object.values(seasonsByCountryAndLeague[a])[0]?.countryName || a;
+    const bName = Object.values(seasonsByCountryAndLeague[b])[0]?.countryName || b;
+    return aName.localeCompare(bName, "cs");
+  });
+
+  sortedSeasonCountryCodes.forEach((countrySlug) => {
+    Object.keys(seasonsByCountryAndLeague[countrySlug]).forEach((leagueKey) => {
+      seasonsByCountryAndLeague[countrySlug][leagueKey].seasons.sort((a, b) =>
+        b.startYear - a.startYear
+      );
+    });
+  });
 
   const cachedSeasons = [...rawSeasons].sort((a, b) =>
     a.seasonName.localeCompare(b.seasonName)
@@ -297,6 +346,40 @@ export function CacheTablesView({ providerId }: CacheTablesViewProps) {
     setSelectedLeagues(newSet);
   };
 
+  const toggleCountrySeasons = (countrySlug: string) => {
+    const countryLeagues = seasonsByCountryAndLeague[countrySlug] || {};
+    const seasonIds = Object.values(countryLeagues).flatMap(l => l.seasons.map(s => s.id));
+    const newSet = new Set(selectedSeasons);
+
+    const allSelected = seasonIds.every((id) => newSet.has(id));
+
+    if (allSelected) {
+      seasonIds.forEach((id) => newSet.delete(id));
+    } else {
+      seasonIds.forEach((id) => newSet.add(id));
+    }
+
+    setSelectedSeasons(newSet);
+  };
+
+  const toggleLeagueSeasons = (leagueKey: string, countrySlug: string) => {
+    const leagueData = seasonsByCountryAndLeague[countrySlug]?.[leagueKey];
+    if (!leagueData) return;
+
+    const seasonIds = leagueData.seasons.map(s => s.id);
+    const newSet = new Set(selectedSeasons);
+
+    const allSelected = seasonIds.every((id) => newSet.has(id));
+
+    if (allSelected) {
+      seasonIds.forEach((id) => newSet.delete(id));
+    } else {
+      seasonIds.forEach((id) => newSet.add(id));
+    }
+
+    setSelectedSeasons(newSet);
+  };
+
   const formatTimestamp = (timestamp: string) => {
     return new Date(timestamp).toLocaleString("cs-CZ", {
       day: "2-digit",
@@ -399,6 +482,7 @@ export function CacheTablesView({ providerId }: CacheTablesViewProps) {
                         <TableHead>Kód</TableHead>
                         <TableHead>Název</TableHead>
                         <TableHead>Skenováno</TableHead>
+                        <TableHead className="w-12">Akce</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -420,6 +504,16 @@ export function CacheTablesView({ providerId }: CacheTablesViewProps) {
                           <TableCell>{country.providerName}</TableCell>
                           <TableCell className="text-sm text-muted-foreground">
                             {formatTimestamp(country.scannedAt)}
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => openMappingDetail("country", country.id)}
+                              title="Detail mapování"
+                            >
+                              <Info className="h-4 w-4" />
+                            </Button>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -496,6 +590,7 @@ export function CacheTablesView({ providerId }: CacheTablesViewProps) {
                         <TableHead>Název</TableHead>
                         <TableHead>Sport</TableHead>
                         <TableHead>Skenováno</TableHead>
+                        <TableHead className="w-12">Akce</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -519,7 +614,7 @@ export function CacheTablesView({ providerId }: CacheTablesViewProps) {
                                   title={`Vybrat všechny ligy ${countryCode}`}
                                 />
                               </TableCell>
-                              <TableCell colSpan={4} className="font-semibold">
+                              <TableCell colSpan={5} className="font-semibold">
                                 <div className="flex items-center gap-2">
                                   <Badge variant="outline">{countryCode.toUpperCase()}</Badge>
                                   <span className="text-sm text-muted-foreground">
@@ -552,6 +647,16 @@ export function CacheTablesView({ providerId }: CacheTablesViewProps) {
                                 </TableCell>
                                 <TableCell className="text-sm text-muted-foreground">
                                   {formatTimestamp(league.scannedAt)}
+                                </TableCell>
+                                <TableCell>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => openMappingDetail("league", league.id)}
+                                    title="Detail mapování"
+                                  >
+                                    <Info className="h-4 w-4" />
+                                  </Button>
                                 </TableCell>
                               </TableRow>
                             ))}
@@ -627,35 +732,130 @@ export function CacheTablesView({ providerId }: CacheTablesViewProps) {
                             title="Vybrat vše"
                           />
                         </TableHead>
+                        <TableHead>Země</TableHead>
                         <TableHead>Liga</TableHead>
                         <TableHead>Sezóna</TableHead>
                         <TableHead>Skenováno</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {cachedSeasons.map((season) => (
-                        <TableRow key={season.id}>
-                          <TableCell>
-                            <input
-                              type="checkbox"
-                              checked={selectedSeasons.has(season.id)}
-                              onChange={() =>
-                                toggleSelection(season.id, "seasons")
-                              }
-                              className="h-4 w-4"
-                            />
-                          </TableCell>
-                          <TableCell className="font-medium">
-                            {season.providerLeagueSlug}
-                          </TableCell>
-                          <TableCell>
-                            <Badge>{season.seasonName}</Badge>
-                          </TableCell>
-                          <TableCell className="text-sm text-muted-foreground">
-                            {formatTimestamp(season.scannedAt)}
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                      {sortedSeasonCountryCodes.map((countrySlug) => {
+                        const countryLeagues = seasonsByCountryAndLeague[countrySlug];
+                        const firstLeagueData = Object.values(countryLeagues)[0];
+                        const countryName = firstLeagueData?.countryName || countrySlug;
+                        const sortedLeagueKeys = Object.keys(countryLeagues).sort((a, b) =>
+                          countryLeagues[a].leagueName.localeCompare(countryLeagues[b].leagueName, "cs")
+                        );
+                        const allCountrySeasonIds = Object.values(countryLeagues).flatMap(l => l.seasons.map(s => s.id));
+                        const allCountrySeasonsSelected = allCountrySeasonIds.length > 0 && allCountrySeasonIds.every((id) =>
+                          selectedSeasons.has(id)
+                        );
+
+                        return (
+                          <React.Fragment key={countrySlug}>
+                            {/* Country header row */}
+                            <TableRow className="bg-muted/50 hover:bg-muted/70">
+                              <TableCell>
+                                <input
+                                  type="checkbox"
+                                  checked={allCountrySeasonsSelected}
+                                  onChange={() => toggleCountrySeasons(countrySlug)}
+                                  className="h-4 w-4"
+                                  title={`Vybrat všechny sezóny ${countryName}`}
+                                />
+                              </TableCell>
+                              <TableCell colSpan={4} className="font-semibold">
+                                <div className="flex items-center gap-2">
+                                  <a
+                                    href={`https://www.betexplorer.com/football/${countrySlug}/`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-blue-600 hover:text-blue-800 hover:underline"
+                                  >
+                                    {countryName.toUpperCase()}
+                                  </a>
+                                  <span className="text-sm text-muted-foreground">
+                                    ({allCountrySeasonIds.length} {allCountrySeasonIds.length === 1 ? "sezóna" : allCountrySeasonIds.length < 5 ? "sezóny" : "sezón"})
+                                  </span>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+
+                            {/* League rows for this country */}
+                            {sortedLeagueKeys.map((leagueKey) => {
+                              const leagueData = countryLeagues[leagueKey];
+                              const leagueSeasonIds = leagueData.seasons.map(s => s.id);
+                              const allLeagueSeasonsSelected = leagueSeasonIds.length > 0 && leagueSeasonIds.every((id) =>
+                                selectedSeasons.has(id)
+                              );
+
+                              return (
+                                <React.Fragment key={leagueKey}>
+                                  {/* League sub-header row */}
+                                  <TableRow className="bg-muted/30 hover:bg-muted/40">
+                                    <TableCell className="pl-6">
+                                      <input
+                                        type="checkbox"
+                                        checked={allLeagueSeasonsSelected}
+                                        onChange={() => toggleLeagueSeasons(leagueKey, countrySlug)}
+                                        className="h-4 w-4"
+                                        title={`Vybrat všechny sezóny ${leagueData.leagueName}`}
+                                      />
+                                    </TableCell>
+                                    <TableCell></TableCell>
+                                    <TableCell colSpan={3} className="font-medium">
+                                      <div className="flex items-center gap-2">
+                                        <a
+                                          href={`https://www.betexplorer.com/football/${leagueData.countrySlug}/${leagueData.leagueSlug}/`}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="text-blue-600 hover:text-blue-800 hover:underline"
+                                        >
+                                          {leagueData.leagueName}
+                                        </a>
+                                        <span className="text-sm text-muted-foreground">
+                                          ({leagueData.seasons.length} {leagueData.seasons.length === 1 ? "sezóna" : leagueData.seasons.length < 5 ? "sezóny" : "sezón"})
+                                        </span>
+                                      </div>
+                                    </TableCell>
+                                  </TableRow>
+
+                                  {/* Season rows for this league */}
+                                  {leagueData.seasons.map((season) => (
+                                    <TableRow key={season.id}>
+                                      <TableCell className="pl-10">
+                                        <input
+                                          type="checkbox"
+                                          checked={selectedSeasons.has(season.id)}
+                                          onChange={() =>
+                                            toggleSelection(season.id, "seasons")
+                                          }
+                                          className="h-4 w-4"
+                                        />
+                                      </TableCell>
+                                      <TableCell>
+                                        <Badge variant="outline">{season.countrySlug || countrySlug}</Badge>
+                                      </TableCell>
+                                      <TableCell className="text-muted-foreground">
+                                        {leagueData.leagueName}
+                                      </TableCell>
+                                      <TableCell>
+                                        <Badge>{season.seasonName}</Badge>
+                                        {season.isCurrentSeason && (
+                                          <Badge variant="secondary" className="ml-2">Aktuální</Badge>
+                                        )}
+                                      </TableCell>
+                                      <TableCell className="text-sm text-muted-foreground">
+                                        {formatTimestamp(season.scannedAt)}
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                </React.Fragment>
+                              );
+                            })}
+                          </React.Fragment>
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 </div>
@@ -664,11 +864,11 @@ export function CacheTablesView({ providerId }: CacheTablesViewProps) {
           </TabsContent>
         </Tabs>
 
-        {importMutation.isSuccess && (
+        {importMutation.isSuccess && importMutation.data && (
           <Alert className="mt-4 bg-green-50 border-green-200">
             <CheckCircle2 className="h-4 w-4 text-green-600" />
             <AlertDescription className="text-green-900">
-              Import úspěšně dokončen!
+              {importMutation.data.message || `Import dokončen: ${importMutation.data.created || 0} vytvořeno, ${importMutation.data.updated || 0} aktualizováno, ${importMutation.data.skipped || 0} přeskočeno`}
             </AlertDescription>
           </Alert>
         )}
@@ -679,6 +879,14 @@ export function CacheTablesView({ providerId }: CacheTablesViewProps) {
             <AlertDescription>{importMutation.error.message}</AlertDescription>
           </Alert>
         )}
+
+        {/* Mapping Detail Dialog */}
+        <MappingDetailDialog
+          open={mappingDialogOpen}
+          onOpenChange={setMappingDialogOpen}
+          entityType={mappingDialogType}
+          entityId={mappingDialogEntityId}
+        />
       </CardContent>
     </Card>
   );

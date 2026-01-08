@@ -1,6 +1,6 @@
+﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
-using Sazkomat.Core.Enums;
 
 #nullable disable
 
@@ -12,10 +12,23 @@ namespace Sazkomat.Configuration.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            // Create AspNetRoles table
+            migrationBuilder.AddColumn<bool>(
+                name: "has_logo",
+                schema: "configuration",
+                table: "data_providers",
+                type: "boolean",
+                nullable: false,
+                defaultValue: false);
+
+            migrationBuilder.AddColumn<DateTime>(
+                name: "logo_uploaded_at",
+                schema: "configuration",
+                table: "data_providers",
+                type: "timestamp with time zone",
+                nullable: true);
+
             migrationBuilder.CreateTable(
                 name: "AspNetRoles",
-                schema: "configuration",
                 columns: table => new
                 {
                     Id = table.Column<string>(type: "text", nullable: false),
@@ -28,14 +41,13 @@ namespace Sazkomat.Configuration.Migrations
                     table.PrimaryKey("PK_AspNetRoles", x => x.Id);
                 });
 
-            // Create AspNetUsers table with custom properties
             migrationBuilder.CreateTable(
                 name: "AspNetUsers",
                 schema: "configuration",
                 columns: table => new
                 {
                     Id = table.Column<string>(type: "text", nullable: false),
-                    language_preference = table.Column<int>(type: "integer", nullable: false, defaultValue: (int)LanguagePreference.Czech),
+                    language_preference = table.Column<int>(type: "integer", nullable: false, defaultValue: 0),
                     display_name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
                     created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "CURRENT_TIMESTAMP"),
                     updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "CURRENT_TIMESTAMP"),
@@ -59,10 +71,8 @@ namespace Sazkomat.Configuration.Migrations
                     table.PrimaryKey("PK_AspNetUsers", x => x.Id);
                 });
 
-            // Create AspNetRoleClaims table
             migrationBuilder.CreateTable(
                 name: "AspNetRoleClaims",
-                schema: "configuration",
                 columns: table => new
                 {
                     Id = table.Column<int>(type: "integer", nullable: false)
@@ -77,16 +87,13 @@ namespace Sazkomat.Configuration.Migrations
                     table.ForeignKey(
                         name: "FK_AspNetRoleClaims_AspNetRoles_RoleId",
                         column: x => x.RoleId,
-                        principalSchema: "configuration",
                         principalTable: "AspNetRoles",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
 
-            // Create AspNetUserClaims table
             migrationBuilder.CreateTable(
                 name: "AspNetUserClaims",
-                schema: "configuration",
                 columns: table => new
                 {
                     Id = table.Column<int>(type: "integer", nullable: false)
@@ -107,10 +114,8 @@ namespace Sazkomat.Configuration.Migrations
                         onDelete: ReferentialAction.Cascade);
                 });
 
-            // Create AspNetUserLogins table
             migrationBuilder.CreateTable(
                 name: "AspNetUserLogins",
-                schema: "configuration",
                 columns: table => new
                 {
                     LoginProvider = table.Column<string>(type: "text", nullable: false),
@@ -130,10 +135,8 @@ namespace Sazkomat.Configuration.Migrations
                         onDelete: ReferentialAction.Cascade);
                 });
 
-            // Create AspNetUserRoles table
             migrationBuilder.CreateTable(
                 name: "AspNetUserRoles",
-                schema: "configuration",
                 columns: table => new
                 {
                     UserId = table.Column<string>(type: "text", nullable: false),
@@ -145,7 +148,6 @@ namespace Sazkomat.Configuration.Migrations
                     table.ForeignKey(
                         name: "FK_AspNetUserRoles_AspNetRoles_RoleId",
                         column: x => x.RoleId,
-                        principalSchema: "configuration",
                         principalTable: "AspNetRoles",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
@@ -158,10 +160,8 @@ namespace Sazkomat.Configuration.Migrations
                         onDelete: ReferentialAction.Cascade);
                 });
 
-            // Create AspNetUserTokens table
             migrationBuilder.CreateTable(
                 name: "AspNetUserTokens",
-                schema: "configuration",
                 columns: table => new
                 {
                     UserId = table.Column<string>(type: "text", nullable: false),
@@ -181,35 +181,29 @@ namespace Sazkomat.Configuration.Migrations
                         onDelete: ReferentialAction.Cascade);
                 });
 
-            // Create indexes
             migrationBuilder.CreateIndex(
                 name: "IX_AspNetRoleClaims_RoleId",
-                schema: "configuration",
                 table: "AspNetRoleClaims",
                 column: "RoleId");
 
             migrationBuilder.CreateIndex(
                 name: "RoleNameIndex",
-                schema: "configuration",
                 table: "AspNetRoles",
                 column: "NormalizedName",
                 unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_AspNetUserClaims_UserId",
-                schema: "configuration",
                 table: "AspNetUserClaims",
                 column: "UserId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_AspNetUserLogins_UserId",
-                schema: "configuration",
                 table: "AspNetUserLogins",
                 column: "UserId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_AspNetUserRoles_RoleId",
-                schema: "configuration",
                 table: "AspNetUserRoles",
                 column: "RoleId");
 
@@ -220,11 +214,10 @@ namespace Sazkomat.Configuration.Migrations
                 column: "NormalizedEmail");
 
             migrationBuilder.CreateIndex(
-                name: "UserNameIndex",
+                name: "IX_AspNetUsers_created_at",
                 schema: "configuration",
                 table: "AspNetUsers",
-                column: "NormalizedUserName",
-                unique: true);
+                column: "created_at");
 
             migrationBuilder.CreateIndex(
                 name: "IX_AspNetUsers_Email",
@@ -234,42 +227,47 @@ namespace Sazkomat.Configuration.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_AspNetUsers_created_at",
+                name: "UserNameIndex",
                 schema: "configuration",
                 table: "AspNetUsers",
-                column: "created_at");
+                column: "NormalizedUserName",
+                unique: true);
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
-                name: "AspNetRoleClaims",
-                schema: "configuration");
+                name: "AspNetRoleClaims");
 
             migrationBuilder.DropTable(
-                name: "AspNetUserClaims",
-                schema: "configuration");
+                name: "AspNetUserClaims");
 
             migrationBuilder.DropTable(
-                name: "AspNetUserLogins",
-                schema: "configuration");
+                name: "AspNetUserLogins");
 
             migrationBuilder.DropTable(
-                name: "AspNetUserRoles",
-                schema: "configuration");
+                name: "AspNetUserRoles");
 
             migrationBuilder.DropTable(
-                name: "AspNetUserTokens",
-                schema: "configuration");
+                name: "AspNetUserTokens");
 
             migrationBuilder.DropTable(
-                name: "AspNetRoles",
-                schema: "configuration");
+                name: "AspNetRoles");
 
             migrationBuilder.DropTable(
                 name: "AspNetUsers",
                 schema: "configuration");
+
+            migrationBuilder.DropColumn(
+                name: "has_logo",
+                schema: "configuration",
+                table: "data_providers");
+
+            migrationBuilder.DropColumn(
+                name: "logo_uploaded_at",
+                schema: "configuration",
+                table: "data_providers");
         }
     }
 }

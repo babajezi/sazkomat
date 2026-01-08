@@ -57,7 +57,7 @@ public class ImportService : IImportService
         _logger = logger;
     }
 
-    public async Task<Guid> ImportCountriesFromCacheAsync(Guid providerId, List<Guid>? providerCountryIds = null)
+    public async Task<ImportResult> ImportCountriesFromCacheAsync(Guid providerId, List<Guid>? providerCountryIds = null)
     {
         _logger.LogInformation("Starting country import for provider {ProviderId}", providerId);
 
@@ -92,12 +92,12 @@ public class ImportService : IImportService
         };
         syncJob = await _syncJobRepo.CreateAsync(syncJob);
 
-        await ImportCountriesFromCacheInternalAsync(syncJob.Id, countryIdsToImport);
+        var (created, updated, skipped, errors) = await ImportCountriesFromCacheInternalAsync(syncJob.Id, countryIdsToImport);
 
-        return syncJob.Id;
+        return new ImportResult(syncJob.Id, countryIdsToImport.Count, created, updated, skipped, errors);
     }
 
-    public async Task ImportCountriesFromCacheInternalAsync(Guid jobId, List<Guid> providerCountryIds)
+    public async Task<(int Created, int Updated, int Skipped, int Errors)> ImportCountriesFromCacheInternalAsync(Guid jobId, List<Guid> providerCountryIds)
     {
         // Load job
         var syncJob = await _syncJobRepo.GetByIdAsync(jobId);
@@ -121,7 +121,8 @@ public class ImportService : IImportService
 
         try
         {
-            int importedCount = 0;
+            int createdCount = 0;
+            int updatedCount = 0;
             int skippedCount = 0;
             int errorCount = 0;
             var errors = new List<string>();
@@ -278,7 +279,16 @@ public class ImportService : IImportService
                     providerCountry.ImportedAt = DateTime.UtcNow;
                     await _providerCountryRepo.UpdateAsync(providerCountry);
 
-                    importedCount++;
+                    // Track created vs updated based on whether we created a new Country entity
+                    // (existingMapping == null for new CountryProvider means it was created)
+                    if (existingMapping == null)
+                    {
+                        createdCount++;
+                    }
+                    else
+                    {
+                        updatedCount++;
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -298,7 +308,9 @@ public class ImportService : IImportService
             syncJob.ProgressData = JsonSerializer.Serialize(new
             {
                 total = providerCountryIds.Count,
-                imported = importedCount,
+                created = createdCount,
+                updated = updatedCount,
+                imported = createdCount + updatedCount,
                 skipped = skippedCount,
                 errors = errorCount
             });
@@ -308,8 +320,10 @@ public class ImportService : IImportService
             }
             await _syncJobRepo.UpdateAsync(syncJob);
 
-            _logger.LogInformation("Country import completed. Imported: {Imported}, Skipped: {Skipped}, Errors: {Errors}",
-                importedCount, skippedCount, errorCount);
+            _logger.LogInformation("Country import completed. Created: {Created}, Updated: {Updated}, Skipped: {Skipped}, Errors: {Errors}",
+                createdCount, updatedCount, skippedCount, errorCount);
+
+            return (createdCount, updatedCount, skippedCount, errorCount);
         }
         catch (Exception ex)
         {
@@ -350,7 +364,7 @@ public class ImportService : IImportService
         }
     }
 
-    public async Task<Guid> ImportLeaguesFromCacheAsync(Guid providerId, List<Guid>? providerLeagueIds = null)
+    public async Task<ImportResult> ImportLeaguesFromCacheAsync(Guid providerId, List<Guid>? providerLeagueIds = null)
     {
         _logger.LogInformation("Starting league import for provider {ProviderId}", providerId);
 
@@ -385,12 +399,12 @@ public class ImportService : IImportService
         };
         syncJob = await _syncJobRepo.CreateAsync(syncJob);
 
-        await ImportLeaguesFromCacheInternalAsync(syncJob.Id, leagueIdsToImport);
+        var (created, updated, skipped, errors) = await ImportLeaguesFromCacheInternalAsync(syncJob.Id, leagueIdsToImport);
 
-        return syncJob.Id;
+        return new ImportResult(syncJob.Id, leagueIdsToImport.Count, created, updated, skipped, errors);
     }
 
-    public async Task ImportLeaguesFromCacheInternalAsync(Guid jobId, List<Guid> providerLeagueIds)
+    public async Task<(int Created, int Updated, int Skipped, int Errors)> ImportLeaguesFromCacheInternalAsync(Guid jobId, List<Guid> providerLeagueIds)
     {
         // Load job
         var syncJob = await _syncJobRepo.GetByIdAsync(jobId);
@@ -418,7 +432,8 @@ public class ImportService : IImportService
             var sports = await _sportRepo.GetAllAsync();
             var defaultSport = sports.FirstOrDefault(s => s.Name == "Football") ?? sports.First();
 
-            int importedCount = 0;
+            int createdCount = 0;
+            int updatedCount = 0;
             int skippedCount = 0;
             int errorCount = 0;
             var errors = new List<string>();
@@ -548,9 +563,8 @@ public class ImportService : IImportService
                             Name = providerLeague.ProviderName,
                             DisplayName = providerLeague.DisplayName ?? providerLeague.ProviderName,
                             BetExplorerSlug = providerLeague.ProviderSlug, // Still used for backward compatibility
-                            IsSyncEnabled = false,
                             IsBettable = providerLeague.IsBettable,
-                            IsActive = false,
+                            IsActive = provider.Type == ProviderType.BettingProvider,
                             Priority = providerLeague.Priority,
                             Notes = $"Imported from provider {provider?.Name}"
                         };
@@ -564,6 +578,10 @@ public class ImportService : IImportService
                         league.DisplayName = providerLeague.DisplayName ?? providerLeague.ProviderName;
                         league.Priority = providerLeague.Priority;
                         league.IsBettable = providerLeague.IsBettable;
+                        if (provider.Type == ProviderType.BettingProvider)
+                        {
+                            league.IsActive = true;
+                        }
                         await _leagueRepo.UpdateAsync(league);
                         _logger.LogInformation("Updated League {LeagueId} ({Name})",
                             league.Id, league.Name);
@@ -603,7 +621,15 @@ public class ImportService : IImportService
                     providerLeague.ImportedAt = DateTime.UtcNow;
                     await _providerLeagueRepo.UpdateAsync(providerLeague);
 
-                    importedCount++;
+                    // Track created vs updated based on whether we created a new LeagueProvider mapping
+                    if (existingLeagueProvider == null)
+                    {
+                        createdCount++;
+                    }
+                    else
+                    {
+                        updatedCount++;
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -623,7 +649,9 @@ public class ImportService : IImportService
             syncJob.ProgressData = JsonSerializer.Serialize(new
             {
                 total = providerLeagueIds.Count,
-                imported = importedCount,
+                created = createdCount,
+                updated = updatedCount,
+                imported = createdCount + updatedCount,
                 skipped = skippedCount,
                 errors = errorCount
             });
@@ -633,8 +661,10 @@ public class ImportService : IImportService
             }
             await _syncJobRepo.UpdateAsync(syncJob);
 
-            _logger.LogInformation("League import completed. Imported: {Imported}, Skipped: {Skipped}, Errors: {Errors}",
-                importedCount, skippedCount, errorCount);
+            _logger.LogInformation("League import completed. Created: {Created}, Updated: {Updated}, Skipped: {Skipped}, Errors: {Errors}",
+                createdCount, updatedCount, skippedCount, errorCount);
+
+            return (createdCount, updatedCount, skippedCount, errorCount);
         }
         catch (Exception ex)
         {
@@ -675,7 +705,7 @@ public class ImportService : IImportService
         }
     }
 
-    public async Task<Guid> ImportSeasonsFromCacheAsync(Guid providerId, List<Guid>? providerSeasonIds = null)
+    public async Task<ImportResult> ImportSeasonsFromCacheAsync(Guid providerId, List<Guid>? providerSeasonIds = null)
     {
         _logger.LogInformation("Starting season import for provider {ProviderId}", providerId);
 
@@ -710,12 +740,12 @@ public class ImportService : IImportService
         };
         syncJob = await _syncJobRepo.CreateAsync(syncJob);
 
-        await ImportSeasonsFromCacheInternalAsync(syncJob.Id, seasonIdsToImport);
+        var (created, updated, skipped, errors) = await ImportSeasonsFromCacheInternalAsync(syncJob.Id, seasonIdsToImport);
 
-        return syncJob.Id;
+        return new ImportResult(syncJob.Id, seasonIdsToImport.Count, created, updated, skipped, errors);
     }
 
-    public async Task ImportSeasonsFromCacheInternalAsync(Guid jobId, List<Guid> providerSeasonIds)
+    public async Task<(int Created, int Updated, int Skipped, int Errors)> ImportSeasonsFromCacheInternalAsync(Guid jobId, List<Guid> providerSeasonIds)
     {
         // Load job
         var syncJob = await _syncJobRepo.GetByIdAsync(jobId);
@@ -739,7 +769,8 @@ public class ImportService : IImportService
 
         try
         {
-            int importedCount = 0;
+            int createdCount = 0;
+            int updatedCount = 0;
             int skippedCount = 0;
             int errorCount = 0;
             var errors = new List<string>();
@@ -875,7 +906,15 @@ public class ImportService : IImportService
                     providerSeason.ImportedAt = DateTime.UtcNow;
                     await _providerSeasonRepo.UpdateAsync(providerSeason);
 
-                    importedCount++;
+                    // Track created vs updated based on whether we created a new LeagueSeason mapping
+                    if (existingLeagueSeason == null)
+                    {
+                        createdCount++;
+                    }
+                    else
+                    {
+                        updatedCount++;
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -895,7 +934,9 @@ public class ImportService : IImportService
             syncJob.ProgressData = JsonSerializer.Serialize(new
             {
                 total = providerSeasonIds.Count,
-                imported = importedCount,
+                created = createdCount,
+                updated = updatedCount,
+                imported = createdCount + updatedCount,
                 skipped = skippedCount,
                 errors = errorCount
             });
@@ -905,8 +946,10 @@ public class ImportService : IImportService
             }
             await _syncJobRepo.UpdateAsync(syncJob);
 
-            _logger.LogInformation("Season import completed. Imported: {Imported}, Skipped: {Skipped}, Errors: {Errors}",
-                importedCount, skippedCount, errorCount);
+            _logger.LogInformation("Season import completed. Created: {Created}, Updated: {Updated}, Skipped: {Skipped}, Errors: {Errors}",
+                createdCount, updatedCount, skippedCount, errorCount);
+
+            return (createdCount, updatedCount, skippedCount, errorCount);
         }
         catch (Exception ex)
         {

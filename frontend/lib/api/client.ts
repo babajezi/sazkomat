@@ -36,6 +36,17 @@ import type {
   CountryNameMapping,
   CreateCountryNameMappingRequest,
   UpdateCountryNameMappingRequest,
+  UnmatchedLeague,
+  UnmatchedLeagueStats,
+  BetExplorerLeague,
+  // Auth types
+  User,
+  AuthResponse,
+  LoginRequest,
+  RegisterRequest,
+  GoogleLoginRequest,
+  UpdateLanguageRequest,
+  UpdateUserRequest,
 } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
@@ -485,6 +496,280 @@ export const countryMappingApi = {
     );
     return data;
   },
+
+  applyMappings: async (providerId: string): Promise<{ createdCount: number; message: string }> => {
+    const { data } = await apiClient.post<{ createdCount: number; message: string }>(
+      `/scan/apply-country-mappings`,
+      { providerId }
+    );
+    return data;
+  },
 };
+
+// Auth endpoints
+const TOKEN_KEY = "sazkomat_token";
+
+export const authApi = {
+  // Get stored token
+  getToken: (): string | null => {
+    if (typeof window === "undefined") return null;
+    return localStorage.getItem(TOKEN_KEY);
+  },
+
+  // Store token (localStorage + cookie for middleware)
+  setToken: (token: string): void => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem(TOKEN_KEY, token);
+      // Also set cookie for Next.js middleware
+      document.cookie = `sazkomat_token=${token}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`;
+    }
+  },
+
+  // Remove token (from both localStorage and cookie)
+  removeToken: (): void => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(TOKEN_KEY);
+      // Also remove cookie
+      document.cookie = 'sazkomat_token=; path=/; max-age=0';
+    }
+  },
+
+  // Register new user
+  register: async (request: RegisterRequest): Promise<AuthResponse> => {
+    const { data } = await apiClient.post<AuthResponse>("/auth/register", request);
+    // Only set token if user is approved (token will be empty string if not)
+    if (data.token) {
+      authApi.setToken(data.token);
+    }
+    return data;
+  },
+
+  // Login with email/password
+  login: async (request: LoginRequest): Promise<AuthResponse> => {
+    const { data } = await apiClient.post<AuthResponse>("/auth/login", request);
+    // Only set token if user is approved
+    if (data.token) {
+      authApi.setToken(data.token);
+    }
+    return data;
+  },
+
+  // Login with Google ID token
+  googleLogin: async (request: GoogleLoginRequest): Promise<AuthResponse> => {
+    const { data } = await apiClient.post<AuthResponse>("/auth/google", request);
+    // Only set token if user is approved
+    if (data.token) {
+      authApi.setToken(data.token);
+    }
+    return data;
+  },
+
+  // Get current user
+  getMe: async (): Promise<User> => {
+    const { data } = await apiClient.get<User>("/auth/me");
+    return data;
+  },
+
+  // Update language preference
+  updateLanguage: async (request: UpdateLanguageRequest): Promise<User> => {
+    const { data } = await apiClient.patch<User>("/auth/me/language", request);
+    return data;
+  },
+
+  // Logout
+  logout: async (): Promise<void> => {
+    try {
+      await apiClient.post("/auth/logout");
+    } finally {
+      authApi.removeToken();
+    }
+  },
+};
+
+// BetExplorer API - for fetching leagues from BetExplorer
+export const betExplorerApi = {
+  // Get leagues from BetExplorer for a country (with caching)
+  getLeagues: async (
+    countryCode: string,
+    forceRefresh: boolean = false
+  ): Promise<BetExplorerLeague[]> => {
+    const { data } = await apiClient.get<BetExplorerLeague[]>(
+      `/betexplorer/leagues/${countryCode}`,
+      { params: { forceRefresh } }
+    );
+    return data;
+  },
+};
+
+// Unmatched Leagues API
+export const unmatchedLeagueApi = {
+  // Get unmatched leagues with optional filters
+  getUnmatchedLeagues: async (params?: {
+    providerId?: string;
+    unresolvedOnly?: boolean;
+  }): Promise<UnmatchedLeague[]> => {
+    const queryParams = new URLSearchParams();
+    if (params?.providerId) queryParams.append("providerId", params.providerId);
+    if (params?.unresolvedOnly !== undefined)
+      queryParams.append("unresolvedOnly", String(params.unresolvedOnly));
+
+    const url = queryParams.toString()
+      ? `/unmatched-leagues?${queryParams.toString()}`
+      : "/unmatched-leagues";
+    const { data } = await apiClient.get<UnmatchedLeague[]>(url);
+    return data;
+  },
+
+  // Get single unmatched league
+  getById: async (id: string): Promise<UnmatchedLeague> => {
+    const { data } = await apiClient.get<UnmatchedLeague>(
+      `/unmatched-leagues/${id}`
+    );
+    return data;
+  },
+
+  // Resolve as mapped to existing league
+  resolveAsMap: async (
+    id: string,
+    leagueId: string,
+    notes?: string
+  ): Promise<{ success: boolean; message: string }> => {
+    const { data } = await apiClient.post(`/unmatched-leagues/${id}/resolve/map`, {
+      leagueId,
+      notes,
+    });
+    return data;
+  },
+
+  // Resolve as ignored
+  resolveAsIgnore: async (
+    id: string,
+    notes?: string
+  ): Promise<{ success: boolean; message: string }> => {
+    const { data } = await apiClient.post(`/unmatched-leagues/${id}/resolve/ignore`, {
+      notes,
+    });
+    return data;
+  },
+
+  // Resolve as unavailable (BetExplorer doesn't support this league)
+  resolveAsUnavailable: async (
+    id: string,
+    notes?: string
+  ): Promise<{ success: boolean; message: string }> => {
+    const { data } = await apiClient.post(`/unmatched-leagues/${id}/resolve/unavailable`, {
+      notes,
+    });
+    return data;
+  },
+
+  // Clear resolution
+  unresolve: async (id: string): Promise<{ success: boolean; message: string }> => {
+    const { data } = await apiClient.post(`/unmatched-leagues/${id}/unresolve`);
+    return data;
+  },
+
+  // Delete unmatched league
+  delete: async (id: string): Promise<{ success: boolean; message: string }> => {
+    const { data } = await apiClient.delete(`/unmatched-leagues/${id}`);
+    return data;
+  },
+
+  // Get statistics
+  getStats: async (): Promise<UnmatchedLeagueStats> => {
+    const { data } = await apiClient.get<UnmatchedLeagueStats>(
+      "/unmatched-leagues/stats"
+    );
+    return data;
+  },
+
+  // Get mapping suggestions for an unmatched league
+  getSuggestions: async (
+    id: string
+  ): Promise<{ unmatchedLeague: UnmatchedLeague; suggestions: League[] }> => {
+    const { data } = await apiClient.get(`/unmatched-leagues/suggestions/${id}`);
+    return data;
+  },
+
+  // Create new league from BetExplorer and resolve unmatched league
+  resolveCreateFromBetExplorer: async (
+    id: string,
+    betExplorerSlug: string,
+    leagueName?: string,
+    countryId?: string,
+    notes?: string
+  ): Promise<{
+    success: boolean;
+    message: string;
+    leagueId: string;
+    created: boolean;
+  }> => {
+    const { data } = await apiClient.post(
+      `/unmatched-leagues/${id}/resolve/create-from-betexplorer`,
+      { betExplorerSlug, leagueName, countryId, notes }
+    );
+    return data;
+  },
+};
+
+// Admin endpoints (requires admin role)
+export const adminApi = {
+  // Get all users
+  getAllUsers: async (): Promise<User[]> => {
+    const { data } = await apiClient.get<User[]>("/admin/users");
+    return data;
+  },
+
+  // Get users pending approval
+  getPendingUsers: async (): Promise<User[]> => {
+    const { data } = await apiClient.get<User[]>("/admin/users/pending");
+    return data;
+  },
+
+  // Approve a user
+  approveUser: async (userId: string): Promise<User> => {
+    const { data } = await apiClient.post<User>(`/admin/users/${userId}/approve`);
+    return data;
+  },
+
+  // Reject (delete) a user
+  rejectUser: async (userId: string): Promise<{ message: string }> => {
+    const { data } = await apiClient.post<{ message: string }>(`/admin/users/${userId}/reject`);
+    return data;
+  },
+
+  // Delete a user
+  deleteUser: async (userId: string): Promise<{ message: string }> => {
+    const { data } = await apiClient.delete<{ message: string }>(`/admin/users/${userId}`);
+    return data;
+  },
+
+  // Update a user
+  updateUser: async (userId: string, request: UpdateUserRequest): Promise<User> => {
+    const { data } = await apiClient.patch<User>(`/admin/users/${userId}`, request);
+    return data;
+  },
+};
+
+// Add auth interceptor to include token in requests
+apiClient.interceptors.request.use((config) => {
+  const token = authApi.getToken();
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// Add response interceptor to handle 401 errors
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      authApi.removeToken();
+      // Optionally redirect to login or trigger state update
+    }
+    return Promise.reject(error);
+  }
+);
 
 export default apiClient;

@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { countryMappingApi } from "@/lib/api/client";
+import { countryMappingApi, configApi } from "@/lib/api/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Plus, Pencil, Trash2, Check, X } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Trash2, Check, X, PlayCircle } from "lucide-react";
 import Link from "next/link";
 import { CountryNameMappingDialog } from "@/components/CountryNameMappingDialog";
 import type { CountryNameMapping } from "@/lib/api/types";
@@ -47,6 +47,24 @@ export default function CountryMappingsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["country-mappings"] });
     },
+  });
+
+  // Apply mappings mutation
+  const applyMappingsMutation = useMutation({
+    mutationFn: (providerId: string) => countryMappingApi.applyMappings(providerId),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["country-mappings"] });
+      alert(`Zpracováno: ${data.createdCount} nových záznamů vytvořeno`);
+    },
+    onError: (error: Error) => {
+      alert(`Chyba: ${error.message}`);
+    },
+  });
+
+  // Fetch betting providers
+  const { data: providers } = useQuery({
+    queryKey: ["betting-providers"],
+    queryFn: () => configApi.getBettingProviders(),
   });
 
   // Filter mappings
@@ -119,10 +137,27 @@ export default function CountryMappingsPage() {
             </p>
           </div>
         </div>
-        <Button onClick={handleAdd}>
-          <Plus className="mr-2 h-4 w-4" />
-          Přidat Mapování
-        </Button>
+        <div className="flex gap-2">
+          {providers && providers.length > 0 && (
+            <div className="flex gap-2">
+              {providers.map((provider) => (
+                <Button
+                  key={provider.id}
+                  variant="outline"
+                  onClick={() => applyMappingsMutation.mutate(provider.id)}
+                  disabled={applyMappingsMutation.isPending}
+                >
+                  <PlayCircle className="mr-2 h-4 w-4" />
+                  Zpracovat mapování ({provider.name})
+                </Button>
+              ))}
+            </div>
+          )}
+          <Button onClick={handleAdd}>
+            <Plus className="mr-2 h-4 w-4" />
+            Přidat Mapování
+          </Button>
+        </div>
       </div>
 
       {/* Statistics Cards */}
@@ -168,8 +203,11 @@ export default function CountryMappingsPage() {
                 onChange={(e) => handleFilterChange(setProviderFilter, e.target.value)}
               >
                 <option value="">Všechny</option>
-                <option value="betano">Betano</option>
-                <option value="fortuna">Fortuna</option>
+                {providers?.map((provider) => (
+                  <option key={provider.id} value={provider.code}>
+                    {provider.name}
+                  </option>
+                ))}
               </select>
             </div>
             <div>

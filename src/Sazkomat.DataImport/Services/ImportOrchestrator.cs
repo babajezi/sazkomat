@@ -71,9 +71,9 @@ public class ImportOrchestrator : IImportOrchestrator
                     return Result<ImportJob>.Failure($"League with ID {leagueId} not found");
                 }
 
-                if (!league.IsSyncEnabled)
+                if (!league.IsActive)
                 {
-                    return Result<ImportJob>.Failure($"League '{league.Name}' is not enabled for import");
+                    return Result<ImportJob>.Failure($"League '{league.Name}' is not active");
                 }
 
                 leagues.Add(league);

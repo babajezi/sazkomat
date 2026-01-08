@@ -264,7 +264,6 @@ public class UniversalImportExportService : IUniversalImportExportService
             Name = l.Name,
             DisplayName = l.DisplayName,
             BetExplorerSlug = l.BetExplorerSlug,
-            IsSyncEnabled = l.IsSyncEnabled,
             IsBettable = l.IsBettable,
             IsActive = l.IsActive,
             Priority = l.Priority,
@@ -921,7 +920,6 @@ public class UniversalImportExportService : IUniversalImportExportService
                     if (options.ConflictResolution == ConflictResolution.Update)
                     {
                         existing.DisplayName = leagueDto.DisplayName;
-                        existing.IsSyncEnabled = leagueDto.IsSyncEnabled;
                         existing.IsBettable = leagueDto.IsBettable;
                         existing.IsActive = leagueDto.IsActive;
                         existing.Priority = leagueDto.Priority;
@@ -946,7 +944,6 @@ public class UniversalImportExportService : IUniversalImportExportService
                         Name = leagueDto.Name,
                         DisplayName = leagueDto.DisplayName,
                         BetExplorerSlug = leagueDto.BetExplorerSlug,
-                        IsSyncEnabled = leagueDto.IsSyncEnabled,
                         IsBettable = leagueDto.IsBettable,
                         IsActive = leagueDto.IsActive,
                         Priority = leagueDto.Priority,

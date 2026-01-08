@@ -64,7 +64,7 @@ public class LeagueRepositoryTests : IDisposable
             Name = "Premier League",
             DisplayName = "English Premier League",
             BetExplorerSlug = "england/premier-league",
-            IsSyncEnabled = true,
+            IsActive = true,
             IsBettable = true,
             Priority = 1
         };
@@ -77,7 +77,7 @@ public class LeagueRepositoryTests : IDisposable
             Name = "Championship",
             DisplayName = "English Championship",
             BetExplorerSlug = "england/championship",
-            IsSyncEnabled = false,
+            IsActive = false,
             IsBettable = false,
             Priority = 2
         };
@@ -109,7 +109,7 @@ public class LeagueRepositoryTests : IDisposable
             Name = "Premier League",
             DisplayName = "English Premier League",
             BetExplorerSlug = "england/premier-league",
-            IsSyncEnabled = true,
+            IsActive = true,
             IsBettable = true,
             Priority = 1
         };
@@ -155,7 +155,7 @@ public class LeagueRepositoryTests : IDisposable
             Name = "La Liga",
             DisplayName = "Spanish La Liga",
             BetExplorerSlug = "spain/la-liga",
-            IsSyncEnabled = true,
+            IsActive = true,
             IsBettable = true,
             Priority = 1
         };
@@ -186,7 +186,7 @@ public class LeagueRepositoryTests : IDisposable
             Name = "Premier League",
             DisplayName = "English Premier League",
             BetExplorerSlug = "england/premier-league",
-            IsSyncEnabled = true,
+            IsActive = true,
             IsBettable = true,
             Priority = 1
         };
@@ -224,7 +224,7 @@ public class LeagueRepositoryTests : IDisposable
             Name = "Premier League",
             DisplayName = "English Premier League",
             BetExplorerSlug = "england/premier-league",
-            IsSyncEnabled = true,
+            IsActive = true,
             IsBettable = true,
             Priority = 1
         };
@@ -267,7 +267,7 @@ public class LeagueRepositoryTests : IDisposable
             Name = "Premier League",
             DisplayName = "English Premier League",
             BetExplorerSlug = "england/premier-league",
-            IsSyncEnabled = true,
+            IsActive = true,
             IsBettable = true,
             Priority = 1
         };
@@ -280,7 +280,7 @@ public class LeagueRepositoryTests : IDisposable
             Name = "NBA",
             DisplayName = "NBA League",
             BetExplorerSlug = "usa/nba",
-            IsSyncEnabled = true,
+            IsActive = true,
             IsBettable = true,
             Priority = 1
         };

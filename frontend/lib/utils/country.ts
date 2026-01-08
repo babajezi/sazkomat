@@ -1,11 +1,20 @@
-import type { Country } from "@/lib/api/types";
+import type { Country, LanguagePreference } from "@/lib/api/types";
+import { LanguagePreference as LP } from "@/lib/api/types";
 
 /**
- * Returns the localized country name (Czech if available, otherwise English)
+ * Returns the localized country name based on user's language preference
  * @param country The country object
+ * @param language User's language preference (defaults to Czech)
  * @returns The localized country name
  */
-export function getCountryDisplayName(country: Country): string {
+export function getCountryDisplayName(
+  country: Country,
+  language: LanguagePreference = LP.Czech
+): string {
+  if (language === LP.English) {
+    return country.name;
+  }
+  // Czech: prefer Czech name, fallback to English
   return country.nameCs || country.name;
 }
 

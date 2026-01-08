@@ -29,4 +29,30 @@ public interface IDatabaseResetService
     /// Keeps all configuration tables (countries, leagues, seasons, etc.)
     /// </summary>
     Task<(bool Success, string Message)> ResetImportedDataOnlyAsync();
+
+    /// <summary>
+    /// Selectively resets specified entities.
+    /// Valid entity names: rounds, import_jobs, provider_countries, provider_leagues, provider_seasons,
+    /// sync_jobs, country_name_mappings, league_name_mappings, unmatched_leagues, leagues, countries, seasons,
+    /// league_providers, league_seasons, country_providers
+    /// </summary>
+    Task<(bool Success, string Message, Dictionary<string, int> DeletedCounts)> ResetSelectiveAsync(List<string> entities);
+
+    /// <summary>
+    /// Gets record counts for all resettable entities.
+    /// </summary>
+    Task<Dictionary<string, int>> GetEntityCountsAsync();
+
+    /// <summary>
+    /// Gets binding counts grouped by provider.
+    /// Returns counts for league_providers, country_providers, league_seasons per provider.
+    /// </summary>
+    Task<Dictionary<string, Dictionary<string, int>>> GetBindingCountsByProviderAsync();
+
+    /// <summary>
+    /// Deletes bindings for a specific provider.
+    /// Valid binding types: league_providers, country_providers
+    /// </summary>
+    Task<(bool Success, string Message, Dictionary<string, int> DeletedCounts)> ResetBindingsForProviderAsync(
+        string providerCode, List<string> bindingTypes);
 }

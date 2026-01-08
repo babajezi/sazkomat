@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { mappingApi } from "@/lib/api/client";
+import { mappingApi, configApi } from "@/lib/api/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +31,12 @@ export default function MappingsPage() {
   const { data: mappings, isLoading, error } = useQuery({
     queryKey: ["mappings"],
     queryFn: () => mappingApi.getMappings(),
+  });
+
+  // Fetch betting providers
+  const { data: bettingProviders } = useQuery({
+    queryKey: ["bettingProviders"],
+    queryFn: () => configApi.getBettingProviders(),
   });
 
   // Delete mutation
@@ -179,8 +185,11 @@ export default function MappingsPage() {
                 onChange={(e) => handleFilterChange(setProviderFilter, e.target.value)}
               >
                 <option value="">Všechny</option>
-                <option value="betano">Betano</option>
-                <option value="fortuna">Fortuna</option>
+                {bettingProviders?.map((provider) => (
+                  <option key={provider.id} value={provider.code}>
+                    {provider.name}
+                  </option>
+                ))}
               </select>
             </div>
             <div>

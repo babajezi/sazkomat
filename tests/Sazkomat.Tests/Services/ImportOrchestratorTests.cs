@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Sazkomat.Configuration.Entities;
 using Sazkomat.Configuration.Repositories;
 using Sazkomat.Configuration.Services;
+using Sazkomat.Core.Common;
 using Sazkomat.DataImport.DTOs;
 using Sazkomat.DataImport.Entities;
 using Sazkomat.DataImport.Repositories;
@@ -120,7 +121,7 @@ public class ImportOrchestratorTests
         {
             Id = leagueId,
             Name = "Test League",
-            IsSyncEnabled = false,
+            IsActive = false,
             SportId = Guid.NewGuid(),
             CountryId = Guid.NewGuid()
         };
@@ -138,7 +139,7 @@ public class ImportOrchestratorTests
 
         // Assert
         Assert.False(result.IsSuccess);
-        Assert.Contains("is not enabled for import", result.Error);
+        Assert.Contains("is not active", result.Error);
     }
 
     [Trait("Category", "Slow")]
@@ -154,7 +155,7 @@ public class ImportOrchestratorTests
         {
             Id = leagueId,
             Name = "Test League",
-            IsSyncEnabled = true,
+            IsActive = true,
             SportId = sportId,
             CountryId = Guid.NewGuid(),
             Sport = new Sport
@@ -195,6 +196,20 @@ public class ImportOrchestratorTests
 
         _mockLeagueRepository.Setup(r => r.GetByIdAsync(leagueId))
             .ReturnsAsync(league);
+
+        // Setup SeasonService to return successful LeagueSeason results
+        _mockSeasonService.Setup(s => s.GetOrCreateLeagueSeasonAsync(leagueId, "2023/2024"))
+            .ReturnsAsync(Result<LeagueSeason>.Success(new LeagueSeason
+            {
+                LeagueId = leagueId,
+                SeasonId = season1Id
+            }));
+        _mockSeasonService.Setup(s => s.GetOrCreateLeagueSeasonAsync(leagueId, "2022/2023"))
+            .ReturnsAsync(Result<LeagueSeason>.Success(new LeagueSeason
+            {
+                LeagueId = leagueId,
+                SeasonId = season2Id
+            }));
 
         _mockImportJobRepository.Setup(r => r.CreateAsync(It.IsAny<ImportJob>()))
             .ReturnsAsync(createdJob);
@@ -355,6 +370,12 @@ public class ImportOrchestratorTests
 
         _mockRoundRepository.Setup(r => r.GetByLeagueAsync(leagueId))
             .ReturnsAsync(rounds);
+
+        // Setup SeasonRepository to return season names
+        _mockSeasonRepository.Setup(r => r.GetByIdAsync(season1Id))
+            .ReturnsAsync(new Season { Id = season1Id, Name = "2023/2024" });
+        _mockSeasonRepository.Setup(r => r.GetByIdAsync(season2Id))
+            .ReturnsAsync(new Season { Id = season2Id, Name = "2022/2023" });
 
         // Act
         var result = await _orchestrator.GetImportStatsAsync(leagueId);

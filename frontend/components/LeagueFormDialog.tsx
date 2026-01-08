@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CountryFlag } from "@/components/CountryFlag";
 import { getLeagueDisplayName } from "@/lib/utils/league";
+import { useLanguage } from "@/contexts/UserContext";
 import type { League, Sport, Country } from "@/lib/api/types";
 
 interface EditLeagueDialogProps {
@@ -35,12 +36,13 @@ export function EditLeagueDialog({
   countries,
 }: EditLeagueDialogProps) {
   const queryClient = useQueryClient();
+  const { language } = useLanguage();
   const [formData, setFormData] = useState({
     name: "",
     nameCs: "",
     displayName: "",
     betExplorerSlug: "",
-    isSyncEnabled: true,
+    isActive: true,
     isBettable: true,
     priority: 1,
     notes: "",
@@ -54,7 +56,7 @@ export function EditLeagueDialog({
         nameCs: league.nameCs || "",
         displayName: league.displayName || "",
         betExplorerSlug: league.betExplorerSlug || "",
-        isSyncEnabled: league.isSyncEnabled ?? true,
+        isActive: league.isActive ?? true,
         isBettable: league.isBettable ?? true,
         priority: league.priority || 1,
         notes: league.notes || "",
@@ -87,7 +89,7 @@ export function EditLeagueDialog({
         <DialogHeader>
           <DialogTitle>Upravit ligu</DialogTitle>
           <DialogDescription>
-            Upravte nastavení ligy {getLeagueDisplayName(league)}
+            Upravte nastavení ligy {getLeagueDisplayName(league, language)}
           </DialogDescription>
         </DialogHeader>
 
@@ -182,11 +184,11 @@ export function EditLeagueDialog({
 
             <div className="grid gap-2">
               <Checkbox
-                id="edit-isSyncEnabled"
-                label="Povolit synchronizaci"
-                checked={formData.isSyncEnabled}
+                id="edit-isActive"
+                label="Aktivní"
+                checked={formData.isActive}
                 onChange={(e) =>
-                  setFormData({ ...formData, isSyncEnabled: e.target.checked })
+                  setFormData({ ...formData, isActive: e.target.checked })
                 }
               />
             </div>
