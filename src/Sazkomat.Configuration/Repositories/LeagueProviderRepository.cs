@@ -99,4 +99,30 @@ public class LeagueProviderRepository : ILeagueProviderRepository
             _logger.LogWarning("Attempted to delete non-existent league provider mapping {LeagueProviderId}", id);
         }
     }
+
+    public async Task<List<LeagueProvider>> GetByProviderIdAsync(Guid providerId)
+    {
+        return await _context.LeagueProviders
+            .Include(lp => lp.League)
+            .Where(lp => lp.ProviderId == providerId && lp.IsActive)
+            .ToListAsync();
+    }
+
+    public async Task<int> DeleteByProviderAsync(Guid providerId)
+    {
+        _logger.LogInformation("Deleting all league provider mappings for provider {ProviderId}", providerId);
+        var mappings = await _context.LeagueProviders
+            .Where(lp => lp.ProviderId == providerId)
+            .ToListAsync();
+
+        if (mappings.Count > 0)
+        {
+            _context.LeagueProviders.RemoveRange(mappings);
+            await _context.SaveChangesAsync();
+            _logger.LogInformation("Successfully deleted {Count} league provider mappings for provider {ProviderId}",
+                mappings.Count, providerId);
+        }
+
+        return mappings.Count;
+    }
 }

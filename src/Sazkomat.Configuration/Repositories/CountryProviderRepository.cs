@@ -96,4 +96,22 @@ public class CountryProviderRepository : ICountryProviderRepository
             _logger.LogWarning("Attempted to delete non-existent country provider mapping {CountryProviderId}", id);
         }
     }
+
+    public async Task<int> DeleteByProviderAsync(Guid providerId)
+    {
+        _logger.LogInformation("Deleting all country provider mappings for provider {ProviderId}", providerId);
+        var mappings = await _context.CountryProviders
+            .Where(cp => cp.ProviderId == providerId)
+            .ToListAsync();
+
+        if (mappings.Count > 0)
+        {
+            _context.CountryProviders.RemoveRange(mappings);
+            await _context.SaveChangesAsync();
+            _logger.LogInformation("Successfully deleted {Count} country provider mappings for provider {ProviderId}",
+                mappings.Count, providerId);
+        }
+
+        return mappings.Count;
+    }
 }

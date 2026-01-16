@@ -6,11 +6,13 @@ import Link from "next/link";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ArrowLeft, Database, ScanLine, Download, Activity, Info, RefreshCw } from "lucide-react";
+import { ArrowLeft, Database, ScanLine, Download, Activity, Info, RefreshCw, Trash2 } from "lucide-react";
 import { ScanDialog } from "@/components/ScanDialog";
 import { CacheTablesView } from "@/components/CacheTablesView";
 import { JobsPanel } from "@/components/JobsPanel";
 import { ProviderLogo } from "@/components/ProviderLogo";
+import { BackfillCacheDialog } from "@/components/BackfillCacheDialog";
+import { RemoveMappingDialog } from "@/components/RemoveMappingDialog";
 import { SyncEntityType, parseScanCapabilities, DataProvider } from "@/lib/api/types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
@@ -18,7 +20,8 @@ const BETANO_PROVIDER_ID = "b0000000-0000-0000-0000-000000000001";
 
 export default function SyncPage() {
   const [selectedProviderId, setSelectedProviderId] = useState<string>(BETANO_PROVIDER_ID);
-  const [isBackfilling, setIsBackfilling] = useState(false);
+  const [showBackfillDialog, setShowBackfillDialog] = useState(false);
+  const [showRemoveMappingDialog, setShowRemoveMappingDialog] = useState(false);
   const [isBackfillingLP, setIsBackfillingLP] = useState(false);
   const queryClient = useQueryClient();
 
@@ -35,33 +38,6 @@ export default function SyncPage() {
   const activeProviders = providers.filter((p: DataProvider) => p.isActive);
   const selectedProvider = providers.find((p: DataProvider) => p.id === selectedProviderId);
   const scanCapabilities = parseScanCapabilities(selectedProvider?.scanCapabilities);
-
-  const handleBackfillProviderLeagues = async () => {
-    setIsBackfilling(true);
-    try {
-      const response = await fetch(`${API_URL}/api/scan/backfill-provider-leagues`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ providerId: selectedProviderId }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to backfill");
-      }
-
-      const result = await response.json();
-      alert(`Backfill provider_leagues dokončen: ${result.created} vytvořeno, ${result.updated} aktualizováno`);
-
-      // Refresh the cache tables view
-      queryClient.invalidateQueries({ queryKey: ["provider-cache"] });
-    } catch (error) {
-      console.error("Backfill error:", error);
-      alert(`Chyba: ${error instanceof Error ? error.message : "Unknown error"}`);
-    } finally {
-      setIsBackfilling(false);
-    }
-  };
 
   const handleBackfillLeagueProviders = async () => {
     setIsBackfillingLP(true);
@@ -118,7 +94,13 @@ export default function SyncPage() {
           <Link href="/unmatched-leagues">
             <Button variant="outline">
               <Database className="mr-2 h-4 w-4" />
-              Nespárované Ligy
+              Ligy
+            </Button>
+          </Link>
+          <Link href="/unmatched-countries">
+            <Button variant="outline">
+              <Database className="mr-2 h-4 w-4" />
+              Zeme
             </Button>
           </Link>
           <Link href="/jobs">
@@ -249,15 +231,14 @@ export default function SyncPage() {
                 />
               )}
 
-              {/* Backfill resolved leagues buttons */}
+              {/* Backfill resolved entries buttons */}
               <Button
                 variant="secondary"
-                onClick={handleBackfillProviderLeagues}
-                disabled={isBackfilling}
-                title="Doplní provider_leagues záznamy z vyřešených unmatched_leagues"
+                onClick={() => setShowBackfillDialog(true)}
+                title="Doplní provider_countries a provider_leagues záznamy z vyřešených nespárovaných záznamů"
               >
-                <RefreshCw className={`mr-2 h-4 w-4 ${isBackfilling ? "animate-spin" : ""}`} />
-                {isBackfilling ? "Backfilling..." : "Backfill Cache"}
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Backfill Cache
               </Button>
               <Button
                 variant="secondary"
@@ -267,6 +248,14 @@ export default function SyncPage() {
               >
                 <RefreshCw className={`mr-2 h-4 w-4 ${isBackfillingLP ? "animate-spin" : ""}`} />
                 {isBackfillingLP ? "Backfilling..." : "Backfill Mappings"}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setShowRemoveMappingDialog(true)}
+                title="Smazat CountryProvider a LeagueProvider mapování pro vybrané providery"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Remove Mappings
               </Button>
             </div>
 
@@ -305,7 +294,7 @@ export default function SyncPage() {
           <CardTitle>Quick Links</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
             <Link href="/jobs">
               <Button variant="outline" className="w-full">
                 <Activity className="mr-2 h-4 w-4" />
@@ -320,6 +309,18 @@ export default function SyncPage() {
             <Link href="/leagues">
               <Button variant="outline" className="w-full">
                 Manage Leagues
+              </Button>
+            </Link>
+            <Link href="/unmatched-countries">
+              <Button variant="outline" className="w-full">
+                <Database className="mr-2 h-4 w-4" />
+                Nesparovane Zeme
+              </Button>
+            </Link>
+            <Link href="/unmatched-leagues">
+              <Button variant="outline" className="w-full">
+                <Database className="mr-2 h-4 w-4" />
+                Nesparovane Ligy
               </Button>
             </Link>
           </div>
@@ -342,6 +343,20 @@ export default function SyncPage() {
           .
         </AlertDescription>
       </Alert>
+
+      {/* Backfill Cache Dialog */}
+      <BackfillCacheDialog
+        open={showBackfillDialog}
+        onOpenChange={setShowBackfillDialog}
+        selectedProviderId={selectedProviderId}
+      />
+
+      {/* Remove Mapping Dialog */}
+      <RemoveMappingDialog
+        open={showRemoveMappingDialog}
+        onOpenChange={setShowRemoveMappingDialog}
+        selectedProviderId={selectedProviderId}
+      />
     </div>
   );
 }

@@ -69,6 +69,18 @@ export function Header() {
                   >
                     Sync
                   </Link>
+                  <Link
+                    href="/unmatched-leagues"
+                    className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                  >
+                    Nespárované Ligy
+                  </Link>
+                  <Link
+                    href="/unmatched-countries"
+                    className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                  >
+                    Nespárované Země
+                  </Link>
                   {isAdmin && (
                     <Link
                       href="/admin"

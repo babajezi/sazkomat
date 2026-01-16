@@ -13,4 +13,6 @@ public interface ILeagueProviderRepository
     Task AddAsync(LeagueProvider leagueProvider);
     Task UpdateAsync(LeagueProvider leagueProvider);
     Task DeleteAsync(Guid id);
+    Task<List<LeagueProvider>> GetByProviderIdAsync(Guid providerId);
+    Task<int> DeleteByProviderAsync(Guid providerId);
 }

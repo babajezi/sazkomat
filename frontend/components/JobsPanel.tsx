@@ -1,6 +1,7 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, CheckCircle2, XCircle, Clock, Activity } from "lucide-react";
@@ -59,6 +60,9 @@ const entityTypeLabels: Record<SyncEntityType, string> = {
 };
 
 export function JobsPanel({ providerId, maxJobs = 5, refreshInterval = 3000 }: JobsPanelProps) {
+  const queryClient = useQueryClient();
+  const previousJobsRef = useRef<Map<string, SyncJobStatus>>(new Map());
+
   const { data: jobs = [], isLoading } = useQuery<SyncJob[]>({
     queryKey: ["sync-jobs", providerId],
     queryFn: async () => {
@@ -68,6 +72,44 @@ export function JobsPanel({ providerId, maxJobs = 5, refreshInterval = 3000 }: J
     },
     refetchInterval: refreshInterval,
   });
+
+  // Detect job completion and refresh cache tables
+  useEffect(() => {
+    const previousJobs = previousJobsRef.current;
+    let shouldRefreshCache = false;
+
+    for (const job of jobs) {
+      const prevStatus = previousJobs.get(job.id);
+      const isNowCompleted = job.status === SyncJobStatus.Completed ||
+                            job.status === SyncJobStatus.PartiallyCompleted ||
+                            job.status === SyncJobStatus.Failed;
+      const wasRunning = prevStatus === SyncJobStatus.Running ||
+                        prevStatus === SyncJobStatus.Pending;
+
+      // If job transitioned from running to completed, trigger cache refresh
+      if (wasRunning && isNowCompleted) {
+        shouldRefreshCache = true;
+        console.log(`Job ${job.id} completed with status ${job.status}, refreshing cache...`);
+      }
+    }
+
+    // Update previous jobs map
+    const newMap = new Map<string, SyncJobStatus>();
+    for (const job of jobs) {
+      newMap.set(job.id, job.status);
+    }
+    previousJobsRef.current = newMap;
+
+    // Refresh cache tables if any job completed
+    if (shouldRefreshCache) {
+      queryClient.invalidateQueries({ queryKey: ["provider-countries", providerId] });
+      queryClient.invalidateQueries({ queryKey: ["provider-leagues", providerId] });
+      queryClient.invalidateQueries({ queryKey: ["provider-seasons", providerId] });
+      queryClient.invalidateQueries({ queryKey: ["unmatched-leagues", providerId] });
+      queryClient.invalidateQueries({ queryKey: ["unmatched-countries", providerId] });
+      queryClient.invalidateQueries({ queryKey: ["unmatched-countries-stats"] });
+    }
+  }, [jobs, providerId, queryClient]);
 
   const { data: provider } = useQuery<DataProvider>({
     queryKey: ["provider", providerId],

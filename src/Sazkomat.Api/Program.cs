@@ -228,6 +228,7 @@ builder.Services.AddScoped<ISyncJobRepository, SyncJobRepository>();
 builder.Services.AddScoped<ILeagueNameMappingRepository, LeagueNameMappingRepository>();
 builder.Services.AddScoped<ICountryNameMappingRepository, CountryNameMappingRepository>();
 builder.Services.AddScoped<IUnmatchedLeagueRepository, UnmatchedLeagueRepository>();
+builder.Services.AddScoped<IUnmatchedCountryRepository, UnmatchedCountryRepository>();
 
 // Register DataImport scrapers
 builder.Services.AddScoped<ILeagueScraper, FootballBetExplorerScraper>();
@@ -267,8 +268,12 @@ builder.Services.AddScoped<Sazkomat.BettingProviders.Services.TipsportJsonExtrac
 builder.Services.AddScoped<Sazkomat.BettingProviders.Scrapers.TipsportScraper>();
 builder.Services.AddScoped<ILeagueMetadataScraper, Sazkomat.BettingProviders.Scrapers.TipsportLeagueMetadataScraper>();
 
-// Register Fortuna scrapers (skeleton for future implementation)
+// Register Fortuna scrapers and services
+builder.Services.AddScoped<Sazkomat.BettingProviders.Services.FortunaJsonExtractor>();
+builder.Services.AddScoped<Sazkomat.BettingProviders.Scrapers.FortunaScraper>();
+builder.Services.AddScoped<IBettingProviderScraper, Sazkomat.BettingProviders.Scrapers.FortunaScraper>();
 builder.Services.AddScoped<ILeagueMetadataScraper, Sazkomat.BettingProviders.Scrapers.FortunaLeagueMetadataScraper>();
+builder.Services.AddScoped<ICountryScraper, Sazkomat.BettingProviders.Scrapers.FortunaCountryScraper>();
 
 // Register BettingProviders services
 builder.Services.AddScoped<SyncQueueService>();
@@ -377,6 +382,7 @@ app.MapProviderCacheEndpoints();
 app.MapLeagueNameMappingEndpoints();
 app.MapCountryNameMappingEndpoints();
 app.MapUnmatchedLeagueEndpoints();
+app.MapUnmatchedCountryEndpoints();
 app.MapBetExplorerEndpoints();
 app.MapAuthEndpoints();
 app.MapUserAdminEndpoints();

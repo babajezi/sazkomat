@@ -38,6 +38,8 @@ import type {
   UpdateCountryNameMappingRequest,
   UnmatchedLeague,
   UnmatchedLeagueStats,
+  UnmatchedCountry,
+  UnmatchedCountryStats,
   BetExplorerLeague,
   // Auth types
   User,
@@ -708,6 +710,100 @@ export const unmatchedLeagueApi = {
       `/unmatched-leagues/${id}/resolve/create-from-betexplorer`,
       { betExplorerSlug, leagueName, countryId, notes }
     );
+    return data;
+  },
+};
+
+// Unmatched Countries API
+export const unmatchedCountryApi = {
+  // Get unmatched countries with optional filters
+  getAll: async (params?: {
+    providerId?: string;
+    unresolvedOnly?: boolean;
+  }): Promise<UnmatchedCountry[]> => {
+    const queryParams = new URLSearchParams();
+    if (params?.providerId) queryParams.append("providerId", params.providerId);
+    if (params?.unresolvedOnly !== undefined)
+      queryParams.append("unresolvedOnly", String(params.unresolvedOnly));
+
+    const url = queryParams.toString()
+      ? `/unmatched-countries?${queryParams.toString()}`
+      : "/unmatched-countries";
+    const { data } = await apiClient.get<UnmatchedCountry[]>(url);
+    return data;
+  },
+
+  // Get single unmatched country
+  getById: async (id: string): Promise<UnmatchedCountry> => {
+    const { data } = await apiClient.get<UnmatchedCountry>(
+      `/unmatched-countries/${id}`
+    );
+    return data;
+  },
+
+  // Resolve as mapped to existing country
+  resolveAsMap: async (
+    id: string,
+    countryId: string,
+    notes?: string
+  ): Promise<{ success: boolean; message: string }> => {
+    const { data } = await apiClient.post(`/unmatched-countries/${id}/resolve/map`, {
+      countryId,
+      notes,
+    });
+    return data;
+  },
+
+  // Resolve as ignored
+  resolveAsIgnore: async (
+    id: string,
+    notes?: string
+  ): Promise<{ success: boolean; message: string }> => {
+    const { data } = await apiClient.post(`/unmatched-countries/${id}/resolve/ignore`, {
+      notes,
+    });
+    return data;
+  },
+
+  // Resolve as unavailable
+  resolveAsUnavailable: async (
+    id: string,
+    notes?: string
+  ): Promise<{ success: boolean; message: string }> => {
+    const { data } = await apiClient.post(`/unmatched-countries/${id}/resolve/unavailable`, {
+      notes,
+    });
+    return data;
+  },
+
+  // Clear resolution
+  unresolve: async (id: string): Promise<{ success: boolean; message: string }> => {
+    const { data } = await apiClient.post(`/unmatched-countries/${id}/unresolve`);
+    return data;
+  },
+
+  // Delete unmatched country
+  delete: async (id: string): Promise<{ success: boolean; message: string }> => {
+    const { data } = await apiClient.delete(`/unmatched-countries/${id}`);
+    return data;
+  },
+
+  // Get statistics
+  getStats: async (providerId?: string): Promise<UnmatchedCountryStats> => {
+    const queryParams = providerId ? `?providerId=${providerId}` : "";
+    const { data } = await apiClient.get<UnmatchedCountryStats>(
+      `/unmatched-countries/stats${queryParams}`
+    );
+    return data;
+  },
+
+  // Get country suggestions for an unmatched country
+  getSuggestions: async (
+    id: string,
+    search?: string
+  ): Promise<{ unmatchedCountry: UnmatchedCountry; suggestions: Country[] }> => {
+    const queryParams = search ? `?search=${encodeURIComponent(search)}` : "";
+    const { data } = await apiClient.get(`/unmatched-countries/suggestions/${id}${queryParams}`);
     return data;
   },
 };

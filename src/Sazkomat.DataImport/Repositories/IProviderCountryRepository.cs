@@ -9,6 +9,7 @@ public interface IProviderCountryRepository
     Task<List<ProviderCountry>> GetByProviderIdAsync(Guid providerId);
     Task<ProviderCountry?> GetByProviderCodeAsync(Guid providerId, string providerCode);
     Task<ProviderCountry?> GetByProviderNameAsync(Guid providerId, string providerName);
+    Task<ProviderCountry?> GetByProviderAndCountryAsync(Guid providerId, Guid countryId);
     Task<List<ProviderCountry>> GetUnimportedAsync(Guid providerId);
     Task<ProviderCountry> CreateAsync(ProviderCountry providerCountry);
     Task<ProviderCountry> UpdateAsync(ProviderCountry providerCountry);

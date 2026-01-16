@@ -87,6 +87,15 @@ public interface IScanService
     Task<(int Created, int Updated)> BackfillProviderLeaguesFromResolvedAsync(Guid providerId);
 
     /// <summary>
+    /// Backfills provider_countries from resolved unmatched_countries.
+    /// Creates provider_countries entries for all resolved (mapped) unmatched countries
+    /// that don't yet have a corresponding provider_countries record.
+    /// </summary>
+    /// <param name="providerId">The provider to backfill for</param>
+    /// <returns>Tuple with (CreatedCount, UpdatedCount)</returns>
+    Task<(int Created, int Updated)> BackfillProviderCountriesFromResolvedAsync(Guid providerId);
+
+    /// <summary>
     /// Internal method: Scans both countries AND leagues in a single pass using an existing job.
     /// Optimized for betting providers like Betano where both come from a single HTTP request.
     /// Called by SyncJobProcessor to avoid duplicate job creation.

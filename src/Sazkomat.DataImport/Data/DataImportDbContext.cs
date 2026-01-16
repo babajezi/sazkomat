@@ -41,6 +41,9 @@ public class DataImportDbContext : DbContext
     // Unmatched leagues queue (for manual mapping)
     public DbSet<UnmatchedLeague> UnmatchedLeagues => Set<UnmatchedLeague>();
 
+    // Unmatched countries queue (for manual mapping)
+    public DbSet<UnmatchedCountry> UnmatchedCountries => Set<UnmatchedCountry>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -64,6 +67,9 @@ public class DataImportDbContext : DbContext
 
         // Unmatched leagues queue
         modelBuilder.ApplyConfiguration(new UnmatchedLeagueConfiguration());
+
+        // Unmatched countries queue
+        modelBuilder.ApplyConfiguration(new UnmatchedCountryConfiguration());
     }
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

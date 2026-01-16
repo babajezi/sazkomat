@@ -261,13 +261,26 @@ public static class ProviderCacheEndpoints
             var provider = await configContext.DataProviders
                 .FirstOrDefaultAsync(p => p.Id == providerCountry.ProviderId);
 
-            // Find matching BetExplorer country by ISO code or code
-            var matchedCountry = await configContext.Countries
-                .Include(c => c.CountryProviders)
-                    .ThenInclude(cp => cp.Provider)
-                .FirstOrDefaultAsync(c =>
-                    c.IsoCode == providerCountry.IsoCode ||
-                    c.Code.ToLower() == providerCountry.ProviderCode.ToLower());
+            // Find matching BetExplorer country - first check if CountryId is already set (from backfill)
+            Configuration.Entities.Country? matchedCountry = null;
+            if (providerCountry.CountryId.HasValue)
+            {
+                matchedCountry = await configContext.Countries
+                    .Include(c => c.CountryProviders)
+                        .ThenInclude(cp => cp.Provider)
+                    .FirstOrDefaultAsync(c => c.Id == providerCountry.CountryId.Value);
+            }
+
+            // If not found by CountryId, try by ISO code or provider code
+            if (matchedCountry == null)
+            {
+                matchedCountry = await configContext.Countries
+                    .Include(c => c.CountryProviders)
+                        .ThenInclude(cp => cp.Provider)
+                    .FirstOrDefaultAsync(c =>
+                        c.IsoCode == providerCountry.IsoCode ||
+                        c.Code.ToLower() == providerCountry.ProviderCode.ToLower());
+            }
 
             // Find country name mappings for this provider
             var providerCode = provider?.Code ?? "";

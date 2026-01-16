@@ -53,6 +53,12 @@ public class ProviderCountryRepository : IProviderCountryRepository
             .FirstOrDefaultAsync();
     }
 
+    public async Task<ProviderCountry?> GetByProviderAndCountryAsync(Guid providerId, Guid countryId)
+    {
+        return await _context.ProviderCountries
+            .FirstOrDefaultAsync(pc => pc.ProviderId == providerId && pc.CountryId == countryId);
+    }
+
     public async Task<List<ProviderCountry>> GetUnimportedAsync(Guid providerId)
     {
         return await _context.ProviderCountries

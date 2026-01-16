@@ -125,10 +125,10 @@ public static class ConfigurationSeeder
                 Name = "Fortuna",
                 Code = "fortuna",
                 BaseUrl = "https://www.ifortuna.cz",
-                IsActive = false,
+                IsActive = true,
                 Priority = 9,
                 Type = ProviderType.BettingProvider,
-                Notes = "Czech betting provider",
+                Notes = "Czech betting provider - uses Playwright for JavaScript rendering",
                 ScanCapabilities = BettingProviderCapabilities
             };
             context.DataProviders.Add(fortuna);

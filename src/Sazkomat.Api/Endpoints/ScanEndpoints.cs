@@ -250,6 +250,39 @@ public static class ScanEndpoints
         .Produces(400)
         .Produces(500);
 
+        // Backfill provider_countries from resolved unmatched_countries
+        group.MapPost("/backfill-provider-countries", async (
+            [FromBody] BackfillProviderCountriesRequest request,
+            IScanService scanService) =>
+        {
+            try
+            {
+                var (created, updated) = await scanService.BackfillProviderCountriesFromResolvedAsync(request.ProviderId);
+                return Results.Ok(new {
+                    created,
+                    updated,
+                    total = created + updated,
+                    message = $"Backfilled provider_countries: {created} created, {updated} updated"
+                });
+            }
+            catch (ArgumentException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return Results.Problem(
+                    detail: ex.Message,
+                    statusCode: 500,
+                    title: "Internal server error");
+            }
+        })
+        .WithName("BackfillProviderCountries")
+        .WithDescription("Backfills provider_countries from resolved unmatched_countries. Creates provider_countries entries for all resolved (mapped) unmatched countries that don't yet have a corresponding provider_countries record.")
+        .Produces(200)
+        .Produces(400)
+        .Produces(500);
+
         // Backfill LeagueProvider mappings from resolved unmatched_leagues
         group.MapPost("/backfill-league-providers", async (
             [FromBody] BackfillLeagueProvidersRequest request,
@@ -550,6 +583,7 @@ public record ScanSeasonsRequest(Guid ProviderId, List<Guid> LeagueIds);
 public record ScanFullRequest(Guid ProviderId);
 public record ApplyCountryMappingsRequest(Guid ProviderId);
 public record BackfillProviderLeaguesRequest(Guid ProviderId);
+public record BackfillProviderCountriesRequest(Guid ProviderId);
 public record BackfillLeagueProvidersRequest(Guid ProviderId);
 public record ResolveUnmatchedLeagueRequest(string BetExplorerSlug, string? Notes = null);
 public record IgnoreUnmatchedLeagueRequest(string? Notes = null);

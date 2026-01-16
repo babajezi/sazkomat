@@ -13,4 +13,5 @@ public interface ICountryProviderRepository
     Task AddAsync(CountryProvider countryProvider);
     Task UpdateAsync(CountryProvider countryProvider);
     Task DeleteAsync(Guid id);
+    Task<int> DeleteByProviderAsync(Guid providerId);
 }

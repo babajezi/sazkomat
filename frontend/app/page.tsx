@@ -310,6 +310,20 @@ function Dashboard() {
                   </Link>
                 </CardContent>
               </Card>
+
+              <Card className="border-yellow-200">
+                <CardHeader>
+                  <CardTitle>⚠️ Nespárované Země</CardTitle>
+                  <CardDescription>
+                    Země z betting providerů bez shody v BetExploreru
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Link href="/unmatched-countries">
+                    <Button className="w-full" variant="outline">Zobrazit nespárované</Button>
+                  </Link>
+                </CardContent>
+              </Card>
             </div>
 
             <h2 className="text-2xl font-semibold mb-4 mt-8">Pokročilé nástroje</h2>

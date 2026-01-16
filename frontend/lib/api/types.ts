@@ -852,3 +852,30 @@ export interface UnmatchedLeagueStats {
   byProvider: Array<{ provider: string; total: number; unresolved: number }>;
   topUnresolvedCountries: Array<{ country: string; count: number }>;
 }
+
+// ==================== UNMATCHED COUNTRIES ====================
+
+export interface UnmatchedCountry {
+  id: string;
+  providerId: string;
+  providerName?: string;
+  providerCountryId?: string;
+  providerCountryName: string;
+  providerSlug?: string;
+  scrapedAt: string;
+  isResolved: boolean;
+  resolutionType?: "Mapped" | "Ignored" | "Unavailable";
+  resolvedCountryId?: string;
+  resolvedCountryName?: string;
+  resolvedCountryCode?: string;
+  resolvedAt?: string;
+  resolutionNotes?: string;
+}
+
+export interface UnmatchedCountryStats {
+  total: number;
+  unresolved: number;
+  mapped: number;
+  ignored: number;
+  unavailable: number;
+}

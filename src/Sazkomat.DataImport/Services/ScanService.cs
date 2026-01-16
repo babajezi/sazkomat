@@ -21,6 +21,7 @@ public class ScanService : IScanService
     private readonly ILeagueProviderRepository _leagueProviderRepo;
     private readonly ICountryNameMappingRepository _countryNameMappingRepo;
     private readonly IUnmatchedLeagueRepository _unmatchedLeagueRepo;
+    private readonly IUnmatchedCountryRepository _unmatchedCountryRepo;
     private readonly IEnumerable<ICountryScraper> _countryScrapers;
     private readonly IEnumerable<ILeagueMetadataScraper> _leagueScrapers;
     private readonly IEnumerable<ISeasonScraper> _seasonScrapers;
@@ -41,6 +42,7 @@ public class ScanService : IScanService
         ILeagueProviderRepository leagueProviderRepo,
         ICountryNameMappingRepository countryNameMappingRepo,
         IUnmatchedLeagueRepository unmatchedLeagueRepo,
+        IUnmatchedCountryRepository unmatchedCountryRepo,
         IEnumerable<ICountryScraper> countryScrapers,
         IEnumerable<ILeagueMetadataScraper> leagueScrapers,
         IEnumerable<ISeasonScraper> seasonScrapers,
@@ -60,6 +62,7 @@ public class ScanService : IScanService
         _leagueProviderRepo = leagueProviderRepo;
         _countryNameMappingRepo = countryNameMappingRepo;
         _unmatchedLeagueRepo = unmatchedLeagueRepo;
+        _unmatchedCountryRepo = unmatchedCountryRepo;
         _countryScrapers = countryScrapers;
         _leagueScrapers = leagueScrapers;
         _seasonScrapers = seasonScrapers;
@@ -351,7 +354,39 @@ public class ScanService : IScanService
                     }
                     else
                     {
-                        // NOT MATCHED: Create CountryNameMapping for manual review (not ProviderCountry!)
+                        // NOT MATCHED: Create UnmatchedCountry for manual resolution workflow
+                        var existingUnmatched = await _unmatchedCountryRepo.FindExistingAsync(
+                            providerId,
+                            country.Name);
+
+                        if (existingUnmatched == null)
+                        {
+                            var unmatchedCountry = new UnmatchedCountry
+                            {
+                                ProviderId = providerId,
+                                ProviderCountryId = country.Code,
+                                ProviderCountryName = country.Name,
+                                ProviderSlug = country.Code,
+                                ScrapedAt = DateTime.UtcNow,
+                                IsResolved = false
+                            };
+
+                            await _unmatchedCountryRepo.CreateAsync(unmatchedCountry);
+
+                            _logger.LogInformation("📝 Created UnmatchedCountry for manual review: '{ProviderName}' ({ProviderCode})",
+                                country.Name, country.Code);
+                        }
+                        else
+                        {
+                            // Update ScrapedAt timestamp
+                            existingUnmatched.ScrapedAt = DateTime.UtcNow;
+                            await _unmatchedCountryRepo.UpdateAsync(existingUnmatched);
+
+                            _logger.LogDebug("UnmatchedCountry already exists for {CountryName} ({CountryCode}), IsResolved={IsResolved}",
+                                country.Name, country.Code, existingUnmatched.IsResolved);
+                        }
+
+                        // Also create CountryNameMapping for backward compatibility
                         var existingAnyMapping = await _countryNameMappingRepo.FindAnyMappingAsync(
                             provider.Code.ToLowerInvariant(),
                             country.Code);
@@ -369,14 +404,6 @@ public class ScanService : IScanService
                             };
 
                             await _countryNameMappingRepo.CreateAsync(newMapping);
-
-                            _logger.LogInformation("📝 Created CountryNameMapping for manual review: '{ProviderName}' ({ProviderCode})",
-                                country.Name, country.Code);
-                        }
-                        else
-                        {
-                            _logger.LogDebug("Mapping already exists for {CountryName} ({CountryCode}), IsActive={IsActive}",
-                                country.Name, country.Code, existingAnyMapping.IsActive);
                         }
                     }
                 }
@@ -428,20 +455,45 @@ public class ScanService : IScanService
                 _logger.LogInformation("Applied {Count} country mappings", mappingCount);
             }
 
-            // Update sync job as completed
-            syncJob.Status = SyncJobStatus.Completed;
+            // Detect duplicate entries (same CountryId, different codes)
+            var duplicates = await DetectCountryDuplicatesAsync(providerId);
+            var warnings = new List<string>();
+
+            if (duplicates.Count > 0)
+            {
+                foreach (var dup in duplicates)
+                {
+                    var variantCodes = string.Join(", ", dup.Variants.Select(v => v.ProviderCode));
+                    var warning = $"Duplicate country entries: {variantCodes}";
+                    warnings.Add(warning);
+                    _logger.LogWarning("Duplicate detected for CountryId {CountryId}: {Variants}",
+                        dup.CountryId, variantCodes);
+                }
+            }
+
+            // Update sync job - use CompletedWithWarnings if duplicates found
+            syncJob.Status = duplicates.Count > 0
+                ? SyncJobStatus.CompletedWithWarnings
+                : SyncJobStatus.Completed;
             syncJob.CompletedAt = DateTime.UtcNow;
             syncJob.ProgressData = JsonSerializer.Serialize(new
             {
                 total = scrapedCountries.Count,
                 @new = newCount,
                 updated = updatedCount,
-                fromMappings = mappingCount
+                fromMappings = mappingCount,
+                duplicatesDetected = duplicates.Count,
+                warnings = warnings,
+                duplicates = duplicates.Select(d => new
+                {
+                    countryId = d.CountryId.ToString(),
+                    variants = d.Variants.Select(v => v.ProviderCode).ToList()
+                }).ToList()
             });
             await _syncJobRepo.UpdateAsync(syncJob);
 
-            _logger.LogInformation("Country scan completed. New: {New}, Updated: {Updated}, From mappings: {Mappings}",
-                newCount, updatedCount, mappingCount);
+            _logger.LogInformation("Country scan completed. New: {New}, Updated: {Updated}, From mappings: {Mappings}, Duplicates: {Duplicates}",
+                newCount, updatedCount, mappingCount, duplicates.Count);
         }
         catch (Exception ex)
         {
@@ -1343,20 +1395,99 @@ public class ScanService : IScanService
                 _logger.LogDebug("✓ Created provider_leagues: {LeagueName} → LeagueId {LeagueId}",
                     unmatchedLeague.ProviderLeagueName, unmatchedLeague.ResolvedLeagueId.Value);
             }
-            else if (!existingProviderLeague.LeagueId.HasValue)
+            else if (!existingProviderLeague.LeagueId.HasValue ||
+                     existingProviderLeague.LeagueId.Value != unmatchedLeague.ResolvedLeagueId.Value)
             {
-                // Update existing record with league_id
+                // Update existing record with league_id (or fix incorrect league_id)
+                var oldLeagueId = existingProviderLeague.LeagueId;
                 existingProviderLeague.LeagueId = unmatchedLeague.ResolvedLeagueId.Value;
                 existingProviderLeague.IsImported = true;
                 await _providerLeagueRepo.UpdateAsync(existingProviderLeague);
                 updatedCount++;
 
-                _logger.LogDebug("✓ Updated provider_leagues: {LeagueName} → LeagueId {LeagueId}",
-                    unmatchedLeague.ProviderLeagueName, unmatchedLeague.ResolvedLeagueId.Value);
+                _logger.LogDebug("✓ Updated provider_leagues: {LeagueName} → LeagueId {LeagueId} (was: {OldLeagueId})",
+                    unmatchedLeague.ProviderLeagueName, unmatchedLeague.ResolvedLeagueId.Value, oldLeagueId);
             }
         }
 
         _logger.LogInformation("BackfillProviderLeagues completed for provider {ProviderName}: {Created} created, {Updated} updated",
+            provider.Name, createdCount, updatedCount);
+
+        return (createdCount, updatedCount);
+    }
+
+    public async Task<(int Created, int Updated)> BackfillProviderCountriesFromResolvedAsync(Guid providerId)
+    {
+        var provider = await _dataProviderRepo.GetByIdAsync(providerId);
+        if (provider == null)
+        {
+            throw new ArgumentException($"Provider {providerId} not found", nameof(providerId));
+        }
+
+        _logger.LogInformation("Starting backfill of provider_countries from resolved unmatched_countries for provider {ProviderName}",
+            provider.Name);
+
+        // Get all resolved (mapped) unmatched countries for this provider
+        var resolvedUnmatchedCountries = await _unmatchedCountryRepo.GetResolvedAsMappedByProviderAsync(providerId);
+
+        int createdCount = 0;
+        int updatedCount = 0;
+
+        foreach (var unmatchedCountry in resolvedUnmatchedCountries)
+        {
+            if (!unmatchedCountry.ResolvedCountryId.HasValue)
+            {
+                continue;
+            }
+
+            var providerCode = unmatchedCountry.ProviderSlug
+                ?? unmatchedCountry.ProviderCountryName.ToLowerInvariant().Replace(" ", "-");
+
+            // Check if provider_countries record already exists BY CODE
+            var existingByCode = await _providerCountryRepo.GetByProviderCodeAsync(providerId, providerCode);
+
+            // Check if provider_countries record already exists BY COUNTRY_ID (prevent duplicates)
+            var existingByCountryId = await _providerCountryRepo.GetByProviderAndCountryAsync(
+                providerId, unmatchedCountry.ResolvedCountryId.Value);
+
+            if (existingByCode == null && existingByCountryId == null)
+            {
+                // Create new provider_countries record - no existing record found
+                var providerCountry = new ProviderCountry
+                {
+                    ProviderId = providerId,
+                    ProviderName = unmatchedCountry.ProviderCountryName,
+                    ProviderCode = providerCode,
+                    CountryId = unmatchedCountry.ResolvedCountryId.Value,
+                    IsImported = true,
+                    ScrapedAt = DateTime.UtcNow
+                };
+                await _providerCountryRepo.CreateAsync(providerCountry);
+                createdCount++;
+
+                _logger.LogDebug("✓ Created provider_countries: {CountryName} → CountryId {CountryId}",
+                    unmatchedCountry.ProviderCountryName, unmatchedCountry.ResolvedCountryId.Value);
+            }
+            else if (existingByCountryId != null)
+            {
+                // Already exists record for this country - skip to prevent duplicate
+                _logger.LogDebug("⏭️ Skipping: {CountryName} already exists with code {ExistingCode}",
+                    unmatchedCountry.ProviderCountryName, existingByCountryId.ProviderCode);
+            }
+            else if (existingByCode != null && !existingByCode.CountryId.HasValue)
+            {
+                // Update existing record (by code) with country_id
+                existingByCode.CountryId = unmatchedCountry.ResolvedCountryId.Value;
+                existingByCode.IsImported = true;
+                await _providerCountryRepo.UpdateAsync(existingByCode);
+                updatedCount++;
+
+                _logger.LogDebug("✓ Updated provider_countries: {CountryName} → CountryId {CountryId}",
+                    unmatchedCountry.ProviderCountryName, unmatchedCountry.ResolvedCountryId.Value);
+            }
+        }
+
+        _logger.LogInformation("BackfillProviderCountries completed for provider {ProviderName}: {Created} created, {Updated} updated",
             provider.Name, createdCount, updatedCount);
 
         return (createdCount, updatedCount);
@@ -1763,5 +1894,47 @@ public class ScanService : IScanService
             _logger.LogWarning(ex, "Failed to parse ScanCapabilities JSON: {Json}", scanCapabilitiesJson);
             return null;
         }
+    }
+
+    /// <summary>
+    /// Detects duplicate ProviderCountry entries for a provider (same CountryId, different codes)
+    /// </summary>
+    private async Task<List<DuplicateCountryGroup>> DetectCountryDuplicatesAsync(Guid providerId)
+    {
+        var allCountries = await _providerCountryRepo.GetByProviderIdAsync(providerId);
+
+        // Group by CountryId (only matched entries)
+        var duplicates = allCountries
+            .Where(c => c.CountryId != null)
+            .GroupBy(c => c.CountryId)
+            .Where(g => g.Count() > 1)
+            .Select(g => new DuplicateCountryGroup
+            {
+                CountryId = g.Key!.Value,
+                Variants = g.Select(c => new DuplicateVariant
+                {
+                    Id = c.Id,
+                    ProviderCode = c.ProviderCode,
+                    ProviderName = c.ProviderName,
+                    ScrapedAt = c.ScrapedAt
+                }).ToList()
+            })
+            .ToList();
+
+        return duplicates;
+    }
+
+    private record DuplicateCountryGroup
+    {
+        public Guid CountryId { get; init; }
+        public List<DuplicateVariant> Variants { get; init; } = new();
+    }
+
+    private record DuplicateVariant
+    {
+        public Guid Id { get; init; }
+        public string ProviderCode { get; init; } = string.Empty;
+        public string ProviderName { get; init; } = string.Empty;
+        public DateTime? ScrapedAt { get; init; }
     }
 }

@@ -289,7 +289,7 @@ export default function CountriesPage() {
                 <select
                   id="filter-active"
                   value={filterActive}
-                  onChange={(e) => setFilterActive(e.target.value)}
+                  onChange={(e) => { setFilterActive(e.target.value); setPage(0); }}
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <option value="">Všechny země</option>
@@ -304,7 +304,7 @@ export default function CountriesPage() {
                 <select
                   id="filter-provider"
                   value={filterProviderId}
-                  onChange={(e) => setFilterProviderId(e.target.value)}
+                  onChange={(e) => { setFilterProviderId(e.target.value); setPage(0); }}
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <option value="">Všichni provideři</option>
@@ -353,7 +353,7 @@ export default function CountriesPage() {
                 <select
                   id="filter-has-providers"
                   value={filterHasProviders}
-                  onChange={(e) => setFilterHasProviders(e.target.value)}
+                  onChange={(e) => { setFilterHasProviders(e.target.value); setPage(0); }}
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <option value="">Vše</option>
@@ -387,7 +387,7 @@ export default function CountriesPage() {
           <PaginationControls
             page={page}
             pageSize={pageSize}
-            totalCount={countries?.length || 0}
+            totalCount={filteredCountries.length}
             displayedCount={filteredCountries.length}
             itemName="zemí"
             onPageChange={setPage}

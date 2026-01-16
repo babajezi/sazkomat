@@ -255,6 +255,60 @@ public static class ConfigurationEndpoints
         .Produces(200)
         .Produces(400);
 
+        // ===== PROVIDER MAPPING MANAGEMENT =====
+
+        // DELETE /api/config/country-providers/by-provider
+        group.MapDelete("/country-providers/by-provider", async (
+            [FromBody] DeleteByProviderRequest request,
+            ICountryProviderRepository repository,
+            Sazkomat.DataImport.Data.DataImportDbContext dataImportContext) =>
+        {
+            var deleted = await repository.DeleteByProviderAsync(request.ProviderId);
+
+            // Also reset provider_countries.is_imported flag so they can be re-imported
+            var resetCount = await dataImportContext.ProviderCountries
+                .Where(pc => pc.ProviderId == request.ProviderId && pc.IsImported)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(pc => pc.IsImported, false)
+                    .SetProperty(pc => pc.ImportedAt, (DateTime?)null));
+
+            return Results.Ok(new
+            {
+                deleted,
+                resetProviderCountries = resetCount,
+                message = $"Deleted {deleted} country provider mappings, reset {resetCount} provider_countries"
+            });
+        })
+        .WithName("DeleteCountryProvidersByProvider")
+        .WithDescription("Delete all CountryProvider mappings for a specific provider")
+        .Produces(200);
+
+        // DELETE /api/config/league-providers/by-provider
+        group.MapDelete("/league-providers/by-provider", async (
+            [FromBody] DeleteByProviderRequest request,
+            ILeagueProviderRepository repository,
+            Sazkomat.DataImport.Data.DataImportDbContext dataImportContext) =>
+        {
+            var deleted = await repository.DeleteByProviderAsync(request.ProviderId);
+
+            // Also reset provider_leagues.is_imported flag so they can be re-imported
+            var resetCount = await dataImportContext.ProviderLeagues
+                .Where(pl => pl.ProviderId == request.ProviderId && pl.IsImported)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(pl => pl.IsImported, false)
+                    .SetProperty(pl => pl.ImportedAt, (DateTime?)null));
+
+            return Results.Ok(new
+            {
+                deleted,
+                resetProviderLeagues = resetCount,
+                message = $"Deleted {deleted} league provider mappings, reset {resetCount} provider_leagues"
+            });
+        })
+        .WithName("DeleteLeagueProvidersByProvider")
+        .WithDescription("Delete all LeagueProvider mappings for a specific provider")
+        .Produces(200);
+
         // ===== BETTING PROVIDERS ENDPOINTS =====
 
         // GET /api/config/providers/betting
@@ -634,3 +688,5 @@ public record UpdateSportProviderRequest(
     string? ProviderCode = null,
     bool? IsActive = null,
     string? Metadata = null);
+
+public record DeleteByProviderRequest(Guid ProviderId);

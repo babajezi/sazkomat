@@ -546,15 +546,25 @@ public class ImportService : IImportService
                     League? league = null;
                     if (existingLeagueProvider != null)
                     {
-                        // League already exists, reuse it
+                        // League already exists via LeagueProvider mapping, reuse it
                         league = await _leagueRepo.GetByIdAsync(existingLeagueProvider.LeagueId);
                         _logger.LogInformation("League {LeagueId} ({Name}) already exists for provider slug {Slug}, reusing",
                             league?.Id, league?.Name, providerLeague.ProviderSlug);
                     }
+                    else if (providerLeague.LeagueId.HasValue)
+                    {
+                        // League was resolved via unmatched_leagues, use that
+                        league = await _leagueRepo.GetByIdAsync(providerLeague.LeagueId.Value);
+                        if (league != null)
+                        {
+                            _logger.LogInformation("Using pre-resolved league {LeagueId} ({Name}) for {ProviderLeague}",
+                                league.Id, league.Name, providerLeague.ProviderName);
+                        }
+                    }
 
                     if (league == null)
                     {
-                        // Create new League
+                        // Create new League - only if no existing league found
                         // All providers (including betting providers) can create leagues if they are mapped to BetExplorer
                         league = new League
                         {
