@@ -38,15 +38,39 @@ public class FlareSolverrClient
         {
             _logger.LogInformation("FlareSolverr: Fetching {Url}", url);
 
+            // Filter out cookies with invalid expiry (null or 0) to avoid Chrome errors
+            var sanitizedCookies = cookies?.Select(c => new FlareSolverrCookie
+            {
+                Name = c.Name,
+                Value = c.Value,
+                Domain = c.Domain,
+                Path = c.Path,
+                Expiry = c.Expiry > 0 ? c.Expiry : null, // Only include valid expiry
+                HttpOnly = c.HttpOnly,
+                Secure = c.Secure,
+                SameSite = c.SameSite
+            }).ToList();
+
             var request = new FlareSolverrRequest
             {
                 Cmd = "request.get",
                 Url = url,
                 MaxTimeout = _maxTimeout,
-                Cookies = cookies
+                Cookies = sanitizedCookies
             };
 
-            var response = await _httpClient.PostAsJsonAsync(_flareSolverrUrl, request);
+            // Use custom serialization to skip null values
+            var jsonOptions = new JsonSerializerOptions
+            {
+                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            };
+            var jsonContent = new StringContent(
+                JsonSerializer.Serialize(request, jsonOptions),
+                System.Text.Encoding.UTF8,
+                "application/json");
+
+            var response = await _httpClient.PostAsync(_flareSolverrUrl, jsonContent);
             var result = await response.Content.ReadFromJsonAsync<FlareSolverrResponse>();
 
             if (result?.Status != "ok")
@@ -101,15 +125,27 @@ public class FlareSolverrClient
             };
 
             var response = await _httpClient.PostAsJsonAsync(_flareSolverrUrl, request);
-            var result = await response.Content.ReadFromJsonAsync<FlareSolverrResponse>();
+
+            // Debug: Log raw response
+            var rawContent = await response.Content.ReadAsStringAsync();
+            _logger.LogDebug("FlareSolverr raw response length: {Length}", rawContent.Length);
+
+            var result = JsonSerializer.Deserialize<FlareSolverrResponse>(rawContent, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
 
             if (result?.Status != "ok")
             {
+                _logger.LogWarning("FlareSolverr status not ok: {Status}, message: {Message}", result?.Status, result?.Message);
                 return Result<List<FlareSolverrCookie>>.Failure(result?.Message ?? "Failed to get cookies");
             }
 
             var cookies = result.Solution?.Cookies ?? new List<FlareSolverrCookie>();
-            _logger.LogInformation("FlareSolverr: Got {Count} cookies", cookies.Count);
+            _logger.LogInformation("FlareSolverr: Got {Count} cookies (Solution null: {SolutionNull}, Cookies null: {CookiesNull})",
+                cookies.Count,
+                result.Solution == null,
+                result.Solution?.Cookies == null);
 
             return Result<List<FlareSolverrCookie>>.Success(cookies);
         }
@@ -117,6 +153,134 @@ public class FlareSolverrClient
         {
             _logger.LogError(ex, "FlareSolverr cookie error");
             return Result<List<FlareSolverrCookie>>.Failure($"Cookie error: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Creates a persistent FlareSolverr session
+    /// </summary>
+    public async Task<Result<string>> CreateSessionAsync(string sessionId)
+    {
+        try
+        {
+            _logger.LogInformation("FlareSolverr: Creating session {SessionId}", sessionId);
+
+            var request = new { cmd = "sessions.create", session = sessionId };
+            var response = await _httpClient.PostAsJsonAsync(_flareSolverrUrl, request);
+            var result = await response.Content.ReadFromJsonAsync<FlareSolverrResponse>();
+
+            if (result?.Status != "ok")
+            {
+                // Session might already exist, which is fine
+                if (result?.Message?.Contains("already exists") == true)
+                {
+                    _logger.LogDebug("FlareSolverr session {SessionId} already exists", sessionId);
+                    return Result<string>.Success(sessionId);
+                }
+                _logger.LogWarning("FlareSolverr session create failed: {Message}", result?.Message);
+                return Result<string>.Failure(result?.Message ?? "Failed to create session");
+            }
+
+            _logger.LogInformation("FlareSolverr: Session {SessionId} created", sessionId);
+            return Result<string>.Success(sessionId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "FlareSolverr session create error");
+            return Result<string>.Failure($"Session create error: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Destroys a FlareSolverr session
+    /// </summary>
+    public async Task<Result> DestroySessionAsync(string sessionId)
+    {
+        try
+        {
+            _logger.LogDebug("FlareSolverr: Destroying session {SessionId}", sessionId);
+
+            var request = new { cmd = "sessions.destroy", session = sessionId };
+            var response = await _httpClient.PostAsJsonAsync(_flareSolverrUrl, request);
+            var result = await response.Content.ReadFromJsonAsync<FlareSolverrResponse>();
+
+            if (result?.Status != "ok")
+            {
+                _logger.LogWarning("FlareSolverr session destroy warning: {Message}", result?.Message);
+                // Not a failure - session might not exist
+            }
+
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "FlareSolverr session destroy error (non-critical)");
+            return Result.Success(); // Non-critical error
+        }
+    }
+
+    /// <summary>
+    /// Fetches a URL using a persistent FlareSolverr session
+    /// </summary>
+    public async Task<Result<string>> GetWithSessionAsync(string url, string sessionId)
+    {
+        try
+        {
+            _logger.LogInformation("FlareSolverr: Fetching {Url} with session {SessionId}", url, sessionId);
+
+            var request = new FlareSolverrSessionRequest
+            {
+                Cmd = "request.get",
+                Url = url,
+                Session = sessionId,
+                MaxTimeout = _maxTimeout
+            };
+
+            var jsonOptions = new JsonSerializerOptions
+            {
+                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            };
+            var jsonContent = new StringContent(
+                JsonSerializer.Serialize(request, jsonOptions),
+                System.Text.Encoding.UTF8,
+                "application/json");
+
+            var response = await _httpClient.PostAsync(_flareSolverrUrl, jsonContent);
+            var result = await response.Content.ReadFromJsonAsync<FlareSolverrResponse>();
+
+            if (result?.Status != "ok")
+            {
+                _logger.LogError("FlareSolverr error: {Message}", result?.Message ?? "Unknown error");
+                return Result<string>.Failure(result?.Message ?? "FlareSolverr request failed");
+            }
+
+            var content = result.Solution?.Response ?? "";
+
+            // Extract JSON from HTML wrapper if present
+            if (content.Contains("<pre>") && content.Contains("</pre>"))
+            {
+                var match = Regex.Match(content, @"<pre>({.*})</pre>", RegexOptions.Singleline);
+                if (match.Success)
+                {
+                    content = match.Groups[1].Value;
+                }
+            }
+
+            _logger.LogInformation("FlareSolverr: Got {Length} bytes with session {SessionId}",
+                content.Length, sessionId);
+
+            return Result<string>.Success(content);
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(ex, "FlareSolverr HTTP error");
+            return Result<string>.Failure($"FlareSolverr unavailable: {ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "FlareSolverr error");
+            return Result<string>.Failure($"FlareSolverr error: {ex.Message}");
         }
     }
 }
@@ -136,6 +300,21 @@ public class FlareSolverrRequest
 
     [JsonPropertyName("cookies")]
     public List<FlareSolverrCookie>? Cookies { get; set; }
+}
+
+public class FlareSolverrSessionRequest
+{
+    [JsonPropertyName("cmd")]
+    public string Cmd { get; set; } = "request.get";
+
+    [JsonPropertyName("url")]
+    public string Url { get; set; } = "";
+
+    [JsonPropertyName("session")]
+    public string Session { get; set; } = "";
+
+    [JsonPropertyName("maxTimeout")]
+    public int MaxTimeout { get; set; } = 60000;
 }
 
 public class FlareSolverrResponse
@@ -182,6 +361,10 @@ public class FlareSolverrCookie
     [JsonPropertyName("path")]
     public string? Path { get; set; }
 
+    [JsonPropertyName("expiry")]
+    public double? Expiry { get; set; }
+
+    // Legacy alias for backwards compatibility
     [JsonPropertyName("expires")]
     public double? Expires { get; set; }
 

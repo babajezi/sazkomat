@@ -202,24 +202,25 @@ public class BetExplorerEnrichmentService : IBetExplorerEnrichmentService
             return exactMatch;
         }
 
-        // Try fuzzy match - find league with highest similarity score
-        var matches = genderFilteredLeagues
-            .Select(bl => new
-            {
-                League = bl,
-                Similarity = CalculateSimilarity(normalizedProviderName, NormalizeName(bl.Name))
-            })
-            .Where(m => m.Similarity >= 0.7) // Threshold: 70% similarity
-            .OrderByDescending(m => m.Similarity)
-            .ToList();
-
-        if (matches.Any())
-        {
-            var bestMatch = matches.First();
-            _logger.LogDebug("Found fuzzy match: '{Match}' (similarity: {Similarity:P})",
-                bestMatch.League.Name, bestMatch.Similarity);
-            return bestMatch.League;
-        }
+        // DISABLED: Fuzzy matching removed due to unreliable results (e.g., "1. turecká liga" → "1. Lig" instead of "Super Lig")
+        // Leagues that don't match exactly will go to unmatched_leagues for manual resolution
+        // var matches = genderFilteredLeagues
+        //     .Select(bl => new
+        //     {
+        //         League = bl,
+        //         Similarity = CalculateSimilarity(normalizedProviderName, NormalizeName(bl.Name))
+        //     })
+        //     .Where(m => m.Similarity >= 0.7) // Threshold: 70% similarity
+        //     .OrderByDescending(m => m.Similarity)
+        //     .ToList();
+        //
+        // if (matches.Any())
+        // {
+        //     var bestMatch = matches.First();
+        //     _logger.LogDebug("Found fuzzy match: '{Match}' (similarity: {Similarity:P})",
+        //         bestMatch.League.Name, bestMatch.Similarity);
+        //     return bestMatch.League;
+        // }
 
         // Try slug-based matching as last resort
         // Example: "Czech First League" → "1-liga"
@@ -418,24 +419,25 @@ public class BetExplorerEnrichmentService : IBetExplorerEnrichmentService
                 return slugMatch;
             }
 
-            // Try fuzzy match (on gender-filtered list)
-            var fuzzyMatches = genderFilteredLeagues
-                .Select(l => new
-                {
-                    League = l,
-                    Similarity = CalculateSimilarity(normalizedProviderName, NormalizeName(l.Name))
-                })
-                .Where(m => m.Similarity >= 0.7)
-                .OrderByDescending(m => m.Similarity)
-                .ToList();
-
-            if (fuzzyMatches.Any())
-            {
-                var bestMatch = fuzzyMatches.First();
-                _logger.LogInformation("✓ Found league via fuzzy match: '{ProviderLeague}' → '{ConfigLeague}' (similarity: {Similarity:P})",
-                    providerLeague.Name, bestMatch.League.Name, bestMatch.Similarity);
-                return bestMatch.League;
-            }
+            // DISABLED: Fuzzy matching removed due to unreliable results (e.g., "1. turecká liga" → "1. Lig" instead of "Super Lig")
+            // Leagues that don't match exactly will go to unmatched_leagues for manual resolution
+            // var fuzzyMatches = genderFilteredLeagues
+            //     .Select(l => new
+            //     {
+            //         League = l,
+            //         Similarity = CalculateSimilarity(normalizedProviderName, NormalizeName(l.Name))
+            //     })
+            //     .Where(m => m.Similarity >= 0.7)
+            //     .OrderByDescending(m => m.Similarity)
+            //     .ToList();
+            //
+            // if (fuzzyMatches.Any())
+            // {
+            //     var bestMatch = fuzzyMatches.First();
+            //     _logger.LogInformation("✓ Found league via fuzzy match: '{ProviderLeague}' → '{ConfigLeague}' (similarity: {Similarity:P})",
+            //         providerLeague.Name, bestMatch.League.Name, bestMatch.Similarity);
+            //     return bestMatch.League;
+            // }
 
             _logger.LogDebug("No matching config league found for '{ProviderLeague}' [{Country}]",
                 providerLeague.Name, country.Name);
@@ -606,7 +608,7 @@ public class BetExplorerEnrichmentService : IBetExplorerEnrichmentService
                 return;
             }
 
-            // Create new mapping
+            // Create or update mapping
             var leagueProvider = new LeagueProvider
             {
                 LeagueId = league.Id,
@@ -616,8 +618,8 @@ public class BetExplorerEnrichmentService : IBetExplorerEnrichmentService
                 IsActive = true
             };
 
-            await _leagueProviderRepository.AddAsync(leagueProvider);
-            _logger.LogInformation("Created BetExplorer LeagueProvider mapping for '{League}' (slug: {Slug})",
+            await _leagueProviderRepository.AddOrUpdateAsync(leagueProvider);
+            _logger.LogInformation("Created/Updated BetExplorer LeagueProvider mapping for '{League}' (slug: {Slug})",
                 league.Name, league.BetExplorerSlug);
         }
         catch (Exception ex)

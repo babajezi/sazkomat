@@ -75,6 +75,34 @@ public class LeagueProviderRepository : ILeagueProviderRepository
         _logger.LogDebug("Successfully added league provider mapping {LeagueProviderId} to database", leagueProvider.Id);
     }
 
+    public async Task<LeagueProvider> AddOrUpdateAsync(LeagueProvider leagueProvider)
+    {
+        var existing = await _context.LeagueProviders
+            .FirstOrDefaultAsync(lp =>
+                lp.ProviderId == leagueProvider.ProviderId &&
+                lp.ProviderSlug == leagueProvider.ProviderSlug);
+
+        if (existing != null)
+        {
+            _logger.LogDebug("Updating existing league provider mapping {LeagueProviderId} (Slug: {ProviderSlug})",
+                existing.Id, existing.ProviderSlug);
+            existing.LeagueId = leagueProvider.LeagueId;
+            existing.ProviderName = leagueProvider.ProviderName;
+            existing.IsActive = leagueProvider.IsActive;
+            existing.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+            return existing;
+        }
+        else
+        {
+            _logger.LogDebug("Adding new league provider mapping for league {LeagueId}, provider {ProviderId} (Slug: {ProviderSlug})",
+                leagueProvider.LeagueId, leagueProvider.ProviderId, leagueProvider.ProviderSlug);
+            await _context.LeagueProviders.AddAsync(leagueProvider);
+            await _context.SaveChangesAsync();
+            return leagueProvider;
+        }
+    }
+
     public async Task UpdateAsync(LeagueProvider leagueProvider)
     {
         _logger.LogDebug("Updating league provider mapping {LeagueProviderId} (IsActive={IsActive}) in database",

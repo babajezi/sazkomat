@@ -318,11 +318,8 @@ public static class ScanEndpoints
                     var existingByLeague = await leagueProviderRepo.GetByLeagueAndProviderAsync(
                         unmatched.ResolvedLeagueId.Value, unmatched.ProviderId);
 
-                    // Also check by provider+slug to avoid unique constraint violation
-                    var existingBySlug = await leagueProviderRepo.GetByProviderAndSlugAsync(
-                        unmatched.ProviderId, providerSlug);
-
-                    if (existingByLeague == null && existingBySlug == null)
+                    // Use AddOrUpdate to handle existing mappings gracefully
+                    if (existingByLeague == null)
                     {
                         var leagueProvider = new Configuration.Entities.LeagueProvider
                         {
@@ -332,9 +329,9 @@ public static class ScanEndpoints
                             ProviderName = unmatched.ProviderLeagueName,
                             IsActive = true
                         };
-                        await leagueProviderRepo.AddAsync(leagueProvider);
+                        await leagueProviderRepo.AddOrUpdateAsync(leagueProvider);
                         created++;
-                        logger.LogInformation("Created LeagueProvider mapping for league {LeagueId} -> provider {ProviderId} (slug: {Slug})",
+                        logger.LogInformation("Created/Updated LeagueProvider mapping for league {LeagueId} -> provider {ProviderId} (slug: {Slug})",
                             unmatched.ResolvedLeagueId, unmatched.ProviderId, providerSlug);
                     }
                     else

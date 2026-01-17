@@ -268,6 +268,12 @@ builder.Services.AddScoped<Sazkomat.BettingProviders.Services.TipsportJsonExtrac
 builder.Services.AddScoped<Sazkomat.BettingProviders.Scrapers.TipsportScraper>();
 builder.Services.AddScoped<ILeagueMetadataScraper, Sazkomat.BettingProviders.Scrapers.TipsportLeagueMetadataScraper>();
 
+// Register Chance scrapers and services (shares infrastructure with Tipsport - SAZKA Group)
+builder.Services.AddScoped<Sazkomat.BettingProviders.Services.ChanceJsonExtractor>();
+builder.Services.AddScoped<Sazkomat.BettingProviders.Scrapers.ChanceScraper>();
+builder.Services.AddScoped<ILeagueMetadataScraper, Sazkomat.BettingProviders.Scrapers.ChanceLeagueMetadataScraper>();
+builder.Services.AddScoped<ICountryScraper, Sazkomat.BettingProviders.Scrapers.ChanceCountryScraper>();
+
 // Register Fortuna scrapers and services
 builder.Services.AddScoped<Sazkomat.BettingProviders.Services.FortunaJsonExtractor>();
 builder.Services.AddScoped<Sazkomat.BettingProviders.Scrapers.FortunaScraper>();

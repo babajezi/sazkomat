@@ -853,6 +853,28 @@ export interface UnmatchedLeagueStats {
   topUnresolvedCountries: Array<{ country: string; count: number }>;
 }
 
+export interface CopyResolutionMatch {
+  targetId: string;
+  targetLeagueName: string;
+  targetCountryCode: string;
+  sourceId: string;
+  sourceResolutionType: string;
+  sourceResolvedLeagueName?: string;
+  sourceResolvedLeagueId?: string;
+}
+
+export interface CopyResolutionsPreviewResponse {
+  matches: CopyResolutionMatch[];
+  skipped: number;
+  notFound: number;
+}
+
+export interface CopyResolutionsExecuteResponse {
+  copied: number;
+  skipped: number;
+  notFound: number;
+}
+
 // ==================== UNMATCHED COUNTRIES ====================
 
 export interface UnmatchedCountry {

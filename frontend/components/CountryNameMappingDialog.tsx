@@ -16,6 +16,21 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Check, ChevronsUpDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { CountryNameMapping } from "@/lib/api/types";
 
 interface CountryNameMappingDialogProps {
@@ -42,6 +57,7 @@ export function CountryNameMappingDialog({
     isSpecialCase: false,
     localizedName: "",
   });
+  const [countryComboboxOpen, setCountryComboboxOpen] = useState(false);
 
   const isEditMode = !!editingMapping;
 
@@ -49,6 +65,12 @@ export function CountryNameMappingDialog({
   const { data: bettingProviders } = useQuery({
     queryKey: ["bettingProviders"],
     queryFn: () => configApi.getBettingProviders(),
+  });
+
+  // Fetch countries for combobox
+  const { data: countries } = useQuery({
+    queryKey: ["countries"],
+    queryFn: () => configApi.getCountries(),
   });
 
   // Load data for edit mode
@@ -200,22 +222,55 @@ export function CountryNameMappingDialog({
               </p>
             </div>
 
-            {/* BetExplorer Code */}
+            {/* BetExplorer Code - Searchable Combobox */}
             <div className="grid gap-2">
-              <Label htmlFor="betExplorerCode">BetExplorer Code *</Label>
-              <Input
-                id="betExplorerCode"
-                type="text"
-                placeholder="např. czech-republic, slovakia"
-                value={formData.betExplorerCode}
-                onChange={(e) =>
-                  setFormData({ ...formData, betExplorerCode: e.target.value })
-                }
-                required
-                maxLength={200}
-              />
+              <Label>BetExplorer Země *</Label>
+              <Popover open={countryComboboxOpen} onOpenChange={setCountryComboboxOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={countryComboboxOpen}
+                    className="w-full justify-between font-normal"
+                  >
+                    {formData.betExplorerCode
+                      ? countries?.find((c) => c.code === formData.betExplorerCode)?.name || formData.betExplorerCode
+                      : "Vyberte zemi..."}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[400px] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Hledat zemi..." />
+                    <CommandList>
+                      <CommandEmpty>Země nenalezena.</CommandEmpty>
+                      <CommandGroup className="max-h-[300px] overflow-auto">
+                        {countries?.map((country) => (
+                          <CommandItem
+                            key={country.id}
+                            value={`${country.name} ${country.code}`}
+                            onSelect={() => {
+                              setFormData({ ...formData, betExplorerCode: country.code });
+                              setCountryComboboxOpen(false);
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                formData.betExplorerCode === country.code ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            <span className="flex-1">{country.name}</span>
+                            <span className="text-xs text-muted-foreground">{country.code}</span>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
               <p className="text-xs text-muted-foreground">
-                Kód země na BetExplorer.com (malými písmeny, s pomlčkami)
+                Vyberte cílovou zemi z číselníku BetExplorer
               </p>
             </div>
 

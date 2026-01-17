@@ -41,6 +41,8 @@ import type {
   UnmatchedCountry,
   UnmatchedCountryStats,
   BetExplorerLeague,
+  CopyResolutionsPreviewResponse,
+  CopyResolutionsExecuteResponse,
   // Auth types
   User,
   AuthResponse,
@@ -709,6 +711,30 @@ export const unmatchedLeagueApi = {
     const { data } = await apiClient.post(
       `/unmatched-leagues/${id}/resolve/create-from-betexplorer`,
       { betExplorerSlug, leagueName, countryId, notes }
+    );
+    return data;
+  },
+
+  // Preview copying resolutions from source to target provider
+  previewCopyResolutions: async (
+    sourceProviderId: string,
+    targetProviderId: string
+  ): Promise<CopyResolutionsPreviewResponse> => {
+    const { data } = await apiClient.post<CopyResolutionsPreviewResponse>(
+      "/unmatched-leagues/copy-resolutions/preview",
+      { sourceProviderId, targetProviderId }
+    );
+    return data;
+  },
+
+  // Execute copying resolutions from source to target provider
+  executeCopyResolutions: async (
+    sourceProviderId: string,
+    targetProviderId: string
+  ): Promise<CopyResolutionsExecuteResponse> => {
+    const { data } = await apiClient.post<CopyResolutionsExecuteResponse>(
+      "/unmatched-leagues/copy-resolutions/execute",
+      { sourceProviderId, targetProviderId }
     );
     return data;
   },

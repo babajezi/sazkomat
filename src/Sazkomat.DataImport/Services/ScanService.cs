@@ -802,7 +802,7 @@ public class ScanService : IScanService
                                 {
                                     leagueId = configLeague.Id;
 
-                                    // Create LeagueProvider mapping
+                                    // Create or update LeagueProvider mapping
                                     var leagueProvider = new Configuration.Entities.LeagueProvider
                                     {
                                         LeagueId = configLeague.Id,
@@ -811,8 +811,8 @@ public class ScanService : IScanService
                                         ProviderName = scrapedLeague.Name,
                                         IsActive = true
                                     };
-                                    await _leagueProviderRepo.AddAsync(leagueProvider);
-                                    _logger.LogInformation("✓ Created LeagueProvider mapping: {ProviderLeague} → {ConfigLeague} [{Country}]",
+                                    await _leagueProviderRepo.AddOrUpdateAsync(leagueProvider);
+                                    _logger.LogInformation("✓ Created/Updated LeagueProvider mapping: {ProviderLeague} → {ConfigLeague} [{Country}]",
                                         scrapedLeague.Name, configLeague.Name, country.Name);
                                     newCount++;
                                 }
@@ -1738,30 +1738,16 @@ public class ScanService : IScanService
                         await _providerLeagueRepo.UpdateAsync(providerLeague);
 
                         // Create/update LeagueProvider mapping
-                        var existingMapping = await _leagueProviderRepo.GetByLeagueAndProviderAsync(
-                            configLeague.Id, providerId);
-
-                        if (existingMapping == null)
+                        var leagueProvider = new Configuration.Entities.LeagueProvider
                         {
-                            var leagueProvider = new Configuration.Entities.LeagueProvider
-                            {
-                                LeagueId = configLeague.Id,
-                                ProviderId = providerId,
-                                ProviderSlug = leagueMetadata.Slug,
-                                ProviderName = league.ProviderLeagueName,
-                                IsActive = true
-                            };
-                            await _leagueProviderRepo.AddAsync(leagueProvider);
-                            leaguesNew++;
-                        }
-                        else
-                        {
-                            existingMapping.ProviderSlug = leagueMetadata.Slug;
-                            existingMapping.ProviderName = league.ProviderLeagueName;
-                            existingMapping.IsActive = true;
-                            await _leagueProviderRepo.UpdateAsync(existingMapping);
-                            leaguesUpdated++;
-                        }
+                            LeagueId = configLeague.Id,
+                            ProviderId = providerId,
+                            ProviderSlug = leagueMetadata.Slug,
+                            ProviderName = league.ProviderLeagueName,
+                            IsActive = true
+                        };
+                        await _leagueProviderRepo.AddOrUpdateAsync(leagueProvider);
+                        leaguesNew++;
                     }
                     else
                     {

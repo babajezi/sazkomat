@@ -94,5 +94,10 @@ public enum ResolutionType
     /// <summary>
     /// League is not available in BetExplorer (technically unsupported by the data source)
     /// </summary>
-    Unavailable = 3
+    Unavailable = 3,
+
+    /// <summary>
+    /// League was manually mapped via LeagueNameMapping table (legacy compatibility)
+    /// </summary>
+    ManuallyMapped = 4
 }

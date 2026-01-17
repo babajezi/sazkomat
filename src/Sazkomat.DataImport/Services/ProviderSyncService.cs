@@ -484,7 +484,7 @@ public class ProviderSyncService : ISyncService
                                         IsActive = true
                                     };
 
-                                    await _leagueProviderRepository.AddAsync(leagueProvider);
+                                    await _leagueProviderRepository.AddOrUpdateAsync(leagueProvider);
                                 }
                                 else
                                 {

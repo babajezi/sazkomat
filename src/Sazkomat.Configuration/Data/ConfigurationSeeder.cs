@@ -107,13 +107,20 @@ public static class ConfigurationSeeder
                 Name = "Chance",
                 Code = "chance",
                 BaseUrl = "https://www.chance.cz",
-                IsActive = false,
+                IsActive = true,
                 Priority = 8,
                 Type = ProviderType.BettingProvider,
-                Notes = "Czech betting provider - Aggressive Cloudflare protection",
+                Notes = "Czech betting provider - SAZKA Group, shares API with Tipsport, uses FlareSolverr for Cloudflare bypass",
                 ScanCapabilities = BettingProviderCapabilities
             };
             context.DataProviders.Add(chance);
+        }
+        else if (!chance.IsActive)
+        {
+            // Activate Chance provider if it was previously disabled
+            chance.IsActive = true;
+            chance.Notes = "Czech betting provider - SAZKA Group, shares API with Tipsport, uses FlareSolverr for Cloudflare bypass";
+            context.DataProviders.Update(chance);
         }
 
         var fortuna = await context.DataProviders.FindAsync(Guid.Parse("b0000000-0000-0000-0000-000000000003"));

@@ -564,22 +564,32 @@ public class ImportService : IImportService
 
                     if (league == null)
                     {
-                        // Create new League - only if no existing league found
-                        // All providers (including betting providers) can create leagues if they are mapped to BetExplorer
+                        // CRITICAL: Only Reference providers (BetExplorer) can create new leagues!
+                        // Betting providers (Tipsport, Chance, Fortuna, Betano) must map to existing leagues
+                        if (provider.Type == ProviderType.BettingProvider)
+                        {
+                            _logger.LogWarning("⚠️ Betting provider '{Provider}' cannot create new leagues. " +
+                                "League '{LeagueName}' [{Country}] has no BetExplorer match - skipping. " +
+                                "Add manual mapping or resolve via unmatched_leagues.",
+                                provider.Name, providerLeague.ProviderName, country?.Name ?? "Unknown");
+                            continue; // Skip this league - betting providers cannot create leagues
+                        }
+
+                        // Only Reference providers can create new leagues
                         league = new League
                         {
                             SportId = defaultSport.Id,
                             CountryId = country.Id,
                             Name = providerLeague.ProviderName,
                             DisplayName = providerLeague.DisplayName ?? providerLeague.ProviderName,
-                            BetExplorerSlug = providerLeague.ProviderSlug, // Still used for backward compatibility
+                            BetExplorerSlug = providerLeague.ProviderSlug,
                             IsBettable = providerLeague.IsBettable,
-                            IsActive = provider.Type == ProviderType.BettingProvider,
+                            IsActive = true,
                             Priority = providerLeague.Priority,
-                            Notes = $"Imported from provider {provider?.Name}"
+                            Notes = $"Created from Reference provider {provider?.Name}"
                         };
                         league = await _leagueRepo.CreateAsync(league);
-                        _logger.LogInformation("✓ Created new League {LeagueId} ({Name}) from provider {Provider}",
+                        _logger.LogInformation("✓ Created new League {LeagueId} ({Name}) from Reference provider {Provider}",
                             league.Id, league.Name, provider?.Name ?? "Unknown");
                     }
                     else
@@ -598,32 +608,18 @@ public class ImportService : IImportService
                     }
 
                     // Create or update LeagueProvider mapping
-                    if (existingLeagueProvider == null)
+                    var leagueProvider = new LeagueProvider
                     {
-                        var leagueProvider = new LeagueProvider
-                        {
-                            LeagueId = league.Id,
-                            ProviderId = syncJob.ProviderId,
-                            ProviderSlug = providerLeague.ProviderSlug,
-                            ProviderName = providerLeague.ProviderName,
-                            IsActive = true,
-                            Metadata = providerLeague.RawData
-                        };
-                        await _leagueProviderRepo.AddAsync(leagueProvider);
-                        _logger.LogInformation("Created LeagueProvider mapping for League {LeagueId} and Provider {ProviderId}",
-                            league.Id, syncJob.ProviderId);
-                    }
-                    else
-                    {
-                        // Update existing mapping
-                        existingLeagueProvider.ProviderSlug = providerLeague.ProviderSlug;
-                        existingLeagueProvider.ProviderName = providerLeague.ProviderName;
-                        existingLeagueProvider.Metadata = providerLeague.RawData;
-                        existingLeagueProvider.IsActive = true;
-                        await _leagueProviderRepo.UpdateAsync(existingLeagueProvider);
-                        _logger.LogInformation("Updated LeagueProvider mapping for League {LeagueId}",
-                            league.Id);
-                    }
+                        LeagueId = league.Id,
+                        ProviderId = syncJob.ProviderId,
+                        ProviderSlug = providerLeague.ProviderSlug,
+                        ProviderName = providerLeague.ProviderName,
+                        IsActive = true,
+                        Metadata = providerLeague.RawData
+                    };
+                    await _leagueProviderRepo.AddOrUpdateAsync(leagueProvider);
+                    _logger.LogInformation("Created/Updated LeagueProvider mapping for League {LeagueId} and Provider {ProviderId}",
+                        league.Id, syncJob.ProviderId);
 
                     // Mark ProviderLeague as imported
                     providerLeague.IsImported = true;

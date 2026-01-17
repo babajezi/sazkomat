@@ -17,9 +17,16 @@ import {
   Loader2,
   RefreshCw,
   Ban,
+  Copy,
 } from "lucide-react";
 import Link from "next/link";
-import type { UnmatchedLeague, League, BetExplorerLeague } from "@/lib/api/types";
+import type {
+  UnmatchedLeague,
+  League,
+  BetExplorerLeague,
+  CopyResolutionMatch,
+  CopyResolutionsPreviewResponse,
+} from "@/lib/api/types";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
@@ -57,6 +64,13 @@ export default function UnmatchedLeaguesPage() {
   // Unavailable dialog state
   const [unavailableDialogOpen, setUnavailableDialogOpen] = useState(false);
   const [unavailableNotes, setUnavailableNotes] = useState("");
+
+  // Copy resolutions dialog state
+  const [copyDialogOpen, setCopyDialogOpen] = useState(false);
+  const [copyDialogStep, setCopyDialogStep] = useState<"select" | "preview">("select");
+  const [copySourceProviderId, setCopySourceProviderId] = useState("");
+  const [copyTargetProviderId, setCopyTargetProviderId] = useState("");
+  const [copyPreviewData, setCopyPreviewData] = useState<CopyResolutionsPreviewResponse | null>(null);
 
   // Fetch unmatched leagues
   const { data: unmatchedLeagues, isLoading, error } = useQuery({
@@ -209,6 +223,31 @@ export default function UnmatchedLeaguesPage() {
     },
   });
 
+  // Copy resolutions mutations
+  const copyPreviewMutation = useMutation({
+    mutationFn: (params: { sourceProviderId: string; targetProviderId: string }) =>
+      unmatchedLeagueApi.previewCopyResolutions(params.sourceProviderId, params.targetProviderId),
+    onSuccess: (data) => {
+      setCopyPreviewData(data);
+      setCopyDialogStep("preview");
+    },
+  });
+
+  const copyExecuteMutation = useMutation({
+    mutationFn: (params: { sourceProviderId: string; targetProviderId: string }) =>
+      unmatchedLeagueApi.executeCopyResolutions(params.sourceProviderId, params.targetProviderId),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["unmatched-leagues"] });
+      queryClient.invalidateQueries({ queryKey: ["unmatched-leagues-stats"] });
+      setCopyDialogOpen(false);
+      setCopyDialogStep("select");
+      setCopySourceProviderId("");
+      setCopyTargetProviderId("");
+      setCopyPreviewData(null);
+      alert(`Kopírování dokončeno! Zkopírováno: ${data.copied}, Přeskočeno: ${data.skipped}, Nenalezeno: ${data.notFound}`);
+    },
+  });
+
   // Filter and search
   const filteredLeagues = (unmatchedLeagues || []).filter((league) => {
     if (statusFilter === "resolved" && !league.isResolved) return false;
@@ -316,6 +355,42 @@ export default function UnmatchedLeaguesPage() {
     }
   };
 
+  const handleOpenCopyDialog = () => {
+    setCopyDialogStep("select");
+    setCopySourceProviderId("");
+    setCopyTargetProviderId("");
+    setCopyPreviewData(null);
+    setCopyDialogOpen(true);
+  };
+
+  const handleCopyPreview = () => {
+    if (copySourceProviderId && copyTargetProviderId) {
+      copyPreviewMutation.mutate({
+        sourceProviderId: copySourceProviderId,
+        targetProviderId: copyTargetProviderId,
+      });
+    }
+  };
+
+  const handleCopyExecute = () => {
+    if (copySourceProviderId && copyTargetProviderId) {
+      copyExecuteMutation.mutate({
+        sourceProviderId: copySourceProviderId,
+        targetProviderId: copyTargetProviderId,
+      });
+    }
+  };
+
+  const handleCopyDialogClose = (open: boolean) => {
+    if (!open) {
+      setCopyDialogStep("select");
+      setCopySourceProviderId("");
+      setCopyTargetProviderId("");
+      setCopyPreviewData(null);
+    }
+    setCopyDialogOpen(open);
+  };
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       {/* Header */}
@@ -333,6 +408,10 @@ export default function UnmatchedLeaguesPage() {
             </p>
           </div>
         </div>
+        <Button variant="outline" onClick={handleOpenCopyDialog}>
+          <Copy className="h-4 w-4 mr-2" />
+          Kopírovat řešení
+        </Button>
       </div>
 
       {/* Statistics Cards */}
@@ -968,6 +1047,192 @@ export default function UnmatchedLeaguesPage() {
               Označit jako nedostupné
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Copy Resolutions Dialog */}
+      <Dialog open={copyDialogOpen} onOpenChange={handleCopyDialogClose}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Kopírovat řešení mezi providery</DialogTitle>
+            <DialogDescription>
+              Zkopírujte vyřešená mapování z jednoho betting providera na druhého.
+              Kopírují se pouze záznamy, kde cílový provider ještě nemá řešení.
+            </DialogDescription>
+          </DialogHeader>
+
+          {copyDialogStep === "select" ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium mb-2 block">
+                    Zdrojový provider (kopírovat Z)
+                  </label>
+                  <select
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={copySourceProviderId}
+                    onChange={(e) => setCopySourceProviderId(e.target.value)}
+                  >
+                    <option value="">-- Vyberte provider --</option>
+                    {providers?.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">
+                    Cílový provider (kopírovat DO)
+                  </label>
+                  <select
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={copyTargetProviderId}
+                    onChange={(e) => setCopyTargetProviderId(e.target.value)}
+                  >
+                    <option value="">-- Vyberte provider --</option>
+                    {providers?.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {copySourceProviderId && copyTargetProviderId && copySourceProviderId === copyTargetProviderId && (
+                <p className="text-sm text-red-500">
+                  Zdrojový a cílový provider musí být různí.
+                </p>
+              )}
+
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setCopyDialogOpen(false)}>
+                  Zrušit
+                </Button>
+                <Button
+                  onClick={handleCopyPreview}
+                  disabled={
+                    !copySourceProviderId ||
+                    !copyTargetProviderId ||
+                    copySourceProviderId === copyTargetProviderId ||
+                    copyPreviewMutation.isPending
+                  }
+                >
+                  {copyPreviewMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Náhled
+                </Button>
+              </DialogFooter>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex justify-between items-center text-sm">
+                <span>
+                  <strong>Zdroj:</strong> {providers?.find(p => p.id === copySourceProviderId)?.name}
+                  {" → "}
+                  <strong>Cíl:</strong> {providers?.find(p => p.id === copyTargetProviderId)?.name}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setCopyDialogStep("select")}
+                >
+                  Změnit
+                </Button>
+              </div>
+
+              <div className="p-3 bg-muted rounded-lg text-sm">
+                <div className="grid grid-cols-3 gap-4 text-center">
+                  <div>
+                    <div className="text-2xl font-bold text-green-600">
+                      {copyPreviewData?.matches.length || 0}
+                    </div>
+                    <div className="text-muted-foreground">Ke zkopírování</div>
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-gray-500">
+                      {copyPreviewData?.skipped || 0}
+                    </div>
+                    <div className="text-muted-foreground">Již vyřešeno</div>
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-yellow-600">
+                      {copyPreviewData?.notFound || 0}
+                    </div>
+                    <div className="text-muted-foreground">Nenalezeno</div>
+                  </div>
+                </div>
+              </div>
+
+              {copyPreviewData?.matches && copyPreviewData.matches.length > 0 ? (
+                <div className="max-h-80 overflow-y-auto border rounded-lg">
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0 bg-muted">
+                      <tr>
+                        <th className="px-3 py-2 text-left">Liga</th>
+                        <th className="px-3 py-2 text-left">Země</th>
+                        <th className="px-3 py-2 text-left">Řešení</th>
+                        <th className="px-3 py-2 text-left">Cílová liga</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {copyPreviewData.matches.map((match) => (
+                        <tr key={match.targetId} className="border-t">
+                          <td className="px-3 py-2">{match.targetLeagueName}</td>
+                          <td className="px-3 py-2 font-mono text-xs uppercase">
+                            {match.targetCountryCode}
+                          </td>
+                          <td className="px-3 py-2">
+                            <span className={`px-2 py-1 rounded text-xs ${
+                              match.sourceResolutionType === "Mapped"
+                                ? "bg-green-100 text-green-800"
+                                : match.sourceResolutionType === "Ignored"
+                                ? "bg-gray-100 text-gray-800"
+                                : "bg-orange-100 text-orange-800"
+                            }`}>
+                              {match.sourceResolutionType === "Mapped" && "Namapováno"}
+                              {match.sourceResolutionType === "Ignored" && "Ignorováno"}
+                              {match.sourceResolutionType === "Unavailable" && "Nedostupné"}
+                              {match.sourceResolutionType === "ManuallyMapped" && "Ručně mapováno"}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 text-muted-foreground">
+                            {match.sourceResolvedLeagueName
+                              ? match.sourceResolvedLeagueName
+                              : match.sourceResolvedLeagueId
+                                ? <span className="text-red-500">(smazaná liga)</span>
+                                : "—"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  Žádné shody k zkopírování nenalezeny.
+                </div>
+              )}
+
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setCopyDialogOpen(false)}>
+                  Zrušit
+                </Button>
+                <Button
+                  onClick={handleCopyExecute}
+                  disabled={
+                    !copyPreviewData?.matches ||
+                    copyPreviewData.matches.length === 0 ||
+                    copyExecuteMutation.isPending
+                  }
+                >
+                  {copyExecuteMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  <Check className="mr-2 h-4 w-4" />
+                  Potvrdit ({copyPreviewData?.matches.length || 0})
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

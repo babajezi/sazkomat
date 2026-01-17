@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Sazkomat.Configuration.Repositories;
 using Sazkomat.DataImport.Entities;
 using Sazkomat.DataImport.Repositories;
 using Sazkomat.DataImport.Services;
@@ -59,7 +60,8 @@ public static class CountryNameMappingEndpoints
         // POST /api/country-mappings - Create new mapping
         group.MapPost("/", async (
             [FromBody] CreateCountryNameMappingRequest request,
-            ICountryNameMappingRepository repository) =>
+            ICountryNameMappingRepository repository,
+            ICountryRepository countryRepository) =>
         {
             // Validate required fields
             if (string.IsNullOrWhiteSpace(request.ProviderCode))
@@ -75,6 +77,13 @@ public static class CountryNameMappingEndpoints
             if (string.IsNullOrWhiteSpace(request.BetExplorerCode))
             {
                 return Results.BadRequest(new { error = "BetExplorer code is required" });
+            }
+
+            // Validate that BetExplorer country code exists
+            var country = await countryRepository.GetByCodeAsync(request.BetExplorerCode.ToLowerInvariant());
+            if (country == null)
+            {
+                return Results.BadRequest(new { error = $"Country with code '{request.BetExplorerCode}' not found in BetExplorer countries" });
             }
 
             var mapping = new CountryNameMapping
@@ -106,7 +115,8 @@ public static class CountryNameMappingEndpoints
         group.MapPatch("/{id:guid}", async (
             Guid id,
             [FromBody] UpdateCountryNameMappingRequest request,
-            ICountryNameMappingRepository repository) =>
+            ICountryNameMappingRepository repository,
+            ICountryRepository countryRepository) =>
         {
             var mapping = await repository.GetByIdAsync(id);
 
@@ -123,6 +133,12 @@ public static class CountryNameMappingEndpoints
 
             if (!string.IsNullOrWhiteSpace(request.BetExplorerCode))
             {
+                // Validate that BetExplorer country code exists
+                var country = await countryRepository.GetByCodeAsync(request.BetExplorerCode.ToLowerInvariant());
+                if (country == null)
+                {
+                    return Results.BadRequest(new { error = $"Country with code '{request.BetExplorerCode}' not found in BetExplorer countries" });
+                }
                 mapping.BetExplorerCode = request.BetExplorerCode.ToLowerInvariant();
             }
 

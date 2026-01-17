@@ -11,6 +11,7 @@ public interface ILeagueProviderRepository
     Task<LeagueProvider?> GetByProviderAndSlugAsync(Guid providerId, string providerSlug);
     Task<LeagueProvider?> GetActiveByLeagueIdAsync(Guid leagueId);
     Task AddAsync(LeagueProvider leagueProvider);
+    Task<LeagueProvider> AddOrUpdateAsync(LeagueProvider leagueProvider);
     Task UpdateAsync(LeagueProvider leagueProvider);
     Task DeleteAsync(Guid id);
     Task<List<LeagueProvider>> GetByProviderIdAsync(Guid providerId);

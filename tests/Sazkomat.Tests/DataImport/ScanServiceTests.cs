@@ -23,6 +23,7 @@ public class ScanServiceTests
     private readonly Mock<ILeagueProviderRepository> _mockLeagueProviderRepo;
     private readonly Mock<ICountryNameMappingRepository> _mockCountryNameMappingRepo;
     private readonly Mock<IUnmatchedLeagueRepository> _mockUnmatchedLeagueRepo;
+    private readonly Mock<IUnmatchedCountryRepository> _mockUnmatchedCountryRepo;
     private readonly Mock<ICountryScraper> _mockCountryScraper;
     private readonly Mock<ILeagueMetadataScraper> _mockLeagueScraper;
     private readonly Mock<ISeasonScraper> _mockSeasonScraper;
@@ -49,6 +50,7 @@ public class ScanServiceTests
         _mockLeagueProviderRepo = new Mock<ILeagueProviderRepository>();
         _mockCountryNameMappingRepo = new Mock<ICountryNameMappingRepository>();
         _mockUnmatchedLeagueRepo = new Mock<IUnmatchedLeagueRepository>();
+        _mockUnmatchedCountryRepo = new Mock<IUnmatchedCountryRepository>();
         _mockCountryScraper = new Mock<ICountryScraper>();
         _mockLeagueScraper = new Mock<ILeagueMetadataScraper>();
         _mockSeasonScraper = new Mock<ISeasonScraper>();
@@ -88,6 +90,7 @@ public class ScanServiceTests
             _mockLeagueProviderRepo.Object,
             _mockCountryNameMappingRepo.Object,
             _mockUnmatchedLeagueRepo.Object,
+            _mockUnmatchedCountryRepo.Object,
             new[] { _mockCountryScraper.Object },
             new[] { _mockLeagueScraper.Object },
             new[] { _mockSeasonScraper.Object },

@@ -108,9 +108,9 @@ public class BettingProviderOrchestrator
                             })
                         };
 
-                        await _leagueProviderRepository.AddAsync(newMapping);
+                        await _leagueProviderRepository.AddOrUpdateAsync(newMapping);
                         created++;
-                        _logger.LogInformation("Created mapping: {LeagueName} -> {ProviderName}",
+                        _logger.LogInformation("Created/Updated mapping: {LeagueName} -> {ProviderName}",
                             matchingLeague.Name, scrapedLeague.ProviderLeagueName);
                     }
                     else

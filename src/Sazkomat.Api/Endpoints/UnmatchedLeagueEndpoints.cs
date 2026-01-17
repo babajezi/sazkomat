@@ -123,7 +123,7 @@ public static class UnmatchedLeagueEndpoints
                     ProviderName = unmatchedLeague.ProviderLeagueName,
                     IsActive = true
                 };
-                await leagueProviderRepo.AddAsync(leagueProvider);
+                await leagueProviderRepo.AddOrUpdateAsync(leagueProvider);
             }
 
             // Create/update ProviderLeague record with league_id
@@ -300,7 +300,7 @@ public static class UnmatchedLeagueEndpoints
                 ProviderName = leagueName,
                 IsActive = true
             };
-            await leagueProviderRepo.AddAsync(betExplorerMapping);
+            await leagueProviderRepo.AddOrUpdateAsync(betExplorerMapping);
 
             // Create LeagueProvider mapping for the original provider (if different from BetExplorer)
             var newProviderSlug = unmatchedLeague.ProviderSlug ?? unmatchedLeague.ProviderLeagueName.ToLowerInvariant().Replace(" ", "-");
@@ -314,7 +314,7 @@ public static class UnmatchedLeagueEndpoints
                     ProviderName = unmatchedLeague.ProviderLeagueName,
                     IsActive = true
                 };
-                await leagueProviderRepo.AddAsync(providerMapping);
+                await leagueProviderRepo.AddOrUpdateAsync(providerMapping);
             }
 
             // Create provider_leagues record for the original provider (betting provider)
@@ -482,6 +482,205 @@ public static class UnmatchedLeagueEndpoints
         .WithName("GetUnmatchedLeaguesStats")
         .WithDescription("Get statistics about unmatched leagues");
 
+        // POST /api/unmatched-leagues/copy-resolutions/preview
+        group.MapPost("/copy-resolutions/preview", async (
+            CopyResolutionsRequest request,
+            IUnmatchedLeagueRepository repo,
+            ILeagueRepository leagueRepo,
+            ILogger<Program> logger) =>
+        {
+            logger.LogInformation("Preview copy resolutions from provider {Source} to {Target}",
+                request.SourceProviderId, request.TargetProviderId);
+
+            // Get all leagues from both providers
+            var sourceLeagues = await repo.GetByProviderAsync(request.SourceProviderId);
+            var targetLeagues = await repo.GetByProviderAsync(request.TargetProviderId);
+
+            // Build lookup for source leagues by (name, countryCode)
+            var sourceLookup = sourceLeagues
+                .Where(l => l.IsResolved && l.ResolutionType.HasValue)
+                .ToDictionary(
+                    l => (l.ProviderLeagueName.ToLowerInvariant(), l.CountryCode.ToLowerInvariant()),
+                    l => l,
+                    new LeagueKeyComparer());
+
+            var matches = new List<CopyResolutionMatch>();
+            int skipped = 0;
+            int notFound = 0;
+
+            foreach (var target in targetLeagues)
+            {
+                // Skip if already resolved
+                if (target.IsResolved)
+                {
+                    skipped++;
+                    continue;
+                }
+
+                var key = (target.ProviderLeagueName.ToLowerInvariant(), target.CountryCode.ToLowerInvariant());
+                if (sourceLookup.TryGetValue(key, out var source))
+                {
+                    // Get resolved league name if applicable
+                    string? resolvedLeagueName = null;
+                    if (source.ResolvedLeagueId.HasValue)
+                    {
+                        var resolvedLeague = await leagueRepo.GetByIdAsync(source.ResolvedLeagueId.Value);
+                        resolvedLeagueName = resolvedLeague?.Name;
+                    }
+
+                    matches.Add(new CopyResolutionMatch
+                    {
+                        TargetId = target.Id,
+                        TargetLeagueName = target.ProviderLeagueName,
+                        TargetCountryCode = target.CountryCode,
+                        SourceId = source.Id,
+                        SourceResolutionType = source.ResolutionType?.ToString() ?? "Unknown",
+                        SourceResolvedLeagueName = resolvedLeagueName,
+                        SourceResolvedLeagueId = source.ResolvedLeagueId
+                    });
+                }
+                else
+                {
+                    notFound++;
+                }
+            }
+
+            logger.LogInformation("Copy resolutions preview: {Matches} matches, {Skipped} skipped, {NotFound} not found",
+                matches.Count, skipped, notFound);
+
+            return Results.Ok(new CopyResolutionsPreviewResponse
+            {
+                Matches = matches,
+                Skipped = skipped,
+                NotFound = notFound
+            });
+        })
+        .WithName("PreviewCopyResolutions")
+        .WithDescription("Preview which resolutions would be copied from source to target provider");
+
+        // POST /api/unmatched-leagues/copy-resolutions/execute
+        group.MapPost("/copy-resolutions/execute", async (
+            CopyResolutionsRequest request,
+            IUnmatchedLeagueRepository repo,
+            ILeagueProviderRepository leagueProviderRepo,
+            IProviderLeagueRepository providerLeagueRepo,
+            ILogger<Program> logger) =>
+        {
+            logger.LogInformation("Execute copy resolutions from provider {Source} to {Target}",
+                request.SourceProviderId, request.TargetProviderId);
+
+            // Get all leagues from both providers
+            var sourceLeagues = await repo.GetByProviderAsync(request.SourceProviderId);
+            var targetLeagues = await repo.GetByProviderAsync(request.TargetProviderId);
+
+            // Build lookup for source leagues by (name, countryCode)
+            var sourceLookup = sourceLeagues
+                .Where(l => l.IsResolved && l.ResolutionType.HasValue)
+                .ToDictionary(
+                    l => (l.ProviderLeagueName.ToLowerInvariant(), l.CountryCode.ToLowerInvariant()),
+                    l => l,
+                    new LeagueKeyComparer());
+
+            int copied = 0;
+            int skipped = 0;
+            int notFound = 0;
+
+            foreach (var target in targetLeagues)
+            {
+                // Skip if already resolved
+                if (target.IsResolved)
+                {
+                    skipped++;
+                    continue;
+                }
+
+                var key = (target.ProviderLeagueName.ToLowerInvariant(), target.CountryCode.ToLowerInvariant());
+                if (sourceLookup.TryGetValue(key, out var source))
+                {
+                    // Copy resolution fields
+                    target.IsResolved = source.IsResolved;
+                    target.ResolutionType = source.ResolutionType;
+                    target.ResolvedLeagueId = source.ResolvedLeagueId;
+                    target.ResolvedAt = DateTime.UtcNow;
+                    target.ResolutionNotes = $"Zkopírováno z providera {request.SourceProviderId}";
+
+                    await repo.UpdateAsync(target);
+
+                    // If mapped to a league, create LeagueProvider mapping for target provider
+                    if (source.ResolutionType == ResolutionType.Mapped && source.ResolvedLeagueId.HasValue)
+                    {
+                        // Check if mapping already exists
+                        var existingMapping = await leagueProviderRepo.GetByLeagueAndProviderAsync(
+                            source.ResolvedLeagueId.Value, request.TargetProviderId);
+
+                        if (existingMapping == null)
+                        {
+                            var providerSlug = target.ProviderSlug ?? target.ProviderLeagueName.ToLowerInvariant().Replace(" ", "-");
+
+                            var leagueProvider = new Configuration.Entities.LeagueProvider
+                            {
+                                LeagueId = source.ResolvedLeagueId.Value,
+                                ProviderId = request.TargetProviderId,
+                                ProviderSlug = providerSlug,
+                                ProviderName = target.ProviderLeagueName,
+                                IsActive = true
+                            };
+                            await leagueProviderRepo.AddOrUpdateAsync(leagueProvider);
+
+                            logger.LogDebug("Created/Updated LeagueProvider mapping for league {LeagueId} -> provider {ProviderId}",
+                                source.ResolvedLeagueId.Value, request.TargetProviderId);
+                        }
+
+                        // Also create/update ProviderLeague record
+                        var existingProviderSlug = target.ProviderSlug ?? target.ProviderLeagueName.ToLowerInvariant().Replace(" ", "-");
+                        var existingProviderLeague = await providerLeagueRepo.GetByProviderSlugAsync(
+                            request.TargetProviderId, existingProviderSlug);
+
+                        if (existingProviderLeague == null)
+                        {
+                            var providerLeague = new ProviderLeague
+                            {
+                                ProviderId = request.TargetProviderId,
+                                ProviderName = target.ProviderLeagueName,
+                                ProviderSlug = existingProviderSlug,
+                                CountryCode = target.CountryCode,
+                                LeagueId = source.ResolvedLeagueId.Value,
+                                IsImported = true,
+                                ScrapedAt = DateTime.UtcNow
+                            };
+                            await providerLeagueRepo.CreateAsync(providerLeague);
+                        }
+                        else
+                        {
+                            existingProviderLeague.LeagueId = source.ResolvedLeagueId.Value;
+                            existingProviderLeague.IsImported = true;
+                            await providerLeagueRepo.UpdateAsync(existingProviderLeague);
+                        }
+                    }
+
+                    copied++;
+                    logger.LogDebug("Copied resolution for league '{LeagueName}' [{CountryCode}]",
+                        target.ProviderLeagueName, target.CountryCode);
+                }
+                else
+                {
+                    notFound++;
+                }
+            }
+
+            logger.LogInformation("Copy resolutions complete: {Copied} copied, {Skipped} skipped, {NotFound} not found",
+                copied, skipped, notFound);
+
+            return Results.Ok(new CopyResolutionsExecuteResponse
+            {
+                Copied = copied,
+                Skipped = skipped,
+                NotFound = notFound
+            });
+        })
+        .WithName("ExecuteCopyResolutions")
+        .WithDescription("Execute copying resolutions from source to target provider");
+
         // GET /api/unmatched-leagues/suggestions/{id}
         group.MapGet("/suggestions/{id:guid}", async (
             Guid id,
@@ -556,3 +755,48 @@ public record ResolveAsMappedRequest(Guid LeagueId, string? Notes = null, bool? 
 public record ResolveAsIgnoredRequest(string? Notes = null);
 public record ResolveAsUnavailableRequest(string? Notes = null);
 public record CreateFromBetExplorerRequest(string BetExplorerSlug, string? LeagueName = null, Guid? CountryId = null, string? Notes = null);
+
+// Copy resolutions DTOs
+public record CopyResolutionsRequest(Guid SourceProviderId, Guid TargetProviderId);
+
+public record CopyResolutionMatch
+{
+    public Guid TargetId { get; init; }
+    public string TargetLeagueName { get; init; } = string.Empty;
+    public string TargetCountryCode { get; init; } = string.Empty;
+    public Guid SourceId { get; init; }
+    public string SourceResolutionType { get; init; } = string.Empty;
+    public string? SourceResolvedLeagueName { get; init; }
+    public Guid? SourceResolvedLeagueId { get; init; }
+}
+
+public record CopyResolutionsPreviewResponse
+{
+    public List<CopyResolutionMatch> Matches { get; init; } = new();
+    public int Skipped { get; init; }  // already resolved in target
+    public int NotFound { get; init; } // no match in source
+}
+
+public record CopyResolutionsExecuteResponse
+{
+    public int Copied { get; init; }
+    public int Skipped { get; init; }
+    public int NotFound { get; init; }
+}
+
+// Helper comparer for league key tuples
+internal class LeagueKeyComparer : IEqualityComparer<(string Name, string CountryCode)>
+{
+    public bool Equals((string Name, string CountryCode) x, (string Name, string CountryCode) y)
+    {
+        return string.Equals(x.Name, y.Name, StringComparison.OrdinalIgnoreCase) &&
+               string.Equals(x.CountryCode, y.CountryCode, StringComparison.OrdinalIgnoreCase);
+    }
+
+    public int GetHashCode((string Name, string CountryCode) obj)
+    {
+        return HashCode.Combine(
+            obj.Name?.ToLowerInvariant() ?? "",
+            obj.CountryCode?.ToLowerInvariant() ?? "");
+    }
+}

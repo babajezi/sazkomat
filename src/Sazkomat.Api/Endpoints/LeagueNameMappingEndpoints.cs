@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Sazkomat.Configuration.Repositories;
 using Sazkomat.DataImport.Entities;
 using Sazkomat.DataImport.Repositories;
 
@@ -65,7 +66,8 @@ public static class LeagueNameMappingEndpoints
         // POST /api/mappings - Create new mapping
         group.MapPost("/", async (
             [FromBody] CreateLeagueNameMappingRequest request,
-            ILeagueNameMappingRepository repository) =>
+            ILeagueNameMappingRepository repository,
+            ILeagueRepository leagueRepository) =>
         {
             // Validate required fields
             if (string.IsNullOrWhiteSpace(request.ProviderCode))
@@ -86,6 +88,13 @@ public static class LeagueNameMappingEndpoints
             if (string.IsNullOrWhiteSpace(request.BetExplorerSlug))
             {
                 return Results.BadRequest(new { error = "BetExplorer slug is required" });
+            }
+
+            // Validate that BetExplorer league slug exists
+            var league = await leagueRepository.GetByBetExplorerSlugAsync(request.BetExplorerSlug);
+            if (league == null)
+            {
+                return Results.BadRequest(new { error = $"League with BetExplorer slug '{request.BetExplorerSlug}' not found" });
             }
 
             var mapping = new LeagueNameMapping
@@ -114,7 +123,8 @@ public static class LeagueNameMappingEndpoints
         group.MapPatch("/{id:guid}", async (
             Guid id,
             [FromBody] UpdateLeagueNameMappingRequest request,
-            ILeagueNameMappingRepository repository) =>
+            ILeagueNameMappingRepository repository,
+            ILeagueRepository leagueRepository) =>
         {
             var mapping = await repository.GetByIdAsync(id);
 
@@ -131,6 +141,12 @@ public static class LeagueNameMappingEndpoints
 
             if (!string.IsNullOrWhiteSpace(request.BetExplorerSlug))
             {
+                // Validate that BetExplorer league slug exists
+                var league = await leagueRepository.GetByBetExplorerSlugAsync(request.BetExplorerSlug);
+                if (league == null)
+                {
+                    return Results.BadRequest(new { error = $"League with BetExplorer slug '{request.BetExplorerSlug}' not found" });
+                }
                 mapping.BetExplorerSlug = request.BetExplorerSlug;
             }
 
