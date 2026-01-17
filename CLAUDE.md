@@ -19,7 +19,7 @@
   - Kola a zápasy (rounds, matches)
   - Výsledky a kurzy
 
-### Betting Providers (Betano, Fortuna, Tipsport, ...) = Pouze mapování
+### Betting Providers (Betano, Fortuna, Tipsport, Chance, Kingsbet) = Pouze mapování
 - Betting providers **NEVYTVÁŘÍ** nová data o ligách/zemích
 - Pouze zjišťujeme **které existující ligy podporují**
 - Vytváříme pouze **vazební záznamy**:
@@ -34,7 +34,7 @@
 
 ### Typy providerů (DataProviderType)
 - `Reference` (1) = BetExplorer, Oddsportal - zdroj pravdy
-- `Betting` (4) = Betano, Fortuna, Tipsport - pouze mapování
+- `Betting` (4) = Betano, Fortuna, Tipsport, Chance, Kingsbet - pouze mapování
 
 **NIKDY TOTO PRAVIDLO NEPORUŠUJ PŘI IMPLEMENTACI NOVÝCH PROVIDERŮ!**
 
@@ -621,8 +621,15 @@ docker-compose restart postgres
 
 ---
 
-**Poslední aktualizace:** 2025-11-18
+**Poslední aktualizace:** 2026-01-17
 **Status:** 🎉 **Fáze 1 - 100% DOKONČENO** | Připraveno na Fázi 2
+
+**Betting Providers (2026-01-17) - ALL COMPLETE:**
+- ✅ Betano - JSON API + FlareSolverr
+- ✅ Fortuna - Playwright + dynamic JS rendering
+- ✅ Tipsport - FlareSolverr + Cloudflare bypass
+- ✅ Chance - FlareSolverr + shared Tipsport API
+- ✅ Kingsbet - Playwright + Altenar sportsbook API (JWT token extraction)
 
 **Build & Test Optimizations (2025-11-18):**
 - Docker build: 64-80% rychlejší (5-9min → 1m46s)
