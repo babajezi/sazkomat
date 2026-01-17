@@ -258,6 +258,27 @@ public static class UnmatchedLeagueEndpoints
                     await providerLeagueRepo.UpdateAsync(existingProviderLeague);
                 }
 
+                // Ensure BetExplorer LeagueProvider binding exists
+                var betExplorerProviderId = Guid.Parse("a0000000-0000-0000-0000-000000000001");
+                var existingBetExplorerBinding = await leagueProviderRepo.GetByLeagueAndProviderAsync(
+                    existingLeague.Id, betExplorerProviderId);
+
+                if (existingBetExplorerBinding == null)
+                {
+                    var betExplorerProviderSlug = $"{country.Code}/{existingLeague.BetExplorerSlug}";
+                    var missingBetExplorerMapping = new Configuration.Entities.LeagueProvider
+                    {
+                        LeagueId = existingLeague.Id,
+                        ProviderId = betExplorerProviderId,
+                        ProviderSlug = betExplorerProviderSlug,
+                        ProviderName = existingLeague.Name,
+                        IsActive = true
+                    };
+                    await leagueProviderRepo.AddOrUpdateAsync(missingBetExplorerMapping);
+                    logger.LogInformation("Created missing BetExplorer binding for existing league '{LeagueName}' (slug: {Slug})",
+                        existingLeague.Name, betExplorerProviderSlug);
+                }
+
                 return Results.Ok(new
                 {
                     success = true,
@@ -290,13 +311,14 @@ public static class UnmatchedLeagueEndpoints
             logger.LogInformation("Created new league '{LeagueName}' (ID: {LeagueId}) for country {Country}",
                 newLeague.Name, newLeague.Id, country.Name);
 
-            // Create LeagueProvider mapping for BetExplorer
+            // Create LeagueProvider mapping for BetExplorer (use country/slug format for uniqueness)
             var betExplorerId = Guid.Parse("a0000000-0000-0000-0000-000000000001");
+            var betExplorerSlug = $"{country.Code}/{request.BetExplorerSlug}";
             var betExplorerMapping = new Configuration.Entities.LeagueProvider
             {
                 LeagueId = newLeague.Id,
                 ProviderId = betExplorerId,
-                ProviderSlug = request.BetExplorerSlug,
+                ProviderSlug = betExplorerSlug,
                 ProviderName = leagueName,
                 IsActive = true
             };
