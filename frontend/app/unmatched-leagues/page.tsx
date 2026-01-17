@@ -18,6 +18,7 @@ import {
   RefreshCw,
   Ban,
   Copy,
+  Info,
 } from "lucide-react";
 import Link from "next/link";
 import type {
@@ -36,6 +37,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { UnmatchedLeagueMappingDialog } from "@/components/UnmatchedLeagueMappingDialog";
 
 export default function UnmatchedLeaguesPage() {
   const queryClient = useQueryClient();
@@ -71,6 +73,10 @@ export default function UnmatchedLeaguesPage() {
   const [copySourceProviderId, setCopySourceProviderId] = useState("");
   const [copyTargetProviderId, setCopyTargetProviderId] = useState("");
   const [copyPreviewData, setCopyPreviewData] = useState<CopyResolutionsPreviewResponse | null>(null);
+
+  // Detail mapping dialog state
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  const [detailLeagueId, setDetailLeagueId] = useState<string | null>(null);
 
   // Fetch unmatched leagues
   const { data: unmatchedLeagues, isLoading, error } = useQuery({
@@ -673,6 +679,18 @@ export default function UnmatchedLeaguesPage() {
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex justify-end gap-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setDetailLeagueId(league.id);
+                              setDetailDialogOpen(true);
+                            }}
+                            title="Detail mapování"
+                            className="text-blue-600 hover:text-blue-700"
+                          >
+                            <Info className="h-4 w-4" />
+                          </Button>
                           {!league.isResolved ? (
                             <>
                               <Button
@@ -1235,6 +1253,13 @@ export default function UnmatchedLeaguesPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Detail Mapping Dialog */}
+      <UnmatchedLeagueMappingDialog
+        open={detailDialogOpen}
+        onOpenChange={setDetailDialogOpen}
+        leagueId={detailLeagueId}
+      />
     </div>
   );
 }

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Sazkomat.Configuration.Entities;
 using Sazkomat.Configuration.Repositories;
 using Sazkomat.DataImport.Entities;
 using Sazkomat.DataImport.Repositories;
@@ -16,6 +17,8 @@ public static class UnmatchedLeagueEndpoints
         // GET /api/unmatched-leagues
         group.MapGet("/", async (
             IUnmatchedLeagueRepository repo,
+            IDataProviderRepository providerRepo,
+            ILeagueRepository leagueRepo,
             Guid? providerId,
             bool? unresolvedOnly) =>
         {
@@ -34,11 +37,20 @@ public static class UnmatchedLeagueEndpoints
                     : await repo.GetAllAsync();
             }
 
+            // Load providers and resolved leagues from configuration schema
+            var providerIds = leagues.Select(l => l.ProviderId).Distinct().ToList();
+            var providers = await providerRepo.GetAllAsync();
+            var providerLookup = providers.ToDictionary(p => p.Id, p => p.Name);
+
+            var resolvedLeagueIds = leagues.Where(l => l.ResolvedLeagueId.HasValue).Select(l => l.ResolvedLeagueId!.Value).Distinct().ToList();
+            var allLeagues = await leagueRepo.GetAllAsync();
+            var leagueLookup = allLeagues.ToDictionary(l => l.Id, l => l.Name);
+
             return Results.Ok(leagues.Select(l => new UnmatchedLeagueDto
             {
                 Id = l.Id,
                 ProviderId = l.ProviderId,
-                ProviderName = l.Provider?.Name,
+                ProviderName = providerLookup.GetValueOrDefault(l.ProviderId),
                 ProviderLeagueId = l.ProviderLeagueId,
                 ProviderLeagueName = l.ProviderLeagueName,
                 ProviderSlug = l.ProviderSlug,
@@ -48,7 +60,7 @@ public static class UnmatchedLeagueEndpoints
                 IsResolved = l.IsResolved,
                 ResolutionType = l.ResolutionType?.ToString(),
                 ResolvedLeagueId = l.ResolvedLeagueId,
-                ResolvedLeagueName = l.ResolvedLeague?.Name,
+                ResolvedLeagueName = l.ResolvedLeagueId.HasValue ? leagueLookup.GetValueOrDefault(l.ResolvedLeagueId.Value) : null,
                 ResolvedAt = l.ResolvedAt,
                 ResolutionNotes = l.ResolutionNotes
             }));
@@ -470,6 +482,107 @@ public static class UnmatchedLeagueEndpoints
         })
         .WithName("DeleteUnmatchedLeague")
         .WithDescription("Delete an unmatched league record");
+
+        // GET /api/unmatched-leagues/{id}/mapping
+        group.MapGet("/{id:guid}/mapping", async (
+            Guid id,
+            IUnmatchedLeagueRepository unmatchedRepo,
+            ILeagueRepository leagueRepo,
+            ICountryRepository countryRepo,
+            ILeagueProviderRepository leagueProviderRepo,
+            ILeagueNameMappingRepository nameMappingRepo,
+            IDataProviderRepository providerRepo) =>
+        {
+            var league = await unmatchedRepo.GetByIdAsync(id);
+            if (league == null)
+                return Results.NotFound(new { error = "Unmatched league not found" });
+
+            // Get provider name from configuration schema
+            var provider = await providerRepo.GetByIdAsync(league.ProviderId);
+            var providerName = provider?.Name ?? "Unknown";
+
+            // Get resolved league if mapped
+            Configuration.Entities.League? resolvedLeague = null;
+            if (league.ResolvedLeagueId.HasValue)
+            {
+                resolvedLeague = await leagueRepo.GetByIdAsync(league.ResolvedLeagueId.Value);
+            }
+
+            // Get country by code
+            var country = await countryRepo.GetByCodeAsync(league.CountryCode);
+
+            // Get LeagueProvider mapping if resolved
+            Configuration.Entities.LeagueProvider? leagueProvider = null;
+            if (league.ResolvedLeagueId.HasValue)
+            {
+                leagueProvider = await leagueProviderRepo.GetByLeagueAndProviderAsync(
+                    league.ResolvedLeagueId.Value, league.ProviderId);
+            }
+
+            // Get name mappings
+            var allMappings = await nameMappingRepo.GetAllAsync();
+            var nameMappings = allMappings
+                .Where(m => m.CountryCode.Equals(league.CountryCode, StringComparison.OrdinalIgnoreCase) &&
+                           m.ProviderLeagueName.Equals(league.ProviderLeagueName, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            return Results.Ok(new
+            {
+                unmatchedLeague = new
+                {
+                    league.Id,
+                    league.ProviderId,
+                    ProviderName = providerName,
+                    league.ProviderLeagueId,
+                    league.ProviderLeagueName,
+                    league.ProviderSlug,
+                    league.CountryCode,
+                    league.CountryName,
+                    league.ScrapedAt,
+                    league.IsResolved,
+                    ResolutionType = league.ResolutionType?.ToString(),
+                    league.ResolvedAt,
+                    league.ResolutionNotes
+                },
+                matchedCountry = country != null ? new
+                {
+                    country.Id,
+                    country.Name,
+                    country.Code,
+                    country.FlagEmoji,
+                    country.IsActive
+                } : null,
+                resolvedLeague = resolvedLeague != null ? new
+                {
+                    resolvedLeague.Id,
+                    resolvedLeague.Name,
+                    resolvedLeague.BetExplorerSlug,
+                    CountryName = resolvedLeague.Country?.Name,
+                    CountryCode = resolvedLeague.Country?.Code,
+                    resolvedLeague.IsActive
+                } : null,
+                leagueProvider = leagueProvider != null ? new
+                {
+                    leagueProvider.Id,
+                    leagueProvider.ProviderName,
+                    leagueProvider.ProviderSlug,
+                    leagueProvider.IsActive
+                } : null,
+                nameMappings = nameMappings.Select(m => new
+                {
+                    m.Id,
+                    m.ProviderCode,
+                    m.ProviderLeagueName,
+                    m.CountryCode,
+                    m.BetExplorerSlug,
+                    m.IsActive,
+                    m.Priority,
+                    m.UsageCount
+                })
+            });
+        })
+        .WithName("GetUnmatchedLeagueMappingDetails")
+        .WithDescription("Get mapping details for an unmatched league");
 
         // GET /api/unmatched-leagues/stats
         group.MapGet("/stats", async (IUnmatchedLeagueRepository repo) =>

@@ -157,6 +157,14 @@ frontend/
 - `POST /api/livesync/rounds/{roundId}` - Synchronizace konkrétního kola
 - `GET /api/livesync/stats?providerId=` - Statistiky live sync
 
+### Unmatched Leagues
+- `GET /api/unmatched-leagues` - Seznam nespárovaných lig z betting providerů
+- `GET /api/unmatched-leagues/{id}/mapping` - Detail mapování nespárované ligy
+- `POST /api/unmatched-leagues/{id}/map` - Namapovat ligu na BetExplorer ligu
+- `POST /api/unmatched-leagues/{id}/ignore` - Ignorovat ligu
+- `POST /api/unmatched-leagues/{id}/unavailable` - Označit jako nedostupnou
+- `POST /api/unmatched-leagues/{id}/unresolve` - Zrušit vyřešení
+
 ### Health
 - `GET /health` - Health check
 - `GET /hangfire` - Hangfire Dashboard (job queue monitoring)
