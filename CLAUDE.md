@@ -625,11 +625,30 @@ docker-compose restart postgres
 **Status:** 🎉 **Fáze 1 - 100% DOKONČENO** | Připraveno na Fázi 2
 
 **Betting Providers (2026-01-17) - ALL COMPLETE:**
-- ✅ Betano - JSON API + FlareSolverr
-- ✅ Fortuna - Playwright + dynamic JS rendering
-- ✅ Tipsport - FlareSolverr + Cloudflare bypass
-- ✅ Chance - FlareSolverr + shared Tipsport API
-- ✅ Kingsbet - Playwright + Altenar sportsbook API (JWT token extraction)
+- ✅ Betano - JSON API + FlareSolverr (58 leagues, 112 countries)
+- ✅ Fortuna - Playwright + dynamic JS rendering (4 leagues, 78 countries)
+- ✅ Tipsport - FlareSolverr + Cloudflare bypass (59 leagues, 45 countries)
+- ✅ Chance - FlareSolverr + shared Tipsport API (61 leagues, 42 countries)
+- ✅ Kingsbet - Playwright + Altenar sportsbook API (12 leagues, 59 countries)
+
+**Database Statistics (2026-01-17):**
+| Entity | Count |
+|--------|-------|
+| Leagues | 168 |
+| Countries | 179 (110 active) |
+| Sports | 2 |
+| Data Providers | 7 (6 active) |
+| LeagueProvider mappings | 362 |
+| CountryProvider mappings | 515 |
+
+**Unmatched Leagues Queue:**
+| Provider | Unresolved | Mapped | Ignored | Total |
+|----------|------------|--------|---------|-------|
+| Betano | 10 | 58 | 37 | 148 |
+| Chance | 0 | 60 | 21 | 82 |
+| Fortuna | 0 | 59 | 24 | 93 |
+| Kingsbet | 154 | 0 | 0 | 154 |
+| Tipsport | 7 | 69 | 37 | 114 |
 
 **Build & Test Optimizations (2025-11-18):**
 - Docker build: 64-80% rychlejší (5-9min → 1m46s)
