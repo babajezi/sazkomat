@@ -198,7 +198,7 @@ public static class ConfigurationSeeder
                 IsActive = false,
                 Priority = 7,
                 Type = ProviderType.BettingProvider,
-                Notes = "Czech betting provider",
+                Notes = "Czech betting provider - uses Altenar sportsbook API, requires Playwright for token extraction",
                 ScanCapabilities = BettingProviderCapabilities
             };
             context.DataProviders.Add(kingsbet);

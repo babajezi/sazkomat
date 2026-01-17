@@ -281,6 +281,13 @@ builder.Services.AddScoped<IBettingProviderScraper, Sazkomat.BettingProviders.Sc
 builder.Services.AddScoped<ILeagueMetadataScraper, Sazkomat.BettingProviders.Scrapers.FortunaLeagueMetadataScraper>();
 builder.Services.AddScoped<ICountryScraper, Sazkomat.BettingProviders.Scrapers.FortunaCountryScraper>();
 
+// Register Kingsbet scrapers and services (uses Altenar sportsbook API)
+builder.Services.AddScoped<Sazkomat.BettingProviders.Services.KingsbetJsonExtractor>();
+builder.Services.AddScoped<Sazkomat.BettingProviders.Scrapers.KingsbetScraper>();
+builder.Services.AddScoped<IBettingProviderScraper, Sazkomat.BettingProviders.Scrapers.KingsbetScraper>();
+builder.Services.AddScoped<ILeagueMetadataScraper, Sazkomat.BettingProviders.Scrapers.KingsbetLeagueMetadataScraper>();
+builder.Services.AddScoped<ICountryScraper, Sazkomat.BettingProviders.Scrapers.KingsbetCountryScraper>();
+
 // Register BettingProviders services
 builder.Services.AddScoped<SyncQueueService>();
 builder.Services.AddScoped<BettingProviderOrchestrator>();
