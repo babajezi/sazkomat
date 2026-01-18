@@ -23,11 +23,16 @@ public class LeagueNameMappingConfiguration : IEntityTypeConfiguration<LeagueNam
 
         builder.Property(m => m.CountryCode)
             .HasColumnName("country_code")
-            .HasMaxLength(10)
+            .HasMaxLength(50)  // Country slugs can be long (e.g., "switzerland", "north-central-america")
             .IsRequired();
 
         builder.Property(m => m.ProviderLeagueName)
             .HasColumnName("provider_league_name")
+            .HasMaxLength(200)
+            .IsRequired();
+
+        builder.Property(m => m.NormalizedProviderLeagueName)
+            .HasColumnName("normalized_provider_league_name")
             .HasMaxLength(200)
             .IsRequired();
 
@@ -78,5 +83,12 @@ public class LeagueNameMappingConfiguration : IEntityTypeConfiguration<LeagueNam
 
         builder.HasIndex(m => m.CountryCode)
             .HasDatabaseName("ix_league_name_mappings_country_code");
+
+        // Index for normalized lookup (used for global rule fallback)
+        builder.HasIndex(m => new { m.CountryCode, m.NormalizedProviderLeagueName, m.IsActive })
+            .HasDatabaseName("ix_league_name_mappings_normalized_lookup");
+
+        // Computed property IsGlobal is not mapped to database
+        builder.Ignore(m => m.IsGlobal);
     }
 }

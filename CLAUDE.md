@@ -629,8 +629,22 @@ docker-compose restart postgres
 
 ---
 
-**Poslední aktualizace:** 2026-01-17
+**Poslední aktualizace:** 2026-01-18
 **Status:** 🎉 **Fáze 1 - 100% DOKONČENO** | Připraveno na Fázi 2
+
+**Global Rules Feature (2026-01-18) - NEW:**
+- ✅ Globální mapovací pravidla (`ProviderCode = "*"`) pro všechny betting providery
+- ✅ Automatická normalizace názvů lig (lowercase, trim, collapse whitespace)
+- ✅ Fallback lookup: provider-specific → global rule
+- ✅ Frontend: GlobalRuleDialog pro vytváření pravidel z namapovaných lig
+- ✅ Při vytvoření globálního pravidla se smažou odpovídající unmatched záznamy
+- ✅ Fix: Brazilské ligy ("Brazílie - Liga") - přidána noun mapování pro country extraction
+
+**Klíčové soubory Global Rules:**
+- `src/Sazkomat.DataImport/Services/GlobalRuleService.cs` - business logika
+- `src/Sazkomat.DataImport/Helpers/LeagueNameNormalizer.cs` - normalizace názvů
+- `src/Sazkomat.DataImport/Repositories/LeagueNameMappingRepository.cs` - FindMappingWithFallbackAsync
+- `frontend/components/GlobalRuleDialog.tsx` - UI pro vytváření pravidel
 
 **Betting Providers (2026-01-17) - ALL COMPLETE:**
 - ✅ Betano - JSON API + FlareSolverr (58 leagues, 112 countries)

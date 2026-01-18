@@ -65,8 +65,8 @@ public class BetExplorerEnrichmentService : IBetExplorerEnrichmentService
             var providerCodeLower = providerCode.ToLowerInvariant();
             var countryCodeLower = country.Code.ToLowerInvariant();
 
-            // Query database for manual mapping
-            var mapping = await _mappingRepository.FindMappingAsync(
+            // Query database for manual mapping (with fallback to global rules)
+            var mapping = await _mappingRepository.FindMappingWithFallbackAsync(
                 providerCodeLower,
                 countryCodeLower,
                 providerLeague.Name);
@@ -345,8 +345,8 @@ public class BetExplorerEnrichmentService : IBetExplorerEnrichmentService
             _logger.LogDebug("Gender detection for '{League}': isWomens={IsWomens}",
                 providerLeague.Name, isWomensLeague);
 
-            // Step 1: Try manual mapping from database first (highest priority)
-            var mapping = await _mappingRepository.FindMappingAsync(
+            // Step 1: Try manual mapping from database first (with fallback to global rules)
+            var mapping = await _mappingRepository.FindMappingWithFallbackAsync(
                 providerCodeLower,
                 countryCodeLower,
                 providerLeague.Name);
@@ -490,9 +490,9 @@ public class BetExplorerEnrichmentService : IBetExplorerEnrichmentService
             var providerCodeLower = providerCode.ToLowerInvariant();
             var countryCodeLower = country.Code.ToLowerInvariant();
 
-            // First check manual mapping
+            // First check manual mapping (with fallback to global rules)
             LeagueMetadata? betExplorerMatch = null;
-            var mapping = await _mappingRepository.FindMappingAsync(
+            var mapping = await _mappingRepository.FindMappingWithFallbackAsync(
                 providerCodeLower,
                 countryCodeLower,
                 providerLeague.Name);

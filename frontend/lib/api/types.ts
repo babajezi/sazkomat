@@ -875,6 +875,31 @@ export interface CopyResolutionsExecuteResponse {
   notFound: number;
 }
 
+// Global rule types
+export interface GlobalRulePreview {
+  normalizedLeagueName?: string;
+  countryCode?: string;
+  betExplorerSlug?: string;
+  sourceLeagueId?: string;
+  sourceLeagueName?: string;
+  affectedLeagues: AffectedUnmatchedLeague[];
+  canCreateGlobalRule: boolean;
+  validationMessage?: string;
+}
+
+export interface AffectedUnmatchedLeague {
+  id: string;
+  providerName: string;
+  providerLeagueName: string;
+  isResolved: boolean;
+  resolutionType?: string;
+}
+
+export interface GlobalRuleResult {
+  globalRuleId: string;
+  deletedCount: number;
+}
+
 // ==================== UNMATCHED COUNTRIES ====================
 
 export interface UnmatchedCountry {

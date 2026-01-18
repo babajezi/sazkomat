@@ -43,6 +43,8 @@ import type {
   BetExplorerLeague,
   CopyResolutionsPreviewResponse,
   CopyResolutionsExecuteResponse,
+  GlobalRulePreview,
+  GlobalRuleResult,
   // Auth types
   User,
   AuthResponse,
@@ -735,6 +737,26 @@ export const unmatchedLeagueApi = {
     const { data } = await apiClient.post<CopyResolutionsExecuteResponse>(
       "/unmatched-leagues/copy-resolutions/execute",
       { sourceProviderId, targetProviderId }
+    );
+    return data;
+  },
+
+  // Get preview of global rule creation
+  getGlobalRulePreview: async (id: string): Promise<GlobalRulePreview> => {
+    const { data } = await apiClient.get<GlobalRulePreview>(
+      `/unmatched-leagues/${id}/global-rule/preview`
+    );
+    return data;
+  },
+
+  // Create global rule from mapped league
+  createGlobalRule: async (
+    id: string,
+    request?: { resolveAffectedLeagues?: boolean; notes?: string }
+  ): Promise<GlobalRuleResult> => {
+    const { data } = await apiClient.post<GlobalRuleResult>(
+      `/unmatched-leagues/${id}/global-rule/create`,
+      request ?? {}
     );
     return data;
   },

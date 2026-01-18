@@ -9,9 +9,19 @@ namespace Sazkomat.DataImport.Entities;
 public class LeagueNameMapping : Entity
 {
     /// <summary>
-    /// Provider code (betano, fortuna, etc.)
+    /// Provider code for global rules that apply to all providers.
+    /// </summary>
+    public const string GlobalProviderCode = "*";
+
+    /// <summary>
+    /// Provider code (betano, fortuna, etc.) or "*" for global rules.
     /// </summary>
     public string ProviderCode { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Whether this is a global rule that applies to all providers.
+    /// </summary>
+    public bool IsGlobal => ProviderCode == GlobalProviderCode;
 
     /// <summary>
     /// Country ISO code (cz, sk, gb, etc.)
@@ -22,6 +32,12 @@ public class LeagueNameMapping : Entity
     /// League name as it appears in the provider's system
     /// </summary>
     public string ProviderLeagueName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Normalized version of ProviderLeagueName for case-insensitive, whitespace-normalized matching.
+    /// Automatically computed from ProviderLeagueName.
+    /// </summary>
+    public string NormalizedProviderLeagueName { get; set; } = string.Empty;
 
     /// <summary>
     /// Corresponding BetExplorer league slug

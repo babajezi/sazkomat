@@ -3,6 +3,7 @@ using Sazkomat.Configuration.Entities;
 using Sazkomat.Configuration.Repositories;
 using Sazkomat.DataImport.Entities;
 using Sazkomat.DataImport.Repositories;
+using Sazkomat.DataImport.Services;
 
 namespace Sazkomat.Api.Endpoints;
 
@@ -863,6 +864,49 @@ public static class UnmatchedLeagueEndpoints
         })
         .WithName("GetUnmatchedLeagueSuggestions")
         .WithDescription("Get suggested leagues for mapping an unmatched league");
+
+        // GET /api/unmatched-leagues/{id}/global-rule/preview
+        group.MapGet("/{id:guid}/global-rule/preview", async (
+            Guid id,
+            IGlobalRuleService globalRuleService) =>
+        {
+            var preview = await globalRuleService.GetGlobalRulePreviewAsync(id);
+            return Results.Ok(preview);
+        })
+        .WithName("GetGlobalRulePreview")
+        .WithDescription("Get a preview of what would happen if a global rule was created from this mapped league");
+
+        // POST /api/unmatched-leagues/{id}/global-rule/create
+        group.MapPost("/{id:guid}/global-rule/create", async (
+            Guid id,
+            CreateGlobalRuleApiRequest? request,
+            IGlobalRuleService globalRuleService) =>
+        {
+            try
+            {
+                var result = await globalRuleService.CreateGlobalRuleAsync(new CreateGlobalRuleRequest
+                {
+                    SourceUnmatchedLeagueId = id,
+                    Notes = request?.Notes
+                });
+
+                return Results.Ok(new
+                {
+                    success = true,
+                    globalRuleId = result.GlobalRuleId,
+                    deletedCount = result.DeletedCount,
+                    message = result.DeletedCount > 0
+                        ? $"Globální pravidlo vytvořeno. Smazáno {result.DeletedCount} záznamů z Unmatched Leagues."
+                        : "Globální pravidlo vytvořeno."
+                });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+        })
+        .WithName("CreateGlobalRule")
+        .WithDescription("Create a global rule from a mapped unmatched league and delete all affected unmatched league entries");
     }
 }
 
@@ -890,6 +934,7 @@ public record ResolveAsMappedRequest(Guid LeagueId, string? Notes = null, bool? 
 public record ResolveAsIgnoredRequest(string? Notes = null);
 public record ResolveAsUnavailableRequest(string? Notes = null);
 public record CreateFromBetExplorerRequest(string BetExplorerSlug, string? LeagueName = null, Guid? CountryId = null, string? Notes = null);
+public record CreateGlobalRuleApiRequest(string? Notes = null);
 
 // Copy resolutions DTOs
 public record CopyResolutionsRequest(Guid SourceProviderId, Guid TargetProviderId);

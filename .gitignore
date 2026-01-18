@@ -54,3 +54,4 @@ nul
 **/CoverageReport/
 **/test-results/
 **/playwright-report/
+backups/

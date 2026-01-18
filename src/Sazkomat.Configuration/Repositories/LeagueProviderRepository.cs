@@ -77,30 +77,49 @@ public class LeagueProviderRepository : ILeagueProviderRepository
 
     public async Task<LeagueProvider> AddOrUpdateAsync(LeagueProvider leagueProvider)
     {
-        var existing = await _context.LeagueProviders
+        // First check by (ProviderId, ProviderSlug) - same provider, same slug
+        var existingBySlug = await _context.LeagueProviders
             .FirstOrDefaultAsync(lp =>
                 lp.ProviderId == leagueProvider.ProviderId &&
                 lp.ProviderSlug == leagueProvider.ProviderSlug);
 
-        if (existing != null)
+        if (existingBySlug != null)
         {
             _logger.LogDebug("Updating existing league provider mapping {LeagueProviderId} (Slug: {ProviderSlug})",
-                existing.Id, existing.ProviderSlug);
-            existing.LeagueId = leagueProvider.LeagueId;
-            existing.ProviderName = leagueProvider.ProviderName;
-            existing.IsActive = leagueProvider.IsActive;
-            existing.UpdatedAt = DateTime.UtcNow;
+                existingBySlug.Id, existingBySlug.ProviderSlug);
+            existingBySlug.LeagueId = leagueProvider.LeagueId;
+            existingBySlug.ProviderName = leagueProvider.ProviderName;
+            existingBySlug.IsActive = leagueProvider.IsActive;
+            existingBySlug.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
-            return existing;
+            return existingBySlug;
         }
-        else
+
+        // Also check by (LeagueId, ProviderId) - same league+provider but different slug
+        // This can happen when a league was mapped via global rule with a different slug
+        var existingByLeague = await _context.LeagueProviders
+            .FirstOrDefaultAsync(lp =>
+                lp.ProviderId == leagueProvider.ProviderId &&
+                lp.LeagueId == leagueProvider.LeagueId);
+
+        if (existingByLeague != null)
         {
-            _logger.LogDebug("Adding new league provider mapping for league {LeagueId}, provider {ProviderId} (Slug: {ProviderSlug})",
-                leagueProvider.LeagueId, leagueProvider.ProviderId, leagueProvider.ProviderSlug);
-            await _context.LeagueProviders.AddAsync(leagueProvider);
+            _logger.LogDebug("Updating existing league provider mapping {LeagueProviderId} (changing slug from {OldSlug} to {NewSlug})",
+                existingByLeague.Id, existingByLeague.ProviderSlug, leagueProvider.ProviderSlug);
+            existingByLeague.ProviderSlug = leagueProvider.ProviderSlug;
+            existingByLeague.ProviderName = leagueProvider.ProviderName;
+            existingByLeague.IsActive = leagueProvider.IsActive;
+            existingByLeague.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
-            return leagueProvider;
+            return existingByLeague;
         }
+
+        // No existing mapping found, create new one
+        _logger.LogDebug("Adding new league provider mapping for league {LeagueId}, provider {ProviderId} (Slug: {ProviderSlug})",
+            leagueProvider.LeagueId, leagueProvider.ProviderId, leagueProvider.ProviderSlug);
+        await _context.LeagueProviders.AddAsync(leagueProvider);
+        await _context.SaveChangesAsync();
+        return leagueProvider;
     }
 
     public async Task UpdateAsync(LeagueProvider leagueProvider)

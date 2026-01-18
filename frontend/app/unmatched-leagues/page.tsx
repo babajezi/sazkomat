@@ -19,6 +19,7 @@ import {
   Ban,
   Copy,
   Info,
+  Globe,
 } from "lucide-react";
 import Link from "next/link";
 import type {
@@ -38,6 +39,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { UnmatchedLeagueMappingDialog } from "@/components/UnmatchedLeagueMappingDialog";
+import { GlobalRuleDialog } from "@/components/GlobalRuleDialog";
 
 export default function UnmatchedLeaguesPage() {
   const queryClient = useQueryClient();
@@ -77,6 +79,10 @@ export default function UnmatchedLeaguesPage() {
   // Detail mapping dialog state
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [detailLeagueId, setDetailLeagueId] = useState<string | null>(null);
+
+  // Global rule dialog state
+  const [globalRuleDialogOpen, setGlobalRuleDialogOpen] = useState(false);
+  const [globalRuleLeagueId, setGlobalRuleLeagueId] = useState<string | null>(null);
 
   // Fetch unmatched leagues
   const { data: unmatchedLeagues, isLoading, error } = useQuery({
@@ -691,6 +697,20 @@ export default function UnmatchedLeaguesPage() {
                           >
                             <Info className="h-4 w-4" />
                           </Button>
+                          {league.resolutionType === "Mapped" && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setGlobalRuleLeagueId(league.id);
+                                setGlobalRuleDialogOpen(true);
+                              }}
+                              title="Vytvořit globální pravidlo"
+                              className="text-purple-600 hover:text-purple-700"
+                            >
+                              <Globe className="h-4 w-4" />
+                            </Button>
+                          )}
                           {!league.isResolved ? (
                             <>
                               <Button
@@ -1259,6 +1279,13 @@ export default function UnmatchedLeaguesPage() {
         open={detailDialogOpen}
         onOpenChange={setDetailDialogOpen}
         leagueId={detailLeagueId}
+      />
+
+      {/* Global Rule Dialog */}
+      <GlobalRuleDialog
+        open={globalRuleDialogOpen}
+        onOpenChange={setGlobalRuleDialogOpen}
+        leagueId={globalRuleLeagueId}
       />
     </div>
   );

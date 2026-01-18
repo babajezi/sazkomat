@@ -314,6 +314,7 @@ builder.Services.AddScoped<ILiveSyncService, LiveSyncService>();
 builder.Services.AddScoped<ISyncJobProcessor, SyncJobProcessor>();
 builder.Services.AddScoped<IBetExplorerEnrichmentService, BetExplorerEnrichmentService>();
 builder.Services.AddScoped<ICountryMappingService, CountryMappingService>();
+builder.Services.AddScoped<IGlobalRuleService, GlobalRuleService>();
 
 // Register Hangfire background services
 builder.Services.AddHostedService<RecurringSyncScheduler>();
