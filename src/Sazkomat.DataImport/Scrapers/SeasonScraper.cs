@@ -53,8 +53,13 @@ public class BetExplorerSeasonScraper : ISeasonScraper
                         foreach (var option in options)
                         {
                             var seasonText = option.InnerText.Trim();
-                            // Check if option text contains year pattern (e.g., "2024/2025")
+                            // Check if option text contains dual-year pattern (e.g., "2024/2025")
                             var match = System.Text.RegularExpressions.Regex.Match(seasonText, @"20\d{2}[/-]20\d{2}");
+                            if (!match.Success)
+                            {
+                                // Fallback: match single year (e.g., "2024") for calendar-year leagues (MLS, Allsvenskan, Brazilian leagues)
+                                match = System.Text.RegularExpressions.Regex.Match(seasonText, @"^(20\d{2})$");
+                            }
                             if (match.Success)
                             {
                                 var normalizedSeason = NormalizeSeason(match.Value);

@@ -30,6 +30,13 @@ public interface ISyncService
     Task<Result<SyncResponse>> SyncAllActiveSeasonsAsync(Guid providerId);
 
     /// <summary>
+    /// Scans ALL available seasons from BetExplorer for leagues with betting provider mapping.
+    /// Unlike SyncAllActiveSeasonsAsync, this has no year limit - shows all historical seasons.
+    /// </summary>
+    /// <param name="leagueIds">Optional: specific leagues to scan. If null, scans all leagues with betting provider mapping.</param>
+    Task<Result<SyncResponse>> GlobalSeasonScanAsync(List<Guid>? leagueIds = null);
+
+    /// <summary>
     /// Gets the current sync status
     /// </summary>
     Task<SyncStatusResponse> GetSyncStatusAsync();

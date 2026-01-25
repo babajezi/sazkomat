@@ -971,4 +971,212 @@ public class ProviderSyncService : ISyncService
         // BetExplorer and other providers - use code as-is
         return providerCode.ToLowerInvariant();
     }
+
+    /// <summary>
+    /// BetExplorer provider ID (hardcoded from seed data)
+    /// </summary>
+    private static readonly Guid BetExplorerProviderId = Guid.Parse("a0000000-0000-0000-0000-000000000001");
+
+    public async Task<Result<SyncResponse>> GlobalSeasonScanAsync(List<Guid>? leagueIds = null)
+    {
+        lock (_lock)
+        {
+            if (_currentStatus.IsRunning)
+            {
+                return Result<SyncResponse>.Failure("Synchronization is already running");
+            }
+            _currentStatus = new SyncStatusResponse
+            {
+                IsRunning = true,
+                CurrentSyncType = SyncType.Seasons,
+                StartedAt = DateTime.UtcNow
+            };
+        }
+
+        var stopwatch = Stopwatch.StartNew();
+        var stats = new SyncStatistics();
+
+        try
+        {
+            // Get BetExplorer provider
+            var betExplorer = await _providerRepository.GetByIdAsync(BetExplorerProviderId);
+            if (betExplorer == null)
+            {
+                return Result<SyncResponse>.Failure("BetExplorer provider not found");
+            }
+
+            // Get season scraper for BetExplorer
+            var scraper = _seasonScrapers.FirstOrDefault(s => s.CanHandle(betExplorer));
+            if (scraper == null)
+            {
+                return Result<SyncResponse>.Failure("No season scraper available for BetExplorer");
+            }
+
+            // Get leagues to scan
+            List<Guid> targetLeagueIds;
+            if (leagueIds != null && leagueIds.Any())
+            {
+                targetLeagueIds = leagueIds;
+                _logger.LogInformation("Global season scan: using {Count} specified leagues", targetLeagueIds.Count);
+            }
+            else
+            {
+                // Get all leagues with at least one betting provider mapping
+                targetLeagueIds = await _leagueProviderRepository.GetLeagueIdsWithBettingProviderMappingAsync();
+                _logger.LogInformation("Global season scan: found {Count} leagues with betting provider mappings", targetLeagueIds.Count);
+            }
+
+            if (!targetLeagueIds.Any())
+            {
+                return Result<SyncResponse>.Success(new SyncResponse
+                {
+                    Success = true,
+                    Message = "No leagues found with betting provider mappings",
+                    Statistics = stats,
+                    Duration = stopwatch.Elapsed
+                });
+            }
+
+            // Process each league
+            int processedLeagues = 0;
+            foreach (var leagueId in targetLeagueIds)
+            {
+                try
+                {
+                    var league = await _leagueRepository.GetByIdAsync(leagueId);
+                    if (league == null || !league.IsActive)
+                    {
+                        _logger.LogDebug("Skipping league {LeagueId} - not found or inactive", leagueId);
+                        continue;
+                    }
+
+                    _logger.LogInformation("Scanning seasons for league {League} ({LeagueId})",
+                        league.DisplayName ?? league.Name, leagueId);
+
+                    // Scrape ALL available seasons (no year limit)
+                    var scrapedSeasons = await scraper.ScrapeAvailableSeasonsAsync(league);
+                    stats.TotalProcessed += scrapedSeasons.Count;
+
+                    foreach (var seasonName in scrapedSeasons)
+                    {
+                        try
+                        {
+                            // Parse season years
+                            var years = seasonName.Split('-');
+                            int startYear, endYear;
+
+                            if (years.Length == 2 && int.TryParse(years[0], out startYear) && int.TryParse(years[1], out endYear))
+                            {
+                                // Two-year season (e.g., 2023-2024)
+                            }
+                            else if (years.Length == 1 && int.TryParse(years[0], out startYear))
+                            {
+                                // Single-year season (e.g., 2023)
+                                endYear = startYear;
+                            }
+                            else
+                            {
+                                stats.Errors++;
+                                stats.ErrorMessages.Add($"Invalid season format: {seasonName}");
+                                continue;
+                            }
+
+                            // Get or create Season
+                            var existingSeason = await _seasonRepository.GetByNameAsync(seasonName);
+                            if (existingSeason == null)
+                            {
+                                var newSeason = new Season
+                                {
+                                    Name = seasonName,
+                                    StartYear = startYear,
+                                    EndYear = endYear
+                                };
+                                await _seasonRepository.AddAsync(newSeason);
+                                existingSeason = newSeason;
+                                stats.Created++;
+                                _logger.LogDebug("Created season: {Season}", seasonName);
+                            }
+
+                            // Get or create LeagueSeason mapping
+                            var leagueSeason = await _leagueSeasonRepository.GetByLeagueAndSeasonAsync(
+                                leagueId, existingSeason.Id);
+
+                            if (leagueSeason == null)
+                            {
+                                leagueSeason = new LeagueSeason
+                                {
+                                    LeagueId = leagueId,
+                                    SeasonId = existingSeason.Id,
+                                    IsAvailableOnBetExplorer = true,
+                                    HasData = false,
+                                    HasOdds = false
+                                };
+                                await _leagueSeasonRepository.AddAsync(leagueSeason);
+                                stats.Created++;
+                            }
+                            else if (!leagueSeason.IsAvailableOnBetExplorer)
+                            {
+                                leagueSeason.IsAvailableOnBetExplorer = true;
+                                await _leagueSeasonRepository.UpdateAsync(leagueSeason);
+                                stats.Updated++;
+                                _logger.LogDebug("Updated league season {SeasonName} - IsAvailableOnBetExplorer set to true", seasonName);
+                            }
+                            else
+                            {
+                                stats.Skipped++;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            stats.Errors++;
+                            stats.ErrorMessages.Add($"Error processing season {seasonName} for league {league.Name}: {ex.Message}");
+                            _logger.LogError(ex, "Error processing season {Season} for league {League}", seasonName, league.Name);
+                        }
+                    }
+
+                    processedLeagues++;
+                }
+                catch (Exception ex)
+                {
+                    stats.Errors++;
+                    stats.ErrorMessages.Add($"Error processing league {leagueId}: {ex.Message}");
+                    _logger.LogError(ex, "Error processing league {LeagueId}", leagueId);
+                }
+            }
+
+            stopwatch.Stop();
+
+            var response = new SyncResponse
+            {
+                Success = stats.Errors == 0,
+                Message = $"Global season scan completed. Processed {processedLeagues} leagues, found {stats.TotalProcessed} seasons.",
+                Statistics = stats,
+                Duration = stopwatch.Elapsed
+            };
+
+            lock (_lock)
+            {
+                _currentStatus.IsRunning = false;
+                _currentStatus.LastCompletedAt = DateTime.UtcNow;
+                _currentStatus.LastResult = response;
+            }
+
+            _logger.LogInformation("Global season scan completed: {Leagues} leagues, {Created} created, {Updated} updated, {Skipped} skipped, {Errors} errors",
+                processedLeagues, stats.Created, stats.Updated, stats.Skipped, stats.Errors);
+
+            return Result<SyncResponse>.Success(response);
+        }
+        catch (Exception ex)
+        {
+            stopwatch.Stop();
+
+            lock (_lock)
+            {
+                _currentStatus.IsRunning = false;
+            }
+
+            _logger.LogError(ex, "Fatal error during global season scan");
+            return Result<SyncResponse>.Failure($"Global season scan failed: {ex.Message}");
+        }
+    }
 }

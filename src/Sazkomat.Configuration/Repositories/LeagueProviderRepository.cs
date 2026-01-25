@@ -172,4 +172,14 @@ public class LeagueProviderRepository : ILeagueProviderRepository
 
         return mappings.Count;
     }
+
+    public async Task<List<Guid>> GetLeagueIdsWithBettingProviderMappingAsync()
+    {
+        return await _context.LeagueProviders
+            .Include(lp => lp.Provider)
+            .Where(lp => lp.IsActive && lp.Provider.Type == ProviderType.BettingProvider)
+            .Select(lp => lp.LeagueId)
+            .Distinct()
+            .ToListAsync();
+    }
 }

@@ -16,4 +16,10 @@ public interface ILeagueProviderRepository
     Task DeleteAsync(Guid id);
     Task<List<LeagueProvider>> GetByProviderIdAsync(Guid providerId);
     Task<int> DeleteByProviderAsync(Guid providerId);
+
+    /// <summary>
+    /// Gets all league IDs that have at least one active mapping to a betting provider.
+    /// Used for global season scan to identify leagues of interest.
+    /// </summary>
+    Task<List<Guid>> GetLeagueIdsWithBettingProviderMappingAsync();
 }

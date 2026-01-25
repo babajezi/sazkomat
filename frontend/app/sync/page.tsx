@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ArrowLeft, Database, ScanLine, Download, Activity, Info, RefreshCw, Trash2 } from "lucide-react";
+import { ArrowLeft, Database, ScanLine, Download, Activity, Info, RefreshCw, Trash2, Calendar } from "lucide-react";
 import { ScanDialog } from "@/components/ScanDialog";
 import { CacheTablesView } from "@/components/CacheTablesView";
 import { JobsPanel } from "@/components/JobsPanel";
@@ -23,6 +23,7 @@ export default function SyncPage() {
   const [showBackfillDialog, setShowBackfillDialog] = useState(false);
   const [showRemoveMappingDialog, setShowRemoveMappingDialog] = useState(false);
   const [isBackfillingLP, setIsBackfillingLP] = useState(false);
+  const [isGlobalSeasonScanRunning, setIsGlobalSeasonScanRunning] = useState(false);
   const queryClient = useQueryClient();
 
   // Fetch all providers
@@ -63,6 +64,43 @@ export default function SyncPage() {
       alert(`Chyba: ${error instanceof Error ? error.message : "Unknown error"}`);
     } finally {
       setIsBackfillingLP(false);
+    }
+  };
+
+  const handleGlobalSeasonScan = async () => {
+    setIsGlobalSeasonScanRunning(true);
+    try {
+      const response = await fetch(`${API_URL}/api/sync/seasons/global`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}), // Empty body - will scan all leagues with betting provider mapping
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to scan seasons");
+      }
+
+      const result = await response.json();
+      const stats = result.statistics;
+      alert(
+        `Global Season Scan dokoncen!\n\n` +
+        `Zpracovano: ${stats.totalProcessed} sezon\n` +
+        `Vytvoreno: ${stats.created}\n` +
+        `Aktualizovano: ${stats.updated}\n` +
+        `Preskoceno: ${stats.skipped}\n` +
+        `Chyby: ${stats.errors}\n\n` +
+        `Cas: ${result.duration}`
+      );
+
+      // Refresh seasons and league-seasons views
+      queryClient.invalidateQueries({ queryKey: ["seasons"] });
+      queryClient.invalidateQueries({ queryKey: ["leagueSeasons"] });
+    } catch (error) {
+      console.error("Global season scan error:", error);
+      alert(`Chyba: ${error instanceof Error ? error.message : "Unknown error"}`);
+    } finally {
+      setIsGlobalSeasonScanRunning(false);
     }
   };
 
@@ -230,6 +268,17 @@ export default function SyncPage() {
                   }
                 />
               )}
+
+              {/* Global Season Scan - scans all leagues with betting provider mapping */}
+              <Button
+                variant="secondary"
+                onClick={handleGlobalSeasonScan}
+                disabled={isGlobalSeasonScanRunning}
+                title="Naskenuje vsechny dostupne sezony z BetExploreru pro ligy s vazbou na betting providera"
+              >
+                <Calendar className={`mr-2 h-4 w-4 ${isGlobalSeasonScanRunning ? "animate-spin" : ""}`} />
+                {isGlobalSeasonScanRunning ? "Scanning..." : "Global Season Scan"}
+              </Button>
 
               {/* Backfill resolved entries buttons */}
               <Button

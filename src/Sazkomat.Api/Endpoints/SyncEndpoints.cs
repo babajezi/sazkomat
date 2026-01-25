@@ -183,6 +183,24 @@ public static class SyncEndpoints
         .Produces<SyncResponse>(200)
         .Produces(400);
 
+        // POST /api/sync/seasons/global
+        group.MapPost("/seasons/global", async (
+            ISyncService syncService,
+            [FromBody] GlobalSeasonScanRequest? request) =>
+        {
+            // Perform global scan for all leagues with betting provider mapping
+            // No year limit - shows all historical seasons
+            var result = await syncService.GlobalSeasonScanAsync(request?.LeagueIds);
+
+            return result.IsSuccess
+                ? Results.Ok(result.Value)
+                : Results.BadRequest(new { error = result.Error });
+        })
+        .WithName("GlobalSeasonScan")
+        .WithSummary("Scan ALL available seasons from BetExplorer for leagues with betting provider mappings (no year limit)")
+        .Produces<SyncResponse>(200)
+        .Produces(400);
+
         // POST /api/sync/seasons/{leagueId}
         group.MapPost("/seasons/{leagueId}", async (
             ISyncService syncService,
@@ -290,3 +308,5 @@ public static class SyncEndpoints
 public record SyncSeasonDataRequest(Guid ProviderId, bool ForceUpdate = false);
 
 public record MultiSportSyncRequest(string ProviderCode, List<string>? SportCodes = null);
+
+public record GlobalSeasonScanRequest(List<Guid>? LeagueIds = null);

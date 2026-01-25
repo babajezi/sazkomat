@@ -629,10 +629,26 @@ docker-compose restart postgres
 
 ---
 
-**Poslední aktualizace:** 2026-01-18
+**Poslední aktualizace:** 2026-01-25
 **Status:** 🎉 **Fáze 1 - 100% DOKONČENO** | Připraveno na Fázi 2
 
-**Global Rules Feature (2026-01-18) - NEW:**
+**Global Season Scan Feature (2026-01-25) - NEW:**
+- ✅ Nový endpoint `POST /api/sync/seasons/global` - skenuje všechny dostupné sezóny z BetExploreru
+- ✅ Skenuje pouze ligy s vazbou na betting providera (LeagueProvider mapping)
+- ✅ Bez omezení na roky (na rozdíl od existujícího 3-letého limitu)
+- ✅ Ukládá do `Season` + `LeagueSeason` tabulek
+- ✅ Frontend tlačítko "Global Season Scan" na /sync stránce
+- ✅ Fix: Podpora jednoletých sezón (2024) pro kalendářní ligy (MLS, Allsvenskan, brazilské ligy)
+- ✅ Celkem naskenováno: 186 lig, 3,399 sezón
+
+**Klíčové soubory Global Season Scan:**
+- `src/Sazkomat.DataImport/Services/ProviderSyncService.cs` - GlobalSeasonScanAsync()
+- `src/Sazkomat.DataImport/Scrapers/SeasonScraper.cs` - fix pro single-year seasons
+- `src/Sazkomat.Configuration/Repositories/LeagueProviderRepository.cs` - GetLeagueIdsWithBettingProviderMappingAsync()
+- `frontend/app/sync/page.tsx` - Global Season Scan button
+- `tests/Sazkomat.Tests/DataImport/ProviderSyncServiceTests.cs` - unit testy
+
+**Global Rules Feature (2026-01-18):**
 - ✅ Globální mapovací pravidla (`ProviderCode = "*"`) pro všechny betting providery
 - ✅ Automatická normalizace názvů lig (lowercase, trim, collapse whitespace)
 - ✅ Fallback lookup: provider-specific → global rule
