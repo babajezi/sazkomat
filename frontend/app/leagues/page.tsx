@@ -650,7 +650,7 @@ export default function LeaguesPage() {
                     </div>
                   </div>
                 </div>
-                <LeagueSeasonsDisplay leagueId={league.id} />
+                <LeagueSeasonsDisplay leagueId={league.id} leagueProviders={league.leagueProviders} />
               </CardContent>
             </Card>
           ))}

@@ -3,7 +3,9 @@ using Sazkomat.Configuration.Entities;
 using Sazkomat.Configuration.Repositories;
 using Sazkomat.Core.Common;
 using Sazkomat.DataImport.DTOs;
+using Sazkomat.DataImport.Entities;
 using Sazkomat.DataImport.Helpers;
+using Sazkomat.DataImport.Repositories;
 using Sazkomat.DataImport.Scrapers;
 using Sazkomat.DataImport.Validators;
 using System.Diagnostics;
@@ -26,6 +28,7 @@ public class ProviderSyncService : ISyncService
     private readonly IEnumerable<ISeasonScraper> _seasonScrapers;
     private readonly ISeasonSyncService _seasonSyncService;
     private readonly ILeagueRoundValidator _roundValidator;
+    private readonly ISyncJobRepository _syncJobRepository;
     private readonly ILogger<ProviderSyncService> _logger;
 
     private static SyncStatusResponse _currentStatus = new();
@@ -45,6 +48,7 @@ public class ProviderSyncService : ISyncService
         IEnumerable<ISeasonScraper> seasonScrapers,
         ISeasonSyncService seasonSyncService,
         ILeagueRoundValidator roundValidator,
+        ISyncJobRepository syncJobRepository,
         ILogger<ProviderSyncService> logger)
     {
         _providerRepository = providerRepository;
@@ -60,6 +64,7 @@ public class ProviderSyncService : ISyncService
         _seasonScrapers = seasonScrapers;
         _seasonSyncService = seasonSyncService;
         _roundValidator = roundValidator;
+        _syncJobRepository = syncJobRepository;
         _logger = logger;
     }
 
@@ -1177,6 +1182,346 @@ public class ProviderSyncService : ISyncService
 
             _logger.LogError(ex, "Fatal error during global season scan");
             return Result<SyncResponse>.Failure($"Global season scan failed: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Synchronizes season data (rounds, matches) for all seasons of a specific league.
+    /// Historical seasons with HasData=true are automatically skipped.
+    /// Fail-fast: stops on first error.
+    /// </summary>
+    public async Task<Result<Guid>> SyncLeagueSeasonDataAsync(Guid leagueId)
+    {
+        var stopwatch = Stopwatch.StartNew();
+
+        try
+        {
+            // Validate league exists
+            var league = await _leagueRepository.GetByIdAsync(leagueId);
+            if (league == null)
+            {
+                return Result<Guid>.Failure("League not found");
+            }
+
+            // Check if league has betting provider mapping
+            var leagueProviders = await _leagueProviderRepository.GetByLeagueIdAsync(leagueId);
+            var hasBettingProvider = leagueProviders.Any(lp =>
+                lp.Provider?.Type == ProviderType.BettingProvider && lp.IsActive);
+
+            if (!hasBettingProvider)
+            {
+                return Result<Guid>.Failure("League does not have active betting provider mapping");
+            }
+
+            // Create SyncJob for tracking
+            var syncJob = new SyncJob
+            {
+                Id = Guid.NewGuid(),
+                ProviderId = BetExplorerProviderId,
+                Type = SyncJobType.Scan,
+                EntityType = SyncEntityType.Seasons,
+                Status = SyncJobStatus.Running,
+                StartedAt = DateTime.UtcNow,
+                LeagueIds = new List<Guid> { leagueId }
+            };
+            await _syncJobRepository.CreateAsync(syncJob);
+
+            _logger.LogInformation("Starting season data sync for league {LeagueName} ({LeagueId}), JobId: {JobId}",
+                league.DisplayName, leagueId, syncJob.Id);
+
+            // Get all seasons for this league
+            var leagueSeasons = await _leagueSeasonRepository.GetByLeagueIdAsync(leagueId, includeRelations: true);
+            if (!leagueSeasons.Any())
+            {
+                syncJob.Status = SyncJobStatus.Failed;
+                syncJob.CompletedAt = DateTime.UtcNow;
+                syncJob.ErrorMessage = "No seasons found for this league. Run 'Refresh seznam' first.";
+                await _syncJobRepository.UpdateAsync(syncJob);
+                return Result<Guid>.Failure("No seasons found for this league. Run 'Refresh seznam' first.");
+            }
+
+            var stats = new SyncStatistics();
+            var processedSeasons = 0;
+
+            // Filter only completed historical seasons
+            // - Skip current seasons (incomplete rounds)
+            // - Skip future seasons (haven't started yet)
+            var currentYear = DateTime.UtcNow.Year;
+            var completedSeasons = leagueSeasons
+                .Where(ls => ls.SyncMode == SyncMode.Historical
+                             && ls.Season != null
+                             && (ls.Season.EndYear ?? ls.Season.StartYear) < currentYear)
+                .OrderByDescending(ls => ls.Season?.StartYear)
+                .ToList();
+
+            // Log skipped seasons
+            var skippedSeasons = leagueSeasons.Except(completedSeasons).ToList();
+            if (skippedSeasons.Any())
+            {
+                _logger.LogInformation("Skipping {Count} season(s) (current/future): {Seasons}",
+                    skippedSeasons.Count,
+                    string.Join(", ", skippedSeasons.Select(s => s.Season?.Name ?? "unknown")));
+            }
+
+            if (!completedSeasons.Any())
+            {
+                _logger.LogInformation("No completed historical seasons to sync for league {LeagueName}",
+                    league.DisplayName);
+                // Mark job as completed with 0 items
+                syncJob.Status = SyncJobStatus.Completed;
+                syncJob.CompletedAt = DateTime.UtcNow;
+                syncJob.ProgressData = JsonSerializer.Serialize(new { total = 0, processed = 0, message = "No completed historical seasons to sync" });
+                await _syncJobRepository.UpdateAsync(syncJob);
+                return Result<Guid>.Success(syncJob.Id);
+            }
+
+            foreach (var leagueSeason in completedSeasons)
+            {
+                try
+                {
+                    _logger.LogInformation("Syncing season {SeasonName} for {LeagueName}",
+                        leagueSeason.Season?.Name ?? "unknown", league.DisplayName);
+
+                    // Call existing SyncSeasonDataAsync which handles:
+                    // - Skipping historical seasons with HasData=true
+                    // - Setting HasData=true after successful sync
+                    var result = await _seasonSyncService.SyncSeasonDataAsync(
+                        BetExplorerProviderId,
+                        leagueId,
+                        leagueSeason.SeasonId,
+                        forceUpdate: false);
+
+                    if (result.IsSuccess && result.Value != null)
+                    {
+                        stats.TotalProcessed++;
+                        stats.Created += result.Value.Statistics.Created;
+                        stats.Updated += result.Value.Statistics.Updated;
+                        stats.Skipped += result.Value.Statistics.Skipped;
+                        processedSeasons++;
+
+                        _logger.LogInformation("Season {SeasonName} synced: {Created} created, {Updated} updated, {Skipped} skipped",
+                            leagueSeason.Season?.Name,
+                            result.Value.Statistics.Created,
+                            result.Value.Statistics.Updated,
+                            result.Value.Statistics.Skipped);
+                    }
+                    else
+                    {
+                        // FAIL-FAST: Stop on first error
+                        stats.Errors++;
+                        var errorMsg = result.Error ?? "Unknown error";
+                        stats.ErrorMessages.Add($"{leagueSeason.Season?.Name}: {errorMsg}");
+
+                        _logger.LogError("Failed to sync season {SeasonName}: {Error}. Stopping sync (fail-fast).",
+                            leagueSeason.Season?.Name, errorMsg);
+
+                        // Mark job as failed
+                        syncJob.Status = SyncJobStatus.Failed;
+                        syncJob.CompletedAt = DateTime.UtcNow;
+                        syncJob.ErrorMessage = errorMsg;
+                        await _syncJobRepository.UpdateAsync(syncJob);
+
+                        stopwatch.Stop();
+                        return Result<Guid>.Failure($"Season sync failed at {leagueSeason.Season?.Name}: {errorMsg}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // FAIL-FAST: Stop on first exception
+                    stats.Errors++;
+                    stats.ErrorMessages.Add($"{leagueSeason.Season?.Name}: {ex.Message}");
+
+                    _logger.LogError(ex, "Exception syncing season {SeasonName}. Stopping sync (fail-fast).",
+                        leagueSeason.Season?.Name);
+
+                    // Mark job as failed
+                    syncJob.Status = SyncJobStatus.Failed;
+                    syncJob.CompletedAt = DateTime.UtcNow;
+                    syncJob.ErrorMessage = ex.Message;
+                    await _syncJobRepository.UpdateAsync(syncJob);
+
+                    stopwatch.Stop();
+                    return Result<Guid>.Failure($"Season sync failed at {leagueSeason.Season?.Name}: {ex.Message}");
+                }
+            }
+
+            stopwatch.Stop();
+
+            // Mark job as completed
+            syncJob.Status = SyncJobStatus.Completed;
+            syncJob.CompletedAt = DateTime.UtcNow;
+            syncJob.ProgressData = JsonSerializer.Serialize(new
+            {
+                total = completedSeasons.Count,
+                processed = processedSeasons,
+                created = stats.Created,
+                updated = stats.Updated,
+                skipped = stats.Skipped,
+                errors = stats.Errors
+            });
+            await _syncJobRepository.UpdateAsync(syncJob);
+
+            _logger.LogInformation(
+                "League season data sync completed for {LeagueName}: {Processed} seasons, {Created} rounds created, {Updated} updated, {Skipped} skipped in {Duration}",
+                league.DisplayName, processedSeasons, stats.Created, stats.Updated, stats.Skipped, stopwatch.Elapsed);
+
+            return Result<Guid>.Success(syncJob.Id);
+        }
+        catch (Exception ex)
+        {
+            stopwatch.Stop();
+            _logger.LogError(ex, "Fatal error during league season data sync for {LeagueId}", leagueId);
+            return Result<Guid>.Failure($"League season data sync failed: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Refreshes the list of available seasons for a league from BetExplorer.
+    /// Only creates LeagueSeason entries, does not sync rounds/matches.
+    /// </summary>
+    public async Task<Result<Guid>> RefreshLeagueSeasonsListAsync(Guid leagueId)
+    {
+        var stopwatch = Stopwatch.StartNew();
+
+        try
+        {
+            // Validate league exists
+            var league = await _leagueRepository.GetByIdAsync(leagueId);
+            if (league == null)
+            {
+                return Result<Guid>.Failure("League not found");
+            }
+
+            // Check if league has betting provider mapping
+            var leagueProviders = await _leagueProviderRepository.GetByLeagueIdAsync(leagueId);
+            var hasBettingProvider = leagueProviders.Any(lp =>
+                lp.Provider?.Type == ProviderType.BettingProvider && lp.IsActive);
+
+            if (!hasBettingProvider)
+            {
+                return Result<Guid>.Failure("League does not have active betting provider mapping");
+            }
+
+            _logger.LogInformation("Starting seasons list refresh for league {LeagueName} ({LeagueId})",
+                league.DisplayName, leagueId);
+
+            // Get BetExplorer provider and scraper
+            var betExplorer = await _providerRepository.GetByIdAsync(BetExplorerProviderId);
+            if (betExplorer == null)
+            {
+                return Result<Guid>.Failure("BetExplorer provider not found");
+            }
+
+            var scraper = _seasonScrapers.FirstOrDefault(s => s.CanHandle(betExplorer));
+            if (scraper == null)
+            {
+                return Result<Guid>.Failure("No season scraper available for BetExplorer");
+            }
+
+            // Scrape available seasons (no year limit)
+            var scrapedSeasons = await scraper.ScrapeAvailableSeasonsAsync(league);
+
+            _logger.LogInformation("Found {Count} seasons for {LeagueName}: {Seasons}",
+                scrapedSeasons.Count, league.DisplayName, string.Join(", ", scrapedSeasons.Take(5)));
+
+            var stats = new SyncStatistics();
+
+            foreach (var seasonName in scrapedSeasons)
+            {
+                try
+                {
+                    // Parse season years
+                    var years = seasonName.Split('-');
+                    int startYear, endYear;
+
+                    if (years.Length == 2 && int.TryParse(years[0], out startYear) && int.TryParse(years[1], out endYear))
+                    {
+                        // Format: 2023-2024
+                    }
+                    else if (years.Length == 1 && int.TryParse(years[0], out startYear))
+                    {
+                        // Format: 2024 (single year for MLS, Allsvenskan, etc.)
+                        endYear = startYear;
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Could not parse season name: {SeasonName}", seasonName);
+                        stats.Errors++;
+                        stats.ErrorMessages.Add($"Invalid season format: {seasonName}");
+                        continue;
+                    }
+
+                    stats.TotalProcessed++;
+
+                    // Get or create Season entity
+                    var existingSeason = await _seasonRepository.GetByNameAsync(seasonName);
+                    if (existingSeason == null)
+                    {
+                        existingSeason = new Season
+                        {
+                            Name = seasonName,
+                            StartYear = startYear,
+                            EndYear = endYear
+                        };
+                        await _seasonRepository.AddAsync(existingSeason);
+                        _logger.LogDebug("Created new season: {SeasonName}", seasonName);
+                    }
+
+                    // Get or create LeagueSeason mapping
+                    var leagueSeason = await _leagueSeasonRepository.GetByLeagueAndSeasonAsync(leagueId, existingSeason.Id);
+                    if (leagueSeason == null)
+                    {
+                        leagueSeason = new LeagueSeason
+                        {
+                            LeagueId = leagueId,
+                            SeasonId = existingSeason.Id,
+                            IsAvailableOnBetExplorer = true,
+                            HasData = false,
+                            HasOdds = false
+                        };
+                        await _leagueSeasonRepository.AddAsync(leagueSeason);
+                        stats.Created++;
+                        _logger.LogDebug("Created league season mapping for {SeasonName}", seasonName);
+                    }
+                    else if (!leagueSeason.IsAvailableOnBetExplorer)
+                    {
+                        leagueSeason.IsAvailableOnBetExplorer = true;
+                        await _leagueSeasonRepository.UpdateAsync(leagueSeason);
+                        stats.Updated++;
+                        _logger.LogDebug("Updated league season {SeasonName} - IsAvailableOnBetExplorer set to true", seasonName);
+                    }
+                    else
+                    {
+                        stats.Skipped++;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // FAIL-FAST: Stop on first error
+                    stats.Errors++;
+                    stats.ErrorMessages.Add($"{seasonName}: {ex.Message}");
+
+                    _logger.LogError(ex, "Failed to process season {SeasonName}. Stopping refresh (fail-fast).", seasonName);
+
+                    stopwatch.Stop();
+                    return Result<Guid>.Failure($"Season list refresh failed at {seasonName}: {ex.Message}");
+                }
+            }
+
+            stopwatch.Stop();
+
+            _logger.LogInformation(
+                "Seasons list refresh completed for {LeagueName}: {Total} processed, {Created} created, {Updated} updated, {Skipped} skipped in {Duration}",
+                league.DisplayName, stats.TotalProcessed, stats.Created, stats.Updated, stats.Skipped, stopwatch.Elapsed);
+
+            // Return a dummy GUID since we're not creating a SyncJob for now
+            return Result<Guid>.Success(Guid.NewGuid());
+        }
+        catch (Exception ex)
+        {
+            stopwatch.Stop();
+            _logger.LogError(ex, "Fatal error during seasons list refresh for {LeagueId}", leagueId);
+            return Result<Guid>.Failure($"Seasons list refresh failed: {ex.Message}");
         }
     }
 }

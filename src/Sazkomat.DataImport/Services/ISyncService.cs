@@ -45,4 +45,21 @@ public interface ISyncService
     /// Resets sync status (clears IsRunning lock) - use when sync is stuck
     /// </summary>
     void ResetSyncStatus();
+
+    /// <summary>
+    /// Synchronizes season data (rounds, matches) for all seasons of a specific league.
+    /// Historical seasons with HasData=true are automatically skipped.
+    /// Fail-fast: stops on first error.
+    /// </summary>
+    /// <param name="leagueId">League ID to sync seasons for</param>
+    /// <returns>SyncJob ID for tracking progress</returns>
+    Task<Result<Guid>> SyncLeagueSeasonDataAsync(Guid leagueId);
+
+    /// <summary>
+    /// Refreshes the list of available seasons for a league from BetExplorer.
+    /// Only creates LeagueSeason entries, does not sync rounds/matches.
+    /// </summary>
+    /// <param name="leagueId">League ID to refresh seasons for</param>
+    /// <returns>SyncJob ID for tracking progress</returns>
+    Task<Result<Guid>> RefreshLeagueSeasonsListAsync(Guid leagueId);
 }

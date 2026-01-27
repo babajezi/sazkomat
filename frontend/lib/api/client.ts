@@ -397,6 +397,26 @@ export const syncApi = {
     );
     return data;
   },
+
+  // Sync rounds and matches for all seasons of a league
+  syncLeagueSeasonData: async (
+    leagueId: string
+  ): Promise<{ jobId: string; message: string }> => {
+    const { data } = await apiClient.post<{ jobId: string; message: string }>(
+      `/sync/league/${leagueId}/season-data`
+    );
+    return data;
+  },
+
+  // Refresh list of available seasons from BetExplorer (metadata only)
+  refreshLeagueSeasonsList: async (
+    leagueId: string
+  ): Promise<{ jobId: string; message: string }> => {
+    const { data } = await apiClient.post<{ jobId: string; message: string }>(
+      `/sync/league/${leagueId}/seasons-list`
+    );
+    return data;
+  },
 };
 
 // League Name Mapping endpoints

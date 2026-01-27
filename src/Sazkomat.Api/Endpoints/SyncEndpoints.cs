@@ -302,6 +302,40 @@ public static class SyncEndpoints
         .WithSummary("Synchronize leagues for multiple sports from a betting provider")
         .Produces<MultiSportSyncResult>(200)
         .Produces(400);
+
+        // POST /api/sync/league/{leagueId}/season-data
+        // Syncs rounds and matches for ALL seasons of a league (fail-fast on error)
+        group.MapPost("/league/{leagueId}/season-data", async (
+            ISyncService syncService,
+            Guid leagueId) =>
+        {
+            var result = await syncService.SyncLeagueSeasonDataAsync(leagueId);
+
+            return result.IsSuccess
+                ? Results.Ok(new { jobId = result.Value, message = "Season data sync started" })
+                : Results.BadRequest(new { error = result.Error });
+        })
+        .WithName("SyncLeagueSeasonData")
+        .WithSummary("Sync rounds and matches for all seasons of a league. Historical seasons with HasData=true are skipped. Fail-fast on error.")
+        .Produces(200)
+        .Produces(400);
+
+        // POST /api/sync/league/{leagueId}/seasons-list
+        // Refreshes the list of available seasons from BetExplorer (metadata only)
+        group.MapPost("/league/{leagueId}/seasons-list", async (
+            ISyncService syncService,
+            Guid leagueId) =>
+        {
+            var result = await syncService.RefreshLeagueSeasonsListAsync(leagueId);
+
+            return result.IsSuccess
+                ? Results.Ok(new { jobId = result.Value, message = "Seasons list refresh started" })
+                : Results.BadRequest(new { error = result.Error });
+        })
+        .WithName("RefreshLeagueSeasonsList")
+        .WithSummary("Refresh list of available seasons for a league from BetExplorer. Only creates LeagueSeason entries, does not sync data.")
+        .Produces(200)
+        .Produces(400);
     }
 }
 

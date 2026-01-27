@@ -172,7 +172,116 @@ Po manuální úpravě `CountryNameMapping` (nastavení `BetExplorerCode` a `IsA
 3. SCAN SEZÓN
    │
    └─── Všechny providery ───> ProviderSeason
+
+4. IMPORT KOL (Historical Import)
+   │
+   └─── BetExplorer ─────────┬─── Base URL (slug z DB)
+                              │
+                              ├─── JavaScript: extrakce URL sezóny z dropdown
+                              │
+                              ├─── Navigace na season URL
+                              │
+                              ├─── Click: Results tab (league-specific!)
+                              │
+                              ├─── Click: Sort by round
+                              │
+                              ├─── Parse: kola + zápasy + kurzy
+                              │
+                              └─── Uložení: rounds + matches
 ```
+
+---
+
+## 4. Import Kol (Round Import / Historical Import)
+
+Import kol pro konkrétní sezóny ligy z BetExploreru.
+
+### 4.1 Single Season Import
+
+**API Endpoint:** `POST /api/import/historical`
+
+**Request Body:**
+```json
+{
+  "leagueIds": ["005d59e3-5651-4185-a5cb-2372171fa95d"],
+  "seasons": ["2019-2020"]
+}
+```
+
+### 4.2 Multi-Season Import (efektivnější)
+
+Při importu více sezón se používá **jedna browser session** pro všechny sezóny, což je efektivnější než jednotlivé requesty.
+
+**Request Body:**
+```json
+{
+  "leagueIds": ["005d59e3-5651-4185-a5cb-2372171fa95d"],
+  "seasons": ["2019-2020", "2020-2021", "2021-2022"]
+}
+```
+
+### 4.3 Workflow Navigace na BetExploreru
+
+```
+1. Načti base URL ligy
+   │  např. /football/hungary/nb-i/
+   │
+   ▼
+2. Pro každou sezónu:
+   │
+   ├─── 2a. Extrahuj URL sezóny z dropdown (JavaScript)
+   │         např. /football/hungary/otp-bank-liga-2019-2020/
+   │
+   ├─── 2b. Naviguj na season-specific URL
+   │
+   ├─── 2c. Klikni na "Results" tab (league-specific, ne globální!)
+   │         ⚠️ Filtruje se /football/results/ (globální)
+   │
+   ├─── 2d. Klikni na "Sort by round" (pokud dostupné)
+   │         Zajistí správné seskupení zápasů podle kol
+   │
+   ├─── 2e. Extrahuj HTML a parsuj kola + zápasy
+   │
+   └─── 2f. Vrať se na base URL pro další sezónu
+```
+
+### 4.4 Důležité Poznámky
+
+1. **Slug ligy se NEMĚNÍ** - původní slug (např. `nb-i`) zůstává v databázi
+2. **BetExplorer dropdown** obsahuje URL s jiným slugem pro historické sezóny (např. `otp-bank-liga-2019-2020`)
+3. **JavaScript navigace** - dropdown je implementován jako hidden `<select>` element, navigace probíhá přes JavaScript
+4. **Results tab specifičnost** - musí se kliknout na league-specific Results, ne globální `/football/results/`
+
+### 4.5 Parsování HTML
+
+BetExplorer má dva HTML formáty:
+
+| Formát | Období | Struktura |
+|--------|--------|-----------|
+| **Old format** | ~2010 a starší | `<table class="table-main">` s `<th>` hlavičkami kol |
+| **New format** | ~2011+ | `<ul>/<li>` elementy s třídou `table-main__matchInfo` |
+
+Parser automaticky detekuje formát a použije odpovídající metodu.
+
+### 4.6 Tabulky
+
+| Tabulka | Účel |
+|---------|------|
+| `data_import.rounds` | Importovaná kola s agregovanými statistikami |
+| `data_import.matches` | Jednotlivé zápasy s výsledky a kurzy |
+| `data_import.import_jobs` | Historie a status import jobů |
+| `configuration.seasons` | Sezóny pro ligy |
+| `configuration.league_seasons` | Vazba liga ↔ sezóna |
+
+### 4.7 Výstup
+
+Pro každé kolo se ukládá:
+- **RoundNumber** - číslo kola
+- **MatchesCount** - počet zápasů
+- **HomeWins/Draws/AwayWins** - počty výsledků
+- **CumulativeOdds** - kumulativní kurzy (součin)
+- **OddsComplete** - "Yes" / "Partial"
+- **Matches** - seznam zápasů s týmy, skóre, kurzami
 
 ---
 
@@ -192,4 +301,4 @@ Po manuální úpravě `CountryNameMapping` (nastavení `BetExplorerCode` a `IsA
 
 ---
 
-**Poslední aktualizace:** 2025-12-06
+**Poslední aktualizace:** 2026-01-27

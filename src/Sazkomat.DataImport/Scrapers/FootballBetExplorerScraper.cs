@@ -25,124 +25,300 @@ public class FootballBetExplorerScraper : ILeagueScraper
 
     public async Task<List<Round>> ScrapeSeasonAsync(League league, string season)
     {
+        // Delegate to multi-season method with single season
+        var results = await ScrapeMultipleSeasonsAsync(league, new[] { season });
+        return results.TryGetValue(season, out var rounds) ? rounds : new List<Round>();
+    }
+
+    /// <summary>
+    /// Scrapes multiple seasons from BetExplorer in a single browser session.
+    /// More efficient - loads page once, then iterates through seasons via dropdown.
+    /// </summary>
+    public async Task<Dictionary<string, List<Round>>> ScrapeMultipleSeasonsAsync(
+        League league,
+        IEnumerable<string> seasons)
+    {
+        var results = new Dictionary<string, List<Round>>();
+        var countrySlug = league.Country?.Code?.ToLowerInvariant() ?? "unknown";
+        var baseUrl = $"/football/{countrySlug}/{league.BetExplorerSlug}/";
+        var debugPattern = $"/tmp/betexplorer_{league.BetExplorerSlug}_{{season}}.html";
+
+        _logger.LogInformation("Starting multi-season scrape for {League} from {BaseUrl}",
+            league.Name, baseUrl);
+
+        await foreach (var (season, html) in
+            _httpClient.GetBetExplorerMultiSeasonResultsAsync(baseUrl, seasons, debugPattern))
+        {
+            try
+            {
+                var rounds = ParseHtmlContent(html, league.Id, season);
+                results[season] = rounds;
+                _logger.LogInformation("Scraped {RoundCount} rounds for {League} season {Season}",
+                    rounds.Count, league.Name, season);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to parse HTML for {League} season {Season}",
+                    league.Name, season);
+                results[season] = new List<Round>();
+            }
+        }
+
+        return results;
+    }
+
+    /// <summary>
+    /// Parses HTML content and returns rounds.
+    /// Extracted from ScrapeSeasonAsync for reuse in multi-season scraping.
+    /// </summary>
+    private List<Round> ParseHtmlContent(string html, Guid leagueId, string season)
+    {
         var rounds = new List<Round>();
 
-        try
+        _logger.LogDebug("HTML downloaded, size: {Size} characters", html.Length);
+
+        // Parse HTML
+        _logger.LogDebug("Parsing HTML document...");
+        var doc = new HtmlDocument();
+        doc.LoadHtml(html);
+        _logger.LogDebug("HTML parsed successfully");
+
+        // Find the main results container - try multiple strategies
+        // BetExplorer changed HTML structure around 2011
+        HtmlNode? resultsContainer = doc.DocumentNode.SelectSingleNode("//div[@id='js-leagueresults-all']");
+        HtmlNodeCollection? tables = null;
+
+        if (resultsContainer != null)
         {
-            // Convert season to URL format (e.g., "2023/2024" -> "2023-2024")
-            var seasonSlug = season.Replace("/", "-");
+            // Old format (pre-2011) - tables inside container
+            tables = resultsContainer.SelectNodes(".//table[contains(@class, 'table-main')]");
+            _logger.LogDebug("Using old format: found container with {TableCount} tables", tables?.Count ?? 0);
+        }
+        else
+        {
+            // Try finding tables directly
+            tables = doc.DocumentNode.SelectNodes("//table[contains(@class, 'table-main')]");
+            _logger.LogDebug("Trying direct table search: found {TableCount} tables", tables?.Count ?? 0);
+        }
 
-            // Build URL: https://www.betexplorer.com/football/{country}/{league_slug}-{season_slug}/results/
-            var countrySlug = league.Country?.Code?.ToLowerInvariant() ?? "unknown";
-            var url = $"https://www.betexplorer.com/football/{countrySlug}/{league.BetExplorerSlug}-{seasonSlug}/results/";
-
-            _logger.LogInformation("Scraping {League} season {Season} from {Url}",
-                league.Name, season, url);
-
-            _logger.LogDebug("Fetching HTML from BetExplorer...");
-            var html = await _httpClient.GetHtmlAsync(url);
-            _logger.LogDebug("HTML downloaded, size: {Size} characters", html.Length);
-
-            // Parse HTML
-            _logger.LogDebug("Parsing HTML document...");
-            var doc = new HtmlDocument();
-            doc.LoadHtml(html);
-            _logger.LogDebug("HTML parsed successfully");
-
-            // Find the main results container
-            var resultsContainer = doc.DocumentNode.SelectSingleNode("//div[@id='js-leagueresults-all']");
-
-            if (resultsContainer == null)
+        // If no tables found, try NEW list-based format (post-2011)
+        if (tables == null || !tables.Any())
+        {
+            var matchItems = doc.DocumentNode.SelectNodes("//ul[contains(@class, 'table-main__matchInfo')] | //li[contains(@class, 'table-main__matchInfo')]");
+            if (matchItems != null && matchItems.Any())
             {
-                _logger.LogWarning("No results container found for {League} season {Season}",
-                    league.Name, season);
+                _logger.LogInformation("Using NEW list-based format: found {MatchCount} match items", matchItems.Count);
+                rounds = ParseNewFormat(matchItems, leagueId, season);
+                _logger.LogInformation("Successfully scraped {RoundCount} rounds for season {Season}",
+                    rounds.Count, season);
                 return rounds;
             }
 
-            // Find all tables (each table contains matches for one or more rounds)
-            var tables = resultsContainer.SelectNodes(".//table[contains(@class, 'table-main')]");
+            _logger.LogWarning("No match tables or list items found for season {Season}", season);
+            return rounds;
+        }
 
-            if (tables == null || !tables.Any())
+        _logger.LogInformation("Found {TableCount} tables to process (old format)", tables.Count);
+
+        var tableIndex = 0;
+        foreach (var table in tables)
+        {
+            tableIndex++;
+            _logger.LogDebug("Processing table {TableIndex}/{TotalTables}", tableIndex, tables.Count);
+
+            var rows = table.SelectNodes(".//tr");
+            if (rows == null || !rows.Any())
             {
-                _logger.LogWarning("No match tables found for {League} season {Season}",
-                    league.Name, season);
-                return rounds;
+                _logger.LogDebug("Table {TableIndex} has no rows, skipping", tableIndex);
+                continue;
             }
 
-            _logger.LogInformation("Found {TableCount} tables to process", tables.Count);
+            _logger.LogDebug("Table {TableIndex} has {RowCount} rows", tableIndex, rows.Count);
 
-            var tableIndex = 0;
-            foreach (var table in tables)
+            // Use dictionary to accumulate matches per round (handles postponed matches)
+            var roundMatches = new Dictionary<int, List<MatchResult>>();
+            int? currentRoundNumber = null;
+
+            foreach (var row in rows)
             {
-                tableIndex++;
-                _logger.LogDebug("Processing table {TableIndex}/{TotalTables}", tableIndex, tables.Count);
-
-                var rows = table.SelectNodes(".//tr");
-                if (rows == null || !rows.Any())
+                // Check if this is a round header
+                var roundHeader = row.SelectSingleNode(".//th[contains(text(), 'Round')]");
+                if (roundHeader != null)
                 {
-                    _logger.LogDebug("Table {TableIndex} has no rows, skipping", tableIndex);
+                    // Parse round number
+                    currentRoundNumber = ExtractRoundNumber(roundHeader.InnerText);
+                    _logger.LogDebug("Found round header: Round {RoundNumber}", currentRoundNumber);
+
+                    // Initialize list if this round number not seen yet
+                    if (!roundMatches.ContainsKey(currentRoundNumber.Value))
+                    {
+                        roundMatches[currentRoundNumber.Value] = new List<MatchResult>();
+                    }
                     continue;
                 }
 
-                _logger.LogDebug("Table {TableIndex} has {RowCount} rows", tableIndex, rows.Count);
-
-                // Use dictionary to accumulate matches per round (handles postponed matches)
-                var roundMatches = new Dictionary<int, List<MatchResult>>();
-                int? currentRoundNumber = null;
-
-                foreach (var row in rows)
+                // Parse match row
+                var matchData = ParseMatchRow(row, season);
+                if (matchData != null && currentRoundNumber.HasValue)
                 {
-                    // Check if this is a round header
-                    var roundHeader = row.SelectSingleNode(".//th[contains(text(), 'Round')]");
-                    if (roundHeader != null)
-                    {
-                        // Parse round number
-                        currentRoundNumber = ExtractRoundNumber(roundHeader.InnerText);
-                        _logger.LogDebug("Found round header: Round {RoundNumber}", currentRoundNumber);
-
-                        // Initialize list if this round number not seen yet
-                        if (!roundMatches.ContainsKey(currentRoundNumber.Value))
-                        {
-                            roundMatches[currentRoundNumber.Value] = new List<MatchResult>();
-                        }
-                        continue;
-                    }
-
-                    // Parse match row
-                    var matchData = ParseMatchRow(row, season);
-                    if (matchData != null && currentRoundNumber.HasValue)
-                    {
-                        roundMatches[currentRoundNumber.Value].Add(matchData);
-                    }
+                    roundMatches[currentRoundNumber.Value].Add(matchData);
                 }
+            }
 
-                // Create rounds from accumulated matches
-                foreach (var kvp in roundMatches.OrderBy(x => x.Key))
+            // Create rounds from accumulated matches
+            foreach (var kvp in roundMatches.OrderBy(x => x.Key))
+            {
+                var roundNumber = kvp.Key;
+                var matches = kvp.Value;
+
+                if (matches.Any())
                 {
-                    var roundNumber = kvp.Key;
-                    var matches = kvp.Value;
+                    var round = CreateRoundFromMatches(leagueId, season, roundNumber, matches);
+                    rounds.Add(round);
+                    _logger.LogInformation("Parsed Round {RoundNumber}: {MatchCount} matches, {OddsStatus} odds",
+                        roundNumber, matches.Count, round.OddsComplete);
+                }
+            }
+        }
 
-                    if (matches.Any())
+        _logger.LogDebug("Successfully parsed {RoundCount} rounds for season {Season}",
+            rounds.Count, season);
+
+        return rounds;
+    }
+
+    /// <summary>
+    /// Parses the NEW list-based HTML format (post-2011 seasons).
+    /// Matches are in ul/li elements with class table-main__matchInfo.
+    /// </summary>
+    private List<Round> ParseNewFormat(HtmlNodeCollection matchItems, Guid leagueId, string season)
+    {
+        var rounds = new List<Round>();
+
+        // In new format, matches don't have explicit round headers
+        // We need to group matches by date or create a single "all matches" round
+        // For now, create one round per detected match group
+        var allMatches = new List<MatchResult>();
+
+        foreach (var matchNode in matchItems)
+        {
+            var matchData = ParseNewFormatMatch(matchNode, season);
+            if (matchData != null)
+            {
+                allMatches.Add(matchData);
+            }
+        }
+
+        // Group all matches into a single round (round 1) for now
+        // The new format doesn't have clear round delineation
+        if (allMatches.Any())
+        {
+            var round = CreateRoundFromMatches(leagueId, season, 1, allMatches);
+            rounds.Add(round);
+            _logger.LogInformation("NEW FORMAT: Parsed {MatchCount} matches into 1 round", allMatches.Count);
+        }
+
+        return rounds;
+    }
+
+    /// <summary>
+    /// Parses a single match from the new list-based format.
+    /// </summary>
+    private MatchResult? ParseNewFormatMatch(HtmlNode matchNode, string season)
+    {
+        try
+        {
+            // Find team names
+            var homeTeamNode = matchNode.SelectSingleNode(".//*[contains(@class, 'table-main__participantHome')]//p | .//*[contains(@class, 'table-main__participantHome')]");
+            var awayTeamNode = matchNode.SelectSingleNode(".//*[contains(@class, 'table-main__participantAway')]//p | .//*[contains(@class, 'table-main__participantAway')]");
+
+            string homeTeam = homeTeamNode?.InnerText.Trim() ?? "Unknown";
+            string awayTeam = awayTeamNode?.InnerText.Trim() ?? "Unknown";
+
+            // Find score from data-live-cell="score" or mainResult/liveResult div
+            var scoreNode = matchNode.SelectSingleNode(".//*[@data-live-cell='score'] | .//*[contains(@class, 'mainResult')] | .//*[contains(@class, 'liveResult')]");
+            if (scoreNode == null)
+            {
+                _logger.LogDebug("No score found for {Home} vs {Away}", homeTeam, awayTeam);
+                return null;
+            }
+
+            // Extract score digits from table-main__liveResults or table-main__finishedResults divs
+            var scoreDigits = scoreNode.SelectNodes(".//*[contains(@class, 'Results')]");
+            int homeScore = 0, awayScore = 0;
+
+            if (scoreDigits != null && scoreDigits.Count >= 3)
+            {
+                // Format: [home score] [:] [away score]
+                int.TryParse(scoreDigits[0].InnerText.Trim(), out homeScore);
+                int.TryParse(scoreDigits[2].InnerText.Trim(), out awayScore);
+            }
+            else
+            {
+                // Try parsing from title attribute (format: "0:1, 1:0")
+                var titleAttr = scoreNode.GetAttributeValue("title", "");
+                if (!string.IsNullOrEmpty(titleAttr) && titleAttr.Contains(":"))
+                {
+                    var scoreParts = titleAttr.Split(',')[0].Trim().Split(':');
+                    if (scoreParts.Length == 2)
                     {
-                        var round = CreateRoundFromMatches(league.Id, season, roundNumber, matches);
-                        rounds.Add(round);
-                        _logger.LogInformation("Parsed Round {RoundNumber}: {MatchCount} matches, {OddsStatus} odds",
-                            roundNumber, matches.Count, round.OddsComplete);
+                        int.TryParse(scoreParts[0].Trim(), out homeScore);
+                        int.TryParse(scoreParts[1].Trim(), out awayScore);
                     }
                 }
             }
 
-            _logger.LogInformation("Successfully scraped {RoundCount} rounds for {League} season {Season}",
-                rounds.Count, league.Name, season);
+            // Determine result
+            string result = homeScore > awayScore ? "H" : (homeScore < awayScore ? "A" : "D");
+
+            // Extract odds from data-odd attributes
+            var oddNodes = matchNode.SelectNodes(".//*[contains(@class, 'table-main__odds')]//*[@data-odd]");
+            decimal? homeOdds = null, drawOdds = null, awayOdds = null;
+
+            if (oddNodes != null && oddNodes.Count >= 3)
+            {
+                var oddStr0 = oddNodes[0].GetAttributeValue("data-odd", "");
+                var oddStr1 = oddNodes[1].GetAttributeValue("data-odd", "");
+                var oddStr2 = oddNodes[2].GetAttributeValue("data-odd", "");
+
+                if (decimal.TryParse(oddStr0, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var odd0))
+                    homeOdds = odd0;
+                if (decimal.TryParse(oddStr1, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var odd1))
+                    drawOdds = odd1;
+                if (decimal.TryParse(oddStr2, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var odd2))
+                    awayOdds = odd2;
+            }
+
+            // Extract match URL
+            var matchLink = matchNode.SelectSingleNode(".//a[contains(@href, '/football/')]");
+            var matchUrl = matchLink?.GetAttributeValue("href", "");
+            if (!string.IsNullOrEmpty(matchUrl) && !matchUrl.StartsWith("http"))
+            {
+                matchUrl = "https://www.betexplorer.com" + matchUrl;
+            }
+
+            _logger.LogDebug("NEW FORMAT: Parsed {Home} {HomeScore}:{AwayScore} {Away}, odds: {H}/{D}/{A}",
+                homeTeam, homeScore, awayScore, awayTeam, homeOdds, drawOdds, awayOdds);
+
+            return new MatchResult
+            {
+                HomeTeam = homeTeam,
+                AwayTeam = awayTeam,
+                HomeScore = homeScore,
+                AwayScore = awayScore,
+                Result = result,
+                HomeOdds = homeOdds,
+                DrawOdds = drawOdds,
+                AwayOdds = awayOdds,
+                MatchDate = null, // New format doesn't have clear date in individual match
+                BetExplorerUrl = matchUrl
+            };
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error scraping {League} season {Season}",
-                league.Name, season);
-            throw;
+            _logger.LogDebug(ex, "Failed to parse new format match");
+            return null;
         }
-
-        return rounds;
     }
 
     // Helper methods for HTML parsing
