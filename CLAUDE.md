@@ -38,6 +38,55 @@
 
 **NIKDY TOTO PRAVIDLO NEPORUŠUJ PŘI IMPLEMENTACI NOVÝCH PROVIDERŮ!**
 
+## ⚠️ Validační pravidla pro scraping
+
+### Max 15 zápasů na kolo
+- Žádná fotbalová liga nemá více než 15 zápasů v jednom kole
+- Pokud scraper najde kolo s více než 15 zápasy, je to **chyba parsování**
+- Typická příčina: nesprávné sloučení více kol dohromady
+- Implementováno v: `FootballBetExplorerScraper.CreateRoundFromMatches()`
+- **Při detekci se vyhodí výjimka** - sync selže a musí se opravit parser
+
+### Proč je toto důležité
+- Kumulativní kurzy se počítají jako součin kurzů všech zápasů
+- Např. 40 zápasů s kurzem 2.0 = 2^40 = 1 bilion → PostgreSQL NUMERIC overflow
+- Místo maskování chyby (cap hodnoty) chceme **detekovat** problém v parsingu
+
+## ⚠️ Podpora skupin v ligách (Groups)
+
+### Problém
+Některé ligy mají sezónu rozdělenou na skupiny, např. Indonesia Championship:
+- **2019**: "East - 1. Round", "West - 22. Round"
+- **2024-2025**: "GROUP 1 - 1.ROUND", "GROUP 2 - 1.ROUND", "GROUP 3 - 1.ROUND"
+
+Bez podpory skupin by se všechna kola se stejným číslem sloučila (např. East Round 1 + West Round 1 = 40+ zápasů).
+
+### Pravidla parsování
+1. **Podporujeme pouze hlavičky obsahující "ROUND"**
+2. **Ignorujeme**: "GROUP A", "GROUP X" (bez ROUND) → sezóna bez kol
+3. **Parsujeme**: "{Skupina} - {Číslo}. Round" → extrahujeme skupinu + číslo kola
+
+### Implementace
+- **`Round.GroupName`** - nový nullable sloupec pro název skupiny (`null` = liga bez skupin)
+- **Parser**: `ParseRoundHeader()` v `FootballBetExplorerScraper.cs` extrahuje název skupiny
+- **Klíč slovníku**: `(string? GroupName, int RoundNumber)` místo jen `int`
+- **Frontend**: zobrazuje "East - Kolo 1" místo jen "Kolo 1"
+- **Index**: `ix_rounds_league_season_group_round` pro efektivní dotazy
+
+### Příklady parsování
+| Input | GroupName | RoundNumber |
+|-------|-----------|-------------|
+| "38. Round" | `null` | 38 |
+| "East - 1. Round" | "East" | 1 |
+| "GROUP 1 - 15.ROUND" | "GROUP 1" | 15 |
+| "West - 22. Round" | "West" | 22 |
+
+### Klíčové soubory
+- `src/Sazkomat.DataImport/Entities/Round.cs` - GroupName property
+- `src/Sazkomat.DataImport/Scrapers/FootballBetExplorerScraper.cs` - ParseRoundHeader()
+- `src/Sazkomat.DataImport/Migrations/20260129010000_AddGroupNameToRound.cs` - migrace
+- `frontend/components/LeagueSeasonsDisplay.tsx` - zobrazení skupin
+
 ## Technologický stack
 
 ### Backend

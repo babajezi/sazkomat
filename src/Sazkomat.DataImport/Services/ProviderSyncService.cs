@@ -1108,13 +1108,18 @@ public class ProviderSyncService : ISyncService
 
                             if (leagueSeason == null)
                             {
+                                // Determine if this is a current season
+                                var isCurrent = IsCurrentSeason(startYear, endYear);
+
                                 leagueSeason = new LeagueSeason
                                 {
                                     LeagueId = leagueId,
                                     SeasonId = existingSeason.Id,
                                     IsAvailableOnBetExplorer = true,
                                     HasData = false,
-                                    HasOdds = false
+                                    HasOdds = false,
+                                    IsCurrent = isCurrent,
+                                    SyncMode = isCurrent ? SyncMode.Current : SyncMode.Historical
                                 };
                                 await _leagueSeasonRepository.AddAsync(leagueSeason);
                                 stats.Created++;
@@ -1523,5 +1528,23 @@ public class ProviderSyncService : ISyncService
             _logger.LogError(ex, "Fatal error during seasons list refresh for {LeagueId}", leagueId);
             return Result<Guid>.Failure($"Seasons list refresh failed: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// Determines if a season is current based on year.
+    /// A season is current if the current year falls within its range.
+    /// </summary>
+    private bool IsCurrentSeason(int startYear, int endYear)
+    {
+        var currentYear = DateTime.UtcNow.Year;
+
+        // If it's a split season (e.g., 2025-2026), check if we're in that range
+        if (startYear != endYear)
+        {
+            return currentYear == startYear || currentYear == endYear;
+        }
+
+        // For single year seasons (e.g., 2026), check if it's current year
+        return currentYear == startYear;
     }
 }

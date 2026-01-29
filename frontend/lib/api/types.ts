@@ -417,6 +417,7 @@ export interface Round {
   };
   season: string;
   roundNumber: number;
+  groupName: string | null;  // null = liga bez skupin, e.g. "East", "West", "GROUP 1"
   matchesCount: number;
   homeWins: number;
   draws: number;

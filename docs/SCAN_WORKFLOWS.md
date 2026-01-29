@@ -237,6 +237,9 @@ Při importu více sezón se používá **jedna browser session** pro všechny s
    ├─── 2c. Klikni na "Results" tab (league-specific, ne globální!)
    │         ⚠️ Filtruje se /football/results/ (globální)
    │
+   ├─── 2c½. Klikni na "Main" tab (pokud existuje)
+   │         ⚠️ Některé historické sezóny mají stage tabs (Main, Winners stage, Relegation)
+   │
    ├─── 2d. Klikni na "Sort by round" (pokud dostupné)
    │         Zajistí správné seskupení zápasů podle kol
    │
@@ -251,6 +254,7 @@ Při importu více sezón se používá **jedna browser session** pro všechny s
 2. **BetExplorer dropdown** obsahuje URL s jiným slugem pro historické sezóny (např. `otp-bank-liga-2019-2020`)
 3. **JavaScript navigace** - dropdown je implementován jako hidden `<select>` element, navigace probíhá přes JavaScript
 4. **Results tab specifičnost** - musí se kliknout na league-specific Results, ne globální `/football/results/`
+5. **Stage tabs** - starší sezóny (např. 2001-2002) mohou mít v Results další záložky (Main, Winners stage). Scraper automaticky klikne na "Main" pokud existuje.
 
 ### 4.5 Parsování HTML
 

@@ -135,8 +135,9 @@ public class FootballBetExplorerScraper : ILeagueScraper
 
             _logger.LogDebug("Table {TableIndex} has {RowCount} rows", tableIndex, rows.Count);
 
-            // Use dictionary to accumulate matches per round (handles postponed matches)
-            var roundMatches = new Dictionary<int, List<MatchResult>>();
+            // Use dictionary to accumulate matches per (group, round) - handles leagues with groups like East/West
+            var roundMatches = new Dictionary<(string? GroupName, int RoundNumber), List<MatchResult>>();
+            string? currentGroupName = null;
             int? currentRoundNumber = null;
 
             foreach (var row in rows)
@@ -145,14 +146,20 @@ public class FootballBetExplorerScraper : ILeagueScraper
                 var roundHeader = row.SelectSingleNode(".//th[contains(text(), 'Round')]");
                 if (roundHeader != null)
                 {
-                    // Parse round number
-                    currentRoundNumber = ExtractRoundNumber(roundHeader.InnerText);
-                    _logger.LogDebug("Found round header: Round {RoundNumber}", currentRoundNumber);
+                    // Parse group name and round number from header
+                    // e.g., "East - 1. Round" → ("East", 1), "38. Round" → (null, 38)
+                    var (groupName, roundNum) = ParseRoundHeader(roundHeader.InnerText);
+                    currentGroupName = groupName;
+                    currentRoundNumber = roundNum;
 
-                    // Initialize list if this round number not seen yet
-                    if (!roundMatches.ContainsKey(currentRoundNumber.Value))
+                    var key = (groupName, roundNum);
+                    _logger.LogDebug("Found round header: {GroupName} Round {RoundNumber}",
+                        groupName ?? "(no group)", roundNum);
+
+                    // Initialize list if this (group, round) not seen yet
+                    if (!roundMatches.ContainsKey(key))
                     {
-                        roundMatches[currentRoundNumber.Value] = new List<MatchResult>();
+                        roundMatches[key] = new List<MatchResult>();
                     }
                     continue;
                 }
@@ -161,21 +168,23 @@ public class FootballBetExplorerScraper : ILeagueScraper
                 var matchData = ParseMatchRow(row, season);
                 if (matchData != null && currentRoundNumber.HasValue)
                 {
-                    roundMatches[currentRoundNumber.Value].Add(matchData);
+                    var key = (currentGroupName, currentRoundNumber.Value);
+                    roundMatches[key].Add(matchData);
                 }
             }
 
             // Create rounds from accumulated matches
-            foreach (var kvp in roundMatches.OrderBy(x => x.Key))
+            foreach (var kvp in roundMatches.OrderBy(x => x.Key.GroupName).ThenBy(x => x.Key.RoundNumber))
             {
-                var roundNumber = kvp.Key;
+                var (groupName, roundNumber) = kvp.Key;
                 var matches = kvp.Value;
 
                 if (matches.Any())
                 {
-                    var round = CreateRoundFromMatches(leagueId, season, roundNumber, matches);
+                    var round = CreateRoundFromMatches(leagueId, season, roundNumber, groupName, matches);
                     rounds.Add(round);
-                    _logger.LogInformation("Parsed Round {RoundNumber}: {MatchCount} matches, {OddsStatus} odds",
+                    _logger.LogInformation("Parsed {GroupPrefix}Round {RoundNumber}: {MatchCount} matches, {OddsStatus} odds",
+                        groupName != null ? $"{groupName} - " : "",
                         roundNumber, matches.Count, round.OddsComplete);
                 }
             }
@@ -213,7 +222,7 @@ public class FootballBetExplorerScraper : ILeagueScraper
         // The new format doesn't have clear round delineation
         if (allMatches.Any())
         {
-            var round = CreateRoundFromMatches(leagueId, season, 1, allMatches);
+            var round = CreateRoundFromMatches(leagueId, season, 1, null, allMatches);
             rounds.Add(round);
             _logger.LogInformation("NEW FORMAT: Parsed {MatchCount} matches into 1 round", allMatches.Count);
         }
@@ -323,9 +332,35 @@ public class FootballBetExplorerScraper : ILeagueScraper
 
     // Helper methods for HTML parsing
 
+    /// <summary>
+    /// Parses round header to extract group name and round number.
+    /// Examples:
+    ///   "East - 1. Round" → ("East", 1)
+    ///   "GROUP 1 - 15.ROUND" → ("GROUP 1", 15)
+    ///   "38. Round" → (null, 38)
+    /// </summary>
+    private (string? GroupName, int RoundNumber) ParseRoundHeader(string headerText)
+    {
+        // Check if contains group prefix (text before " - " followed by round number)
+        var dashIndex = headerText.IndexOf(" - ");
+        if (dashIndex > 0)
+        {
+            var groupName = headerText.Substring(0, dashIndex).Trim();
+            var roundPart = headerText.Substring(dashIndex + 3);
+            var roundNumber = ExtractRoundNumber(roundPart);
+            if (roundNumber > 0)
+            {
+                return (groupName, roundNumber);
+            }
+        }
+
+        // No group prefix or couldn't parse group format
+        return (null, ExtractRoundNumber(headerText));
+    }
+
     private int ExtractRoundNumber(string headerText)
     {
-        // Extract number from text like "38. Round" or "Round 38"
+        // Extract number from text like "38. Round" or "Round 38" or "15.ROUND"
         var match = System.Text.RegularExpressions.Regex.Match(headerText, @"\d+");
         if (match.Success && int.TryParse(match.Value, out var roundNumber))
         {
@@ -542,8 +577,19 @@ public class FootballBetExplorerScraper : ILeagueScraper
         }
     }
 
-    private Round CreateRoundFromMatches(Guid leagueId, string season, int roundNumber, List<MatchResult> matches)
+    private Round CreateRoundFromMatches(Guid leagueId, string season, int roundNumber, string? groupName, List<MatchResult> matches)
     {
+        // Validation: No league has more than 15 matches per round
+        // If we see more, it's a parsing error (e.g., multiple rounds merged)
+        const int maxMatchesPerRound = 15;
+        if (matches.Count > maxMatchesPerRound)
+        {
+            var groupInfo = groupName != null ? $" (Group: {groupName})" : "";
+            throw new InvalidOperationException(
+                $"Round {roundNumber}{groupInfo} has {matches.Count} matches, but max allowed is {maxMatchesPerRound}. " +
+                $"This indicates a parsing error - rounds may have been incorrectly merged.");
+        }
+
         var homeWins = matches.Count(m => m.Result == "H");
         var draws = matches.Count(m => m.Result == "D");
         var awayWins = matches.Count(m => m.Result == "A");
@@ -564,6 +610,7 @@ public class FootballBetExplorerScraper : ILeagueScraper
             LeagueId = leagueId,
             SeasonId = Guid.Empty, // Will be set by ImportOrchestrator
             RoundNumber = roundNumber,
+            GroupName = groupName, // null for leagues without groups, e.g., "East", "West", "GROUP 1"
             MatchesCount = matches.Count,
             HomeWins = homeWins,
             Draws = draws,

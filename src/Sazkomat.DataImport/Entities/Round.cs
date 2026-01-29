@@ -9,6 +9,7 @@ public class Round : Entity
     public Guid SeasonId { get; set; }
     public Guid ProviderId { get; set; }
     public int RoundNumber { get; set; }
+    public string? GroupName { get; set; }  // null = liga bez skupin, e.g. "East", "West", "GROUP 1"
     public DateTime? StartDate { get; set; }
     public DateTime? EndDate { get; set; }
     public int MatchesCount { get; set; }

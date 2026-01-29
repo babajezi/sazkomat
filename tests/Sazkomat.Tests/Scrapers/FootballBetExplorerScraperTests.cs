@@ -20,6 +20,9 @@ public class FootballBetExplorerScraperTests
         _mockLogger = new Mock<ILogger<FootballBetExplorerScraper>>();
         _scraper = new FootballBetExplorerScraper(_mockHttpClient.Object, _mockLogger.Object);
 
+        // Default mock setup for GetBetExplorerMultiSeasonResultsAsync
+        SetupMultiSeasonMock("<html><body></body></html>");
+
         _footballSport = new Sport
         {
             Id = Guid.NewGuid(),
@@ -44,6 +47,29 @@ public class FootballBetExplorerScraperTests
                 IsoCode = "GB-ENG"
             }
         };
+    }
+
+    /// <summary>
+    /// Helper to setup mock for GetBetExplorerMultiSeasonResultsAsync which returns IAsyncEnumerable
+    /// </summary>
+    private void SetupMultiSeasonMock(string html)
+    {
+        _mockHttpClient.Setup(c => c.GetBetExplorerMultiSeasonResultsAsync(
+                It.IsAny<string>(),
+                It.IsAny<IEnumerable<string>>(),
+                It.IsAny<string?>()))
+            .Returns<string, IEnumerable<string>, string?>((_, seasons, __) =>
+                CreateAsyncEnumerable(seasons.Select(s => (s, html))));
+    }
+
+    private static async IAsyncEnumerable<(string season, string html)> CreateAsyncEnumerable(
+        IEnumerable<(string season, string html)> items)
+    {
+        foreach (var item in items)
+        {
+            yield return item;
+            await Task.CompletedTask;
+        }
     }
 
     [Trait("Category", "Integration")]
@@ -86,9 +112,7 @@ public class FootballBetExplorerScraperTests
     {
         // Arrange
         var html = @"<html><body><div>No results found</div></body></html>";
-
-        _mockHttpClient.Setup(c => c.GetHtmlAsync(It.IsAny<string>()))
-            .ReturnsAsync(html);
+        SetupMultiSeasonMock(html);
 
         // Act
         var rounds = await _scraper.ScrapeSeasonAsync(_league, "2023-2024");
@@ -132,8 +156,7 @@ public class FootballBetExplorerScraperTests
 </body>
 </html>";
 
-        _mockHttpClient.Setup(c => c.GetHtmlAsync(It.IsAny<string>()))
-            .ReturnsAsync(html);
+        SetupMultiSeasonMock(html);
 
         // Act
         var rounds = await _scraper.ScrapeSeasonAsync(_league, "2023-2024");
@@ -185,8 +208,7 @@ public class FootballBetExplorerScraperTests
 </body>
 </html>";
 
-        _mockHttpClient.Setup(c => c.GetHtmlAsync(It.IsAny<string>()))
-            .ReturnsAsync(html);
+        SetupMultiSeasonMock(html);
 
         // Act
         var rounds = await _scraper.ScrapeSeasonAsync(_league, "2023-2024");
@@ -236,8 +258,7 @@ public class FootballBetExplorerScraperTests
 </body>
 </html>";
 
-        _mockHttpClient.Setup(c => c.GetHtmlAsync(It.IsAny<string>()))
-            .ReturnsAsync(html);
+        SetupMultiSeasonMock(html);
 
         // Act
         var rounds = await _scraper.ScrapeSeasonAsync(_league, "2023-2024");
@@ -276,8 +297,7 @@ public class FootballBetExplorerScraperTests
 </body>
 </html>";
 
-        _mockHttpClient.Setup(c => c.GetHtmlAsync(It.IsAny<string>()))
-            .ReturnsAsync(html);
+        SetupMultiSeasonMock(html);
 
         // Act
         var rounds = await _scraper.ScrapeSeasonAsync(_league, "2023-2024");
@@ -323,8 +343,7 @@ public class FootballBetExplorerScraperTests
 </body>
 </html>";
 
-        _mockHttpClient.Setup(c => c.GetHtmlAsync(It.IsAny<string>()))
-            .ReturnsAsync(html);
+        SetupMultiSeasonMock(html);
 
         // Act
         var rounds = await _scraper.ScrapeSeasonAsync(_league, "2023-2024");
@@ -344,19 +363,29 @@ public class FootballBetExplorerScraperTests
     {
         // Arrange
         var capturedUrl = "";
+        var capturedSeasons = new List<string>();
         var html = @"<html><body><div id='js-leagueresults-all'></div></body></html>";
 
-        _mockHttpClient.Setup(c => c.GetHtmlAsync(It.IsAny<string>()))
-            .Callback<string>(url => capturedUrl = url)
-            .ReturnsAsync(html);
+        _mockHttpClient.Setup(c => c.GetBetExplorerMultiSeasonResultsAsync(
+                It.IsAny<string>(),
+                It.IsAny<IEnumerable<string>>(),
+                It.IsAny<string?>()))
+            .Callback<string, IEnumerable<string>, string?>((url, seasons, _) =>
+            {
+                capturedUrl = url;
+                capturedSeasons.AddRange(seasons);
+            })
+            .Returns<string, IEnumerable<string>, string?>((_, seasons, __) =>
+                CreateAsyncEnumerable(seasons.Select(s => (s, html))));
 
         // Act
         await _scraper.ScrapeSeasonAsync(_league, "2023/2024");
 
-        // Assert
-        Assert.Contains("2023-2024", capturedUrl); // Should convert / to -
+        // Assert - URL should contain base league path
         Assert.Contains("/football/", capturedUrl);
-        Assert.Contains("/results/", capturedUrl);
+        Assert.Contains("premier-league", capturedUrl);
+        // Season format is passed as-is to HTTP client (conversion happens in PlaywrightHttpClient)
+        Assert.Contains("2023/2024", capturedSeasons);
     }
 
     [Trait("Category", "Integration")]
@@ -400,8 +429,7 @@ public class FootballBetExplorerScraperTests
 </body>
 </html>";
 
-        _mockHttpClient.Setup(c => c.GetHtmlAsync(It.IsAny<string>()))
-            .ReturnsAsync(html);
+        SetupMultiSeasonMock(html);
 
         // Act
         var rounds = await _scraper.ScrapeSeasonAsync(_league, "2023-2024");
@@ -441,8 +469,7 @@ public class FootballBetExplorerScraperTests
 </body>
 </html>";
 
-        _mockHttpClient.Setup(c => c.GetHtmlAsync(It.IsAny<string>()))
-            .ReturnsAsync(html);
+        SetupMultiSeasonMock(html);
 
         // Act
         var rounds = await _scraper.ScrapeSeasonAsync(_league, "2023-2024");

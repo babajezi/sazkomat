@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Sazkomat.Configuration.Repositories;
 using Sazkomat.DataImport.Data;
 using Sazkomat.DataImport.DTOs;
+using Sazkomat.DataImport.Entities;
 using Sazkomat.DataImport.Repositories;
 using Sazkomat.DataImport.Scrapers;
 using Sazkomat.DataImport.Services;
@@ -239,31 +240,30 @@ public static class ImportEndpoints
 
             var totalCount = await query.CountAsync();
 
-            // Order by seasonId and round number (SeasonId is ordered by creation time)
-            query = sortDescending
-                ? query.OrderByDescending(r => r.SeasonId).ThenByDescending(r => r.RoundNumber)
-                : query.OrderBy(r => r.SeasonId).ThenBy(r => r.RoundNumber);
+            // Load all seasons for sorting (Season navigation is ignored, it's in different schema)
+            var allSeasons = await seasonRepository.GetAllAsync();
+            var seasonStartYears = allSeasons.ToDictionary(s => s.Id, s => s.StartYear);
 
+            // Load all matching rounds for in-memory sorting
+            var allRounds = await query.ToListAsync();
+
+            // Sort in memory by season start year
+            IEnumerable<Round> sortedRounds = sortDescending
+                ? allRounds.OrderByDescending(r => seasonStartYears.GetValueOrDefault(r.SeasonId, 0))
+                           .ThenByDescending(r => r.RoundNumber)
+                : allRounds.OrderBy(r => seasonStartYears.GetValueOrDefault(r.SeasonId, 0))
+                           .ThenBy(r => r.RoundNumber);
+
+            // Apply pagination in memory
             if (skip.HasValue)
             {
-                query = query.Skip(skip.Value);
+                sortedRounds = sortedRounds.Skip(skip.Value);
             }
 
-            query = query.Take(take ?? 50);
+            var rounds = sortedRounds.Take(take ?? 50).ToList();
 
-            var rounds = await query.ToListAsync();
-
-            // Load seasons for all rounds
-            var seasonIds = rounds.Select(r => r.SeasonId).Distinct().ToList();
-            var seasons = new Dictionary<Guid, string>();
-            foreach (var seasonId in seasonIds)
-            {
-                var seasonEntity = await seasonRepository.GetByIdAsync(seasonId);
-                if (seasonEntity != null)
-                {
-                    seasons[seasonId] = seasonEntity.Name;
-                }
-            }
+            // Build season names dictionary from already loaded seasons
+            var seasons = allSeasons.ToDictionary(s => s.Id, s => s.Name);
 
             // Load leagues for all rounds
             var leagueIds = rounds.Select(r => r.LeagueId).Distinct().ToList();
@@ -462,6 +462,80 @@ public static class ImportEndpoints
         .WithName("ImportSeasons")
         .Produces(200)
         .Produces(400);
+
+        // GET /api/import/seasons/imported - Get all seasons that have imported rounds
+        group.MapGet("/seasons/imported", async (
+            DataImportDbContext context,
+            ISeasonRepository seasonRepository) =>
+        {
+            // Get all unique season IDs from rounds
+            var seasonIds = await context.Rounds
+                .Select(r => r.SeasonId)
+                .Distinct()
+                .ToListAsync();
+
+            // Load season details
+            var seasons = new List<object>();
+            foreach (var seasonId in seasonIds)
+            {
+                var season = await seasonRepository.GetByIdAsync(seasonId);
+                if (season != null)
+                {
+                    var roundsCount = await context.Rounds.CountAsync(r => r.SeasonId == seasonId);
+                    var matchesCount = await context.Matches.CountAsync(m => m.Round.SeasonId == seasonId);
+
+                    seasons.Add(new
+                    {
+                        id = season.Id,
+                        name = season.Name,
+                        startYear = season.StartYear,
+                        endYear = season.EndYear,
+                        roundsCount,
+                        matchesCount
+                    });
+                }
+            }
+
+            return Results.Ok(seasons.OrderByDescending(s => ((dynamic)s).startYear));
+        })
+        .WithName("GetImportedSeasons")
+        .Produces(200);
+
+        // GET /api/import/rounds/available - Get all available round numbers for filters
+        group.MapGet("/rounds/available", async (
+            DataImportDbContext context,
+            ISeasonRepository seasonRepository,
+            [FromQuery] Guid? leagueId,
+            [FromQuery] string? season) =>
+        {
+            var query = context.Rounds.AsQueryable();
+
+            // Apply filters
+            if (leagueId.HasValue)
+            {
+                query = query.Where(r => r.LeagueId == leagueId.Value);
+            }
+
+            if (!string.IsNullOrEmpty(season))
+            {
+                var seasonEntity = await seasonRepository.GetByNameAsync(season);
+                if (seasonEntity != null)
+                {
+                    query = query.Where(r => r.SeasonId == seasonEntity.Id);
+                }
+            }
+
+            // Get unique round numbers sorted
+            var roundNumbers = await query
+                .Select(r => r.RoundNumber)
+                .Distinct()
+                .OrderBy(n => n)
+                .ToListAsync();
+
+            return Results.Ok(roundNumbers);
+        })
+        .WithName("GetAvailableRounds")
+        .Produces(200);
 
         // GET /api/import/cache/stats - Get cache vs imported statistics
         group.MapGet("/cache/stats", async (

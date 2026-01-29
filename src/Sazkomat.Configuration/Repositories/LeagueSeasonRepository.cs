@@ -102,7 +102,8 @@ public class LeagueSeasonRepository : ILeagueSeasonRepository
         var leagueSeason = await GetByLeagueAndSeasonAsync(leagueId, seasonId);
         if (leagueSeason != null)
         {
-            leagueSeason.HasData = true;
+            // Only set HasData = true if we actually have rounds
+            leagueSeason.HasData = roundsCount > 0;
             leagueSeason.RoundsCount = roundsCount;
             leagueSeason.MatchesCount = matchesCount;
             leagueSeason.HasOdds = hasOdds;

@@ -1,8 +1,12 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Moq;
+using Sazkomat.Configuration.Repositories;
 using Sazkomat.DataImport.Data;
 using Sazkomat.DataImport.Entities;
 using Sazkomat.DataImport.Repositories;
 using Sazkomat.Tests.Helpers;
+using Match = Sazkomat.DataImport.Entities.Match;
 
 namespace Sazkomat.Tests.DataImport;
 
@@ -21,7 +25,12 @@ public class MatchRepositoryTests : IDisposable
             .Options;
 
         _context = new DataImportDbContext(options);
-        _repository = new MatchRepository(_context);
+        var mockSeasonRepository = new Mock<ISeasonRepository>();
+        // Setup GetAllAsync to return empty list (not null) for the sorting logic in GetAllAsync
+        mockSeasonRepository.Setup(x => x.GetAllAsync())
+            .ReturnsAsync(new List<Sazkomat.Configuration.Entities.Season>());
+        var mockLogger = new Mock<ILogger<MatchRepository>>();
+        _repository = new MatchRepository(_context, mockSeasonRepository.Object, mockLogger.Object);
         _roundId = Guid.NewGuid();
         _providerId = Guid.NewGuid();
 

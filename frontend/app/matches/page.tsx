@@ -43,6 +43,29 @@ export default function MatchesPage() {
     queryFn: () => configApi.getLeagues(),
   });
 
+  // Fetch imported seasons for filter
+  const { data: importedSeasons } = useQuery({
+    queryKey: ["importedSeasons"],
+    queryFn: async () => {
+      const response = await fetch(`${API_URL}/api/import/seasons/imported`);
+      if (!response.ok) throw new Error("Failed to fetch seasons");
+      return response.json();
+    },
+  });
+
+  // Fetch available rounds for filter (depends on selected league and season)
+  const { data: availableRounds } = useQuery({
+    queryKey: ["availableRounds", filters.leagueId, filters.season],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (filters.leagueId) params.append("leagueId", filters.leagueId);
+      if (filters.season) params.append("season", filters.season);
+      const response = await fetch(`${API_URL}/api/import/rounds/available?${params}`);
+      if (!response.ok) throw new Error("Failed to fetch rounds");
+      return response.json() as Promise<number[]>;
+    },
+  });
+
   // Fetch matches
   const { data: matchesResponse, isLoading, error } = useQuery({
     queryKey: ["matches", filters],
@@ -85,18 +108,12 @@ export default function MatchesPage() {
     return "bg-gray-50";
   };
 
-  // Get unique seasons from matches
-  const uniqueSeasons: string[] = matchesResponse?.matches
-    ? (Array.from(new Set(matchesResponse.matches.map((m: Match) => m.round.season))) as string[])
-        .sort()
-        .reverse()
-    : [];
+  // Get seasons from imported seasons endpoint (all available seasons)
+  const availableSeasons: { name: string; roundsCount: number; matchesCount: number }[] =
+    importedSeasons || [];
 
-  // Get unique round numbers
-  const uniqueRounds = matchesResponse?.matches
-    ? (Array.from(new Set(matchesResponse.matches.map((m: Match) => m.round.roundNumber))) as number[])
-        .sort((a, b) => a - b)
-    : [];
+  // Get round numbers from dedicated endpoint
+  const roundNumbers: number[] = availableRounds || [];
 
   // Group matches by round
   const groupedMatches = matchesResponse?.matches?.reduce((acc: Record<string, Match[]>, match: Match) => {
@@ -192,9 +209,9 @@ export default function MatchesPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Všechny sezóny</SelectItem>
-                  {uniqueSeasons.map((season) => (
-                    <SelectItem key={season} value={season}>
-                      {season}
+                  {availableSeasons.map((season) => (
+                    <SelectItem key={season.name} value={season.name}>
+                      {season.name} ({season.roundsCount} kol, {season.matchesCount} zápasů)
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -215,7 +232,7 @@ export default function MatchesPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Všechna kola</SelectItem>
-                  {uniqueRounds.map((round) => (
+                  {roundNumbers.map((round) => (
                     <SelectItem key={round} value={round.toString()}>
                       Kolo {round}
                     </SelectItem>

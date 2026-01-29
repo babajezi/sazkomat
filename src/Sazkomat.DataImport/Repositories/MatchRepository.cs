@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Sazkomat.Configuration.Repositories;
 using Sazkomat.DataImport.Data;
 using Sazkomat.DataImport.Entities;
 
@@ -7,10 +9,14 @@ namespace Sazkomat.DataImport.Repositories;
 public class MatchRepository : IMatchRepository
 {
     private readonly DataImportDbContext _context;
+    private readonly ISeasonRepository _seasonRepository;
+    private readonly ILogger<MatchRepository> _logger;
 
-    public MatchRepository(DataImportDbContext context)
+    public MatchRepository(DataImportDbContext context, ISeasonRepository seasonRepository, ILogger<MatchRepository> logger)
     {
         _context = context;
+        _seasonRepository = seasonRepository;
+        _logger = logger;
     }
 
     public async Task<List<Match>> GetAllAsync(MatchFilter? filter = null)
@@ -21,29 +27,59 @@ public class MatchRepository : IMatchRepository
 
         query = ApplyFilter(query, filter);
 
-        // Apply sorting
+        // For "round" and default sorting, we need to get season start years
+        // since the Season navigation is ignored (it's in a different schema)
+        var sortByRound = filter?.SortBy?.ToLower() == "round" || filter?.SortBy == null;
+        var sortDescending = filter?.SortDescending ?? true;
+
+        _logger.LogDebug("MatchRepository.GetAllAsync: sortByRound={SortByRound}, sortDescending={SortDescending}", sortByRound, sortDescending);
+
+        if (sortByRound)
+        {
+            // Get all seasons from configuration repository
+            var allSeasons = await _seasonRepository.GetAllAsync();
+            var seasons = allSeasons.ToDictionary(s => s.Id, s => s.StartYear);
+
+            _logger.LogDebug("MatchRepository: Loaded {SeasonCount} seasons for sorting", seasons.Count);
+
+            // Load all matching records first (without pagination for sorting)
+            var allMatches = await query.ToListAsync();
+
+            // Sort in memory with season start year
+            var sortedMatches = sortDescending
+                ? allMatches.OrderByDescending(m => seasons.GetValueOrDefault(m.Round.SeasonId, 0))
+                            .ThenByDescending(m => m.Round.RoundNumber)
+                            .ToList()
+                : allMatches.OrderBy(m => seasons.GetValueOrDefault(m.Round.SeasonId, 0))
+                            .ThenBy(m => m.Round.RoundNumber)
+                            .ToList();
+
+            // Apply pagination in memory
+            if (filter?.Skip.HasValue == true)
+            {
+                sortedMatches = sortedMatches.Skip(filter.Skip.Value).ToList();
+            }
+
+            if (filter?.Take.HasValue == true)
+            {
+                sortedMatches = sortedMatches.Take(filter.Take.Value).ToList();
+            }
+
+            return sortedMatches;
+        }
+
+        // Apply sorting for non-round sorts
         if (filter?.SortBy != null)
         {
             query = filter.SortBy.ToLower() switch
             {
-                "date" => filter.SortDescending
+                "date" => sortDescending
                     ? query.OrderByDescending(m => m.MatchDate)
                     : query.OrderBy(m => m.MatchDate),
-                "round" => filter.SortDescending
-                    ? query.OrderByDescending(m => m.Round.SeasonId)
-                          .ThenByDescending(m => m.Round.RoundNumber)
-                    : query.OrderBy(m => m.Round.SeasonId)
-                          .ThenBy(m => m.Round.RoundNumber),
-                _ => filter.SortDescending
+                _ => sortDescending
                     ? query.OrderByDescending(m => m.CreatedAt)
                     : query.OrderBy(m => m.CreatedAt)
             };
-        }
-        else
-        {
-            // Default sorting: by round (season desc, round number desc)
-            query = query.OrderByDescending(m => m.Round.SeasonId)
-                         .ThenByDescending(m => m.Round.RoundNumber);
         }
 
         // Apply pagination

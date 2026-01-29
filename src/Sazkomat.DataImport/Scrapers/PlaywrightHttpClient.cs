@@ -611,7 +611,40 @@ public class PlaywrightHttpClient : IHttpClient, IAsyncDisposable
                     continue;
                 }
 
-                // 2c. Click "Sort by round" if available
+                // 2c. Click on "Main" tab if stage tabs exist (e.g., "Main", "Winners stage", "Relegation")
+                // This is common in older seasons like 2001-2002
+                try
+                {
+                    // Look for stage/phase tabs within the results table
+                    // These are typically in a sub-navigation or tab row
+                    var mainTabSelectors = new[]
+                    {
+                        "a:has-text('Main'):not([href*='/results/'])",  // Text "Main" but not Results link
+                        ".table-tabs a:has-text('Main')",               // Tab in table navigation
+                        ".list-tabs--secondary a:has-text('Main')",     // Secondary tab list
+                        "[class*='stage'] a:has-text('Main')",          // Stage navigation
+                        "a[href*='stage=main']",                        // URL with stage parameter
+                    };
+
+                    foreach (var selector in mainTabSelectors)
+                    {
+                        var mainTab = await page.QuerySelectorAsync(selector);
+                        if (mainTab != null)
+                        {
+                            _logger.LogInformation("Found 'Main' stage tab, clicking...");
+                            await mainTab.ClickAsync();
+                            await page.WaitForLoadStateAsync(LoadState.NetworkIdle);
+                            break;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug("No 'Main' stage tab found or click failed: {Message}", ex.Message);
+                    // Continue - not all seasons have stage tabs
+                }
+
+                // 2d. Click "Sort by round" if available
                 var sortSelectors = new[]
                 {
                     "a:has-text('round')",

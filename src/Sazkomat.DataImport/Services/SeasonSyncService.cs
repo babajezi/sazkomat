@@ -237,7 +237,8 @@ public class SeasonSyncService : ISeasonSyncService
             }
 
             // Update league season metadata
-            leagueSeason.HasData = true;
+            // Only set HasData = true if we actually scraped some rounds
+            leagueSeason.HasData = rounds.Count > 0;
             leagueSeason.RoundsCount = rounds.Count;
             leagueSeason.MatchesCount = totalMatches;
             leagueSeason.HasOdds = hasOdds;

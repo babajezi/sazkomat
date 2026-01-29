@@ -13,7 +13,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ChevronDown, ChevronUp, RefreshCw, Download, Loader2, CheckCircle, XCircle } from "lucide-react";
-import Link from "next/link";
 import type { LeagueSeason, LeagueProvider } from "@/lib/api/types";
 import { SyncMode, ProviderType } from "@/lib/api/types";
 
@@ -285,6 +284,17 @@ export function LeagueSeasonsDisplay({ leagueId, leagueProviders }: LeagueSeason
   );
 }
 
+interface Round {
+  id: string;
+  roundNumber: number;
+  groupName: string | null;  // null = liga bez skupin, e.g. "East", "West", "GROUP 1"
+  matchesCount: number;
+  homeWins: number;
+  draws: number;
+  awayWins: number;
+  oddsComplete: string;
+}
+
 interface SeasonRowProps {
   season: LeagueSeason;
   leagueId: string;
@@ -292,8 +302,26 @@ interface SeasonRowProps {
   isToggling: boolean;
 }
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+
 function SeasonRow({ season, leagueId, onToggleSync, isToggling }: SeasonRowProps) {
   const [showWarning, setShowWarning] = useState(false);
+  const [showRounds, setShowRounds] = useState(false);
+
+  // Fetch rounds automatically for seasons with data - needed for perfect rounds stats
+  const { data: roundsData, isLoading: roundsLoading } = useQuery({
+    queryKey: ["season-rounds", leagueId, season.seasonName],
+    queryFn: async () => {
+      const response = await fetch(
+        `${API_URL}/api/import/rounds?leagueId=${leagueId}&season=${encodeURIComponent(season.seasonName)}&take=100`
+      );
+      if (!response.ok) throw new Error("Failed to fetch rounds");
+      return response.json();
+    },
+    enabled: season.hasData,  // Always fetch for seasons with data
+    staleTime: 5 * 60 * 1000, // 5 minutes - rounds data doesn't change often
+    gcTime: 10 * 60 * 1000,   // Keep in cache for 10 minutes
+  });
 
   const handleToggleClick = () => {
     // If enabling sync for a historical season, show warning
@@ -309,17 +337,30 @@ function SeasonRow({ season, leagueId, onToggleSync, isToggling }: SeasonRowProp
     onToggleSync(true);
   };
 
+  const rounds: Round[] = roundsData?.rounds || [];
+
+  // Calculate "perfect" rounds stats (all same result)
+  const perfectRounds = rounds.reduce(
+    (acc, round) => {
+      const isAllHome = round.homeWins > 0 && round.draws === 0 && round.awayWins === 0;
+      const isAllDraw = round.draws > 0 && round.homeWins === 0 && round.awayWins === 0;
+      const isAllAway = round.awayWins > 0 && round.homeWins === 0 && round.draws === 0;
+      return {
+        home: acc.home + (isAllHome ? 1 : 0),
+        draw: acc.draw + (isAllDraw ? 1 : 0),
+        away: acc.away + (isAllAway ? 1 : 0),
+      };
+    },
+    { home: 0, draw: 0, away: 0 }
+  );
+  const hasPerfectRounds = perfectRounds.home > 0 || perfectRounds.draw > 0 || perfectRounds.away > 0;
+
   return (
     <>
-      <div className="border rounded-lg p-3 bg-white hover:bg-gray-50">
+      <div className="border rounded-lg p-3 bg-white">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
-            <Link
-              href={`/rounds?leagueId=${leagueId}&season=${encodeURIComponent(season.seasonName)}`}
-              className="font-medium text-blue-600 hover:underline"
-            >
-              {season.seasonName}
-            </Link>
+            <span className="font-medium">{season.seasonName}</span>
             {season.isCurrent && (
               <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">
                 Aktuální
@@ -334,31 +375,116 @@ function SeasonRow({ season, leagueId, onToggleSync, isToggling }: SeasonRowProp
               </span>
             )}
           </div>
-          <Button
-            variant={season.syncEnabled ? "default" : "outline"}
-            size="sm"
-            onClick={handleToggleClick}
-            disabled={isToggling}
-          >
-            {season.syncEnabled ? "✓ Sync ON" : "○ Sync OFF"}
-          </Button>
+          <div className="flex flex-col gap-1 items-end">
+            <Button
+              variant={season.syncEnabled ? "default" : "outline"}
+              size="sm"
+              onClick={handleToggleClick}
+              disabled={isToggling}
+            >
+              {season.syncEnabled ? "✓ Sync ON" : "○ Sync OFF"}
+            </Button>
+            {season.hasData && (
+              <button
+                onClick={() => setShowRounds(!showRounds)}
+                className="p-1 hover:bg-gray-100 rounded transition-colors"
+              >
+                {showRounds ? <ChevronUp className="h-7 w-7 text-gray-600" /> : <ChevronDown className="h-7 w-7 text-gray-600" />}
+              </button>
+            )}
+          </div>
         </div>
 
-      <div className="grid grid-cols-3 gap-2 text-xs text-gray-600">
-        <div>
-          <span className="font-medium">Kola:</span> {season.roundsCount || 0}
-        </div>
-        <div>
-          <span className="font-medium">Zápasy:</span> {season.matchesCount || 0}
-        </div>
-        <div>
-          <span className="font-medium">Kurzy:</span> {season.hasOdds ? "✓" : "—"}
-        </div>
+      <div className="flex flex-wrap gap-3 mt-2">
+        <span className="inline-flex items-center px-2 py-1 rounded bg-blue-100 text-blue-800 text-sm font-medium">
+          Kol: {season.roundsCount || 0}
+        </span>
+        <span className="inline-flex items-center px-2 py-1 rounded bg-green-100 text-green-800 text-sm font-medium">
+          Zápasů: {season.matchesCount || 0}
+        </span>
+        <span className={`inline-flex items-center px-2 py-1 rounded text-sm font-medium ${season.hasOdds ? "bg-yellow-100 text-yellow-800" : "bg-gray-100 text-gray-500"}`}>
+          Kurzy: {season.hasOdds ? "✓" : "—"}
+        </span>
+
+        {/* Perfect rounds indicators - only show when rounds are loaded */}
+        {hasPerfectRounds && (
+          <div className="flex gap-2 ml-2 pl-2 border-l-2 border-gray-300">
+            {perfectRounds.home > 0 && (
+              <span className="inline-flex items-center px-3 py-1 rounded-full bg-green-600 text-white text-sm font-bold shadow-md animate-pulse">
+                {perfectRounds.home}H
+              </span>
+            )}
+            {perfectRounds.draw > 0 && (
+              <span className="inline-flex items-center px-3 py-1 rounded-full bg-yellow-500 text-white text-sm font-bold shadow-md animate-pulse">
+                {perfectRounds.draw}R
+              </span>
+            )}
+            {perfectRounds.away > 0 && (
+              <span className="inline-flex items-center px-3 py-1 rounded-full bg-red-600 text-white text-sm font-bold shadow-md animate-pulse">
+                {perfectRounds.away}A
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {season.lastDataSyncAt && (
         <div className="text-xs text-gray-500 mt-1">
           Poslední sync dat: {new Date(season.lastDataSyncAt).toLocaleString("cs-CZ")}
+        </div>
+      )}
+
+      {/* Expandable rounds list */}
+      {showRounds && season.hasData && (
+        <div className="mt-3 pt-3 border-t">
+          {roundsLoading ? (
+            <div className="text-sm text-gray-500 flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Načítám kola...
+            </div>
+          ) : rounds.length > 0 ? (
+            <div className="space-y-1">
+              <div className="text-xs font-medium text-gray-500 mb-2">Kola:</div>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                {rounds.map((round) => {
+                  // Only highlight if ALL results are of one type (others are 0)
+                  const isAllHome = round.homeWins > 0 && round.draws === 0 && round.awayWins === 0;
+                  const isAllDraw = round.draws > 0 && round.homeWins === 0 && round.awayWins === 0;
+                  const isAllAway = round.awayWins > 0 && round.homeWins === 0 && round.draws === 0;
+
+                  return (
+                    <a
+                      key={round.id}
+                      href={`/matches?leagueId=${leagueId}&season=${encodeURIComponent(season.seasonName)}&roundNumber=${round.roundNumber}${round.groupName ? `&groupName=${encodeURIComponent(round.groupName)}` : ''}`}
+                      className="flex items-center justify-between p-2 bg-gray-50 rounded hover:bg-gray-100"
+                    >
+                      <div className="text-xs">
+                        <div className="font-medium">
+                          {round.groupName ? `${round.groupName} - ` : ''}Kolo {round.roundNumber}
+                        </div>
+                        <div className="text-gray-500">{round.matchesCount} zápasů</div>
+                      </div>
+                      <div className="flex items-center gap-1 font-mono text-lg font-semibold">
+                        <span className={isAllHome ? "px-1 rounded bg-green-500 text-white" : "text-gray-900"}>
+                          {round.homeWins}
+                        </span>
+                        <span className="text-gray-400">:</span>
+                        <span className={isAllDraw ? "px-1 rounded bg-yellow-500 text-white" : "text-gray-900"}>
+                          {round.draws}
+                        </span>
+                        <span className="text-gray-400">:</span>
+                        <span className={isAllAway ? "px-1 rounded bg-red-500 text-white" : "text-gray-900"}>
+                          {round.awayWins}
+                        </span>
+                      </div>
+                    </a>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <div className="text-sm text-gray-500">Žádná kola nenalezena</div>
+          )}
         </div>
       )}
     </div>

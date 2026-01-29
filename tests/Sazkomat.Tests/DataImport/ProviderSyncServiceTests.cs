@@ -2,6 +2,7 @@ using Moq;
 using Microsoft.Extensions.Logging;
 using Sazkomat.Configuration.Entities;
 using Sazkomat.Configuration.Repositories;
+using Sazkomat.DataImport.Repositories;
 using Sazkomat.DataImport.Scrapers;
 using Sazkomat.DataImport.Services;
 using Sazkomat.DataImport.Validators;
@@ -23,6 +24,7 @@ public class ProviderSyncServiceTests
     private readonly Mock<ISeasonScraper> _mockSeasonScraper;
     private readonly Mock<ISeasonSyncService> _mockSeasonSyncService;
     private readonly Mock<ILeagueRoundValidator> _mockRoundValidator;
+    private readonly Mock<ISyncJobRepository> _mockSyncJobRepo;
     private readonly Mock<ILogger<ProviderSyncService>> _mockLogger;
     private readonly ProviderSyncService _service;
 
@@ -46,6 +48,7 @@ public class ProviderSyncServiceTests
         _mockSeasonScraper = new Mock<ISeasonScraper>();
         _mockSeasonSyncService = new Mock<ISeasonSyncService>();
         _mockRoundValidator = new Mock<ILeagueRoundValidator>();
+        _mockSyncJobRepo = new Mock<ISyncJobRepository>();
         _mockLogger = new Mock<ILogger<ProviderSyncService>>();
 
         _betExplorerProvider = new DataProvider
@@ -91,6 +94,7 @@ public class ProviderSyncServiceTests
             new[] { _mockSeasonScraper.Object },
             _mockSeasonSyncService.Object,
             _mockRoundValidator.Object,
+            _mockSyncJobRepo.Object,
             _mockLogger.Object
         );
 
