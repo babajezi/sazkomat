@@ -611,75 +611,247 @@ public class PlaywrightHttpClient : IHttpClient, IAsyncDisposable
                     continue;
                 }
 
-                // 2c. Click on "Main" tab if stage tabs exist (e.g., "Main", "Winners stage", "Relegation")
-                // This is common in older seasons like 2001-2002
+                // 2c. Skip clicking on "Main" tab - it can break round headers for some leagues
+                // Some leagues (like Lowland League) lose Round headers when stage filter is applied
+                // The default view (all stages) usually has proper Round headers after sorting
+                _logger.LogDebug("Skipping 'Main' stage tab click - using default all-stages view");
+
+                // 2d. Click "Sort by round" if available
+                // BetExplorer uses a custom dropdown. We need to:
+                // 1. Click on div.select to open the dropdown
+                // 2. Click on the "round" option
                 try
                 {
-                    // Look for stage/phase tabs within the results table
-                    // These are typically in a sub-navigation or tab row
-                    var mainTabSelectors = new[]
+                    // Wait a bit for page to fully render
+                    await Task.Delay(1000);
+
+                    // Debug: Log all select elements on page
+                    var selectIds = await page.EvaluateAsync<string[]>(@"() => {
+                        return Array.from(document.querySelectorAll('select')).map(s => s.id || '[no-id]');
+                    }");
+                    _logger.LogDebug("Select elements found on page: {SelectIds}", string.Join(", ", selectIds ?? Array.Empty<string>()));
+
+                    // Debug: Log div.select elements
+                    var divSelectCount = await page.EvaluateAsync<int>(@"() => document.querySelectorAll('div.select').length");
+                    _logger.LogDebug("div.select elements found: {Count}", divSelectCount);
+
+                    // Find the sort dropdown container - try multiple selectors
+                    var sortSelectors = new[]
                     {
-                        "a:has-text('Main'):not([href*='/results/'])",  // Text "Main" but not Results link
-                        ".table-tabs a:has-text('Main')",               // Tab in table navigation
-                        ".list-tabs--secondary a:has-text('Main')",     // Secondary tab list
-                        "[class*='stage'] a:has-text('Main')",          // Stage navigation
-                        "a[href*='stage=main']",                        // URL with stage parameter
+                        "#js-leagueresults-sort",
+                        "select[id*='sort']",
+                        "select[id*='leagueresults']",
+                        ".filter select",
+                        "select.sort-select"
                     };
 
-                    foreach (var selector in mainTabSelectors)
+                    IElementHandle? sortContainer = null;
+                    string? foundSelector = null;
+
+                    foreach (var selector in sortSelectors)
                     {
-                        var mainTab = await page.QuerySelectorAsync(selector);
-                        if (mainTab != null)
+                        sortContainer = await page.QuerySelectorAsync(selector);
+                        if (sortContainer != null)
                         {
-                            _logger.LogInformation("Found 'Main' stage tab, clicking...");
-                            await mainTab.ClickAsync();
-                            await page.WaitForLoadStateAsync(LoadState.NetworkIdle);
+                            foundSelector = selector;
+                            _logger.LogDebug("Found sort dropdown with selector: {Selector}", selector);
                             break;
+                        }
+                    }
+
+                    if (sortContainer != null && foundSelector != null)
+                    {
+                        _logger.LogInformation("Found sort dropdown with '{Selector}', attempting to change to 'round'...", foundSelector);
+
+                        // Method 1: Click on the custom dropdown div.select, then select round
+                        // The div.select is a sibling of the hidden select
+                        var customDropdown = await page.QuerySelectorAsync($"{foundSelector} + div.select");
+                        if (customDropdown != null)
+                        {
+                            _logger.LogDebug("Clicking custom dropdown to open...");
+                            await customDropdown.ClickAsync();
+                            await Task.Delay(500);
+
+                            // Now look for the "round" option (li element with text "round")
+                            var roundOption = await page.QuerySelectorAsync($"{foundSelector} + div.select li:has-text('round')");
+                            if (roundOption != null)
+                            {
+                                _logger.LogInformation("Clicking 'round' option...");
+                                await roundOption.ClickAsync();
+                                await Task.Delay(2000);
+                                await page.WaitForLoadStateAsync(LoadState.NetworkIdle, new PageWaitForLoadStateOptions
+                                {
+                                    Timeout = 15000
+                                });
+                                _logger.LogInformation("Page reloaded after selecting 'round'");
+                            }
+                            else
+                            {
+                                _logger.LogWarning("'round' option not found in dropdown");
+                            }
+                        }
+                        else
+                        {
+                            // Method 2: Try JavaScript approach as fallback
+                            _logger.LogDebug("Custom dropdown not found, trying JavaScript with ID: {Selector}...", foundSelector);
+                            var result = await page.EvaluateAsync<bool>($@"() => {{
+                                const select = document.querySelector('{foundSelector}');
+                                if (select && select.value !== 'r') {{
+                                    select.value = 'r';
+                                    // Get the onchange attribute and execute it
+                                    const onchangeStr = select.getAttribute('onchange');
+                                    if (onchangeStr) {{
+                                        eval(onchangeStr);
+                                        return true;
+                                    }}
+                                    // Try triggering change event
+                                    select.dispatchEvent(new Event('change', {{ bubbles: true }}));
+                                    return true;
+                                }}
+                                return false;
+                            }}");
+
+                            if (result)
+                            {
+                                _logger.LogInformation("Sort changed via JavaScript, waiting for reload...");
+                                await Task.Delay(3000);
+                                await page.WaitForLoadStateAsync(LoadState.NetworkIdle, new PageWaitForLoadStateOptions
+                                {
+                                    Timeout = 15000
+                                });
+                            }
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Sort dropdown not found with any selector, trying div.select fallback...");
+
+                        // Method 3: Try finding any div.select that might be a sort dropdown
+                        // Look for div.select near "Sort" text
+                        var sortByText = await page.QuerySelectorAsync("*:has-text('Sort by')");
+                        if (sortByText != null)
+                        {
+                            _logger.LogDebug("Found 'Sort by' text element");
+
+                            // Try to find div.select nearby using JavaScript
+                            var clicked = await page.EvaluateAsync<bool>(@"() => {
+                                // Find element with 'Sort by' or 'Řadit' text
+                                const elements = document.querySelectorAll('*');
+                                for (const el of elements) {
+                                    if (el.textContent && (el.textContent.includes('Sort by') || el.textContent.includes('Řadit'))) {
+                                        // Look for a div.select sibling or nearby
+                                        const parent = el.parentElement;
+                                        if (parent) {
+                                            const selectDiv = parent.querySelector('div.select');
+                                            if (selectDiv) {
+                                                selectDiv.click();
+                                                return true;
+                                            }
+                                        }
+                                    }
+                                }
+                                return false;
+                            }");
+
+                            if (clicked)
+                            {
+                                await Task.Delay(500);
+                                // Try to click 'round' option
+                                var roundOption = await page.QuerySelectorAsync("div.select li:has-text('round')");
+                                if (roundOption != null)
+                                {
+                                    await roundOption.ClickAsync();
+                                    await Task.Delay(2000);
+                                    await page.WaitForLoadStateAsync(LoadState.NetworkIdle, new PageWaitForLoadStateOptions
+                                    {
+                                        Timeout = 15000
+                                    });
+                                    _logger.LogInformation("Selected 'round' via fallback method");
+                                }
+                            }
+                        }
+                        else
+                        {
+                            _logger.LogDebug("'Sort by' text not found on page");
+                        }
+
+                        // Method 4: Try URL-based sorting as last resort
+                        // Navigate to results page with sort parameter
+                        var currentUrl = page.Url;
+                        if (!currentUrl.Contains("?"))
+                        {
+                            var sortUrl = currentUrl.TrimEnd('/') + "/?s=r";
+                            _logger.LogInformation("Trying URL-based sort: {Url}", sortUrl);
+                            await page.GotoAsync(sortUrl, new PageGotoOptions
+                            {
+                                WaitUntil = WaitUntilState.NetworkIdle,
+                                Timeout = 30000
+                            });
+                            _logger.LogInformation("After URL sort, page URL: {Url}", page.Url);
                         }
                     }
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogDebug("No 'Main' stage tab found or click failed: {Message}", ex.Message);
-                    // Continue - not all seasons have stage tabs
+                    _logger.LogWarning("Failed to change sort to 'round': {Message}", ex.Message);
                 }
 
-                // 2d. Click "Sort by round" if available
-                var sortSelectors = new[]
+                // 2e. Click "Show more" repeatedly until all results are loaded
+                var showMoreSelectors = new[]
                 {
-                    "a:has-text('round')",
-                    "span:has-text('round')"
+                    "a:has-text('Show more')",
+                    "a:has-text('show more')",
+                    "a.show-more",
+                    ".show-more a",
+                    "a[data-action='show-more']",
+                    "#show-more-results"
                 };
 
-                foreach (var selector in sortSelectors)
-                {
-                    try
-                    {
-                        var sortElement = await page.WaitForSelectorAsync(selector, new PageWaitForSelectorOptions
-                        {
-                            Timeout = 3000,
-                            State = WaitForSelectorState.Visible
-                        });
+                var showMoreClicks = 0;
+                var maxShowMoreClicks = 50; // Safety limit
 
-                        if (sortElement != null)
+                while (showMoreClicks < maxShowMoreClicks)
+                {
+                    var showMoreFound = false;
+
+                    foreach (var selector in showMoreSelectors)
+                    {
+                        try
                         {
-                            _logger.LogDebug("Clicking Sort by round...");
-                            await sortElement.ClickAsync();
-                            await Task.Delay(2000);
-                            await page.WaitForLoadStateAsync(LoadState.NetworkIdle, new PageWaitForLoadStateOptions
+                            var showMoreElement = await page.QuerySelectorAsync(selector);
+                            if (showMoreElement != null)
                             {
-                                Timeout = 10000
-                            });
-                            break;
+                                var isVisible = await showMoreElement.IsVisibleAsync();
+                                if (isVisible)
+                                {
+                                    _logger.LogDebug("Clicking 'Show more' (click #{ClickNum})...", showMoreClicks + 1);
+                                    await showMoreElement.ClickAsync();
+                                    await Task.Delay(1500); // Wait for content to load
+                                    showMoreClicks++;
+                                    showMoreFound = true;
+                                    break;
+                                }
+                            }
+                        }
+                        catch (Exception)
+                        {
+                            // Element might have become stale, continue
+                            continue;
                         }
                     }
-                    catch (TimeoutException)
+
+                    if (!showMoreFound)
                     {
-                        continue;
+                        break; // No more "Show more" buttons visible
                     }
                 }
 
-                // 2d. Get HTML content
+                if (showMoreClicks > 0)
+                {
+                    _logger.LogInformation("Clicked 'Show more' {Count} times to load all results", showMoreClicks);
+                }
+
+                // 2f. Get HTML content
                 _logger.LogInformation("Final URL before fetching HTML: {Url}", page.Url);
                 var html = await page.ContentAsync();
                 _logger.LogInformation("Fetched {Length} bytes for season {Season}", html.Length, season);

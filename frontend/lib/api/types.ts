@@ -85,6 +85,15 @@ export enum SyncMode {
   Current = "Current"
 }
 
+export enum NoDataReason {
+  None = "None",
+  PageNotFound = "PageNotFound",
+  NoRoundsFound = "NoRoundsFound",
+  ParsingError = "ParsingError",
+  NetworkError = "NetworkError",
+  PartialData = "PartialData"
+}
+
 export enum SyncType {
   Countries = "Countries",
   Leagues = "Leagues",
@@ -235,6 +244,8 @@ export interface LeagueSeason {
   endYear?: number | null;
   isAvailableOnBetExplorer: boolean;
   hasData: boolean;
+  noDataReason?: NoDataReason | null;
+  noDataNote?: string | null;
   hasOdds: boolean;
   roundsCount: number;
   matchesCount: number;
@@ -247,6 +258,8 @@ export interface LeagueSeason {
 
 export interface AvailableSeason extends Season {
   hasData: boolean;
+  noDataReason?: NoDataReason | null;
+  noDataNote?: string | null;
   hasOdds: boolean;
   roundsCount: number;
   matchesCount: number;

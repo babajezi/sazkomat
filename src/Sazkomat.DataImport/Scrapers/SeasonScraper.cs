@@ -53,12 +53,12 @@ public class BetExplorerSeasonScraper : ISeasonScraper
                         foreach (var option in options)
                         {
                             var seasonText = option.InnerText.Trim();
-                            // Check if option text contains dual-year pattern (e.g., "2024/2025")
-                            var match = System.Text.RegularExpressions.Regex.Match(seasonText, @"20\d{2}[/-]20\d{2}");
+                            // Check if option text contains dual-year pattern (e.g., "2024/2025" or "1999/2000")
+                            var match = System.Text.RegularExpressions.Regex.Match(seasonText, @"(19|20)\d{2}[/-](19|20)\d{2}");
                             if (!match.Success)
                             {
-                                // Fallback: match single year (e.g., "2024") for calendar-year leagues (MLS, Allsvenskan, Brazilian leagues)
-                                match = System.Text.RegularExpressions.Regex.Match(seasonText, @"^(20\d{2})$");
+                                // Fallback: match single year (e.g., "2024" or "1999") for calendar-year leagues
+                                match = System.Text.RegularExpressions.Regex.Match(seasonText, @"^((19|20)\d{2})$");
                             }
                             if (match.Success)
                             {
@@ -76,18 +76,18 @@ public class BetExplorerSeasonScraper : ISeasonScraper
             // Try method 2: Look for links with season patterns in href
             if (seasons.Count == 0)
             {
-                var links = doc.DocumentNode.SelectNodes("//a[contains(@href, '-20') or contains(@href, '/20')]");
+                var links = doc.DocumentNode.SelectNodes("//a[contains(@href, '-20') or contains(@href, '/20') or contains(@href, '-19') or contains(@href, '/19')]");
                 if (links != null)
                 {
                     foreach (var link in links)
                     {
                         var href = link.GetAttributeValue("href", "");
                         // First try to match XXXX-YYYY format (preferred)
-                        var match = System.Text.RegularExpressions.Regex.Match(href, @"20\d{2}[-/]20\d{2}");
+                        var match = System.Text.RegularExpressions.Regex.Match(href, @"(19|20)\d{2}[-/](19|20)\d{2}");
                         if (!match.Success)
                         {
                             // Fallback: try single year (only if not part of XXXX-YYYY)
-                            match = System.Text.RegularExpressions.Regex.Match(href, @"(?<!\d)20\d{2}(?!\d|[-/]20\d{2})");
+                            match = System.Text.RegularExpressions.Regex.Match(href, @"(?<!\d)(19|20)\d{2}(?!\d|[-/](19|20)\d{2})");
                         }
                         if (match.Success)
                         {
@@ -112,11 +112,11 @@ public class BetExplorerSeasonScraper : ISeasonScraper
                     {
                         var text = element.InnerText.Trim();
                         // First try to match XXXX-YYYY format (preferred)
-                        var match = System.Text.RegularExpressions.Regex.Match(text, @"20\d{2}[-/]20\d{2}");
+                        var match = System.Text.RegularExpressions.Regex.Match(text, @"(19|20)\d{2}[-/](19|20)\d{2}");
                         if (!match.Success)
                         {
                             // Fallback: try single year (only if not part of XXXX-YYYY)
-                            match = System.Text.RegularExpressions.Regex.Match(text, @"(?<!\d)20\d{2}(?!\d|[-/]20\d{2})");
+                            match = System.Text.RegularExpressions.Regex.Match(text, @"(?<!\d)(19|20)\d{2}(?!\d|[-/](19|20)\d{2})");
                         }
                         if (match.Success)
                         {
@@ -130,18 +130,14 @@ public class BetExplorerSeasonScraper : ISeasonScraper
                 }
             }
 
-            // Deduplicate: if we have "2024-2025", remove standalone "2024"
-            var deduplicatedSeasons = seasons.Where(s =>
-            {
-                if (s.Contains("-")) return true; // Keep XXXX-YYYY format
-                // Keep single year only if no XXXX-YYYY exists starting with same year
-                return !seasons.Any(other => other.StartsWith(s + "-"));
-            }).ToList();
+            // BetExplorer nikdy nevrací "2024" a "2024-2025" současně pro stejný rok
+            // Prostě vezmeme všechny nalezené sezóny
+            var uniqueSeasons = seasons.Distinct().ToList();
 
             _logger.LogInformation("Found {Count} seasons for {League}: {Seasons}",
-                deduplicatedSeasons.Count, league.Name, string.Join(", ", deduplicatedSeasons));
+                uniqueSeasons.Count, league.Name, string.Join(", ", uniqueSeasons));
 
-            return deduplicatedSeasons.Distinct().ToList();
+            return uniqueSeasons;
         }
         catch (Exception ex)
         {
@@ -160,8 +156,8 @@ public class BetExplorerSeasonScraper : ISeasonScraper
         // Replace / with - for consistency
         season = season.Replace("/", "-");
 
-        // Validate format (should be YYYY-YYYY or YYYY)
-        var match = System.Text.RegularExpressions.Regex.Match(season, @"(20\d{2})(?:[-](20\d{2}))?");
+        // Validate format (should be YYYY-YYYY or YYYY, supporting both 19xx and 20xx years)
+        var match = System.Text.RegularExpressions.Regex.Match(season, @"((19|20)\d{2})(?:[-]((19|20)\d{2}))?");
         if (match.Success)
         {
             return match.Value;

@@ -258,5 +258,254 @@ New column in `configuration.data_providers`:
 
 ---
 
+## Scraping Recipes with Adaptive Fallback
+
+### Overview
+Implemented configurable "recipe" system for web scraping that replaces hardcoded logic with database-driven configurations. When one recipe fails, the system automatically tries the next one in priority order.
+
+**Implementation Date:** 2026-01-31
+
+### Problem Solved
+- Different leagues may require different scraping strategies (sort dropdown, show more button, URL parameters)
+- Previously, scraping logic was hardcoded in `PlaywrightHttpClient`
+- No way to add new strategies without code changes
+- No visibility into which strategy works for which league
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    SeasonSyncService                        │
+│  1. Load recipes ordered by priority                        │
+│  2. If LeagueSeason has LastSuccessfulRecipeId → try first  │
+│  3. Loop: try recipe → success? → break : next              │
+│  4. Save which recipe worked                                │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                 RecipeExecutorService                       │
+│  - Converts Recipe.Actions → DebugRequest                   │
+│  - Calls ScraperDebugService.ExecuteAsync()                 │
+│  - Extracts HTML from result                                │
+│  - Parses using Recipe's XPath selectors                    │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│            ScraperDebugService (existing)                   │
+│  - Playwright browser                                       │
+│  - Executes actions: navigate, click, wait, extractHtml...  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### New Entities
+
+#### ScraperRecipe
+```csharp
+public class ScraperRecipe : Entity
+{
+    public string Name { get; set; }                    // "BetExplorer Full Workflow"
+    public string? Description { get; set; }
+    public string Provider { get; set; }                // "betexplorer"
+    public string PageType { get; set; }                // "results"
+    public int Priority { get; set; }                   // 1 = try first
+    public bool IsActive { get; set; } = true;
+
+    // Actions as JSON (List<DebugAction>)
+    public string ActionsJson { get; set; }
+
+    // Parsing rules (XPath selectors)
+    public string RoundHeaderSelector { get; set; }     // ".//th[contains(text(), 'Round')]"
+    public string? GroupPatternRegex { get; set; }      // for "East - 1. Round"
+    public string MatchRowSelector { get; set; }
+    public string? OddsCellSelector { get; set; }
+
+    // Statistics (denormalized for fast access)
+    public int TotalAttempts { get; set; }
+    public int SuccessfulAttempts { get; set; }
+}
+```
+
+#### LeagueSeason Extensions
+```csharp
+// Added to LeagueSeason:
+public Guid? LastSuccessfulRecipeId { get; set; }
+public DateTime? LastRecipeTestedAt { get; set; }
+```
+
+### Default Recipes (Seeded)
+
+| Priority | Name | Description |
+|----------|------|-------------|
+| 1 | BetExplorer Full Workflow | Sort by round + Show more loop (10 iterations) |
+| 2 | BetExplorer Sort Only | Sort by round, no Show more (smaller leagues) |
+| 3 | BetExplorer Direct | Direct navigation, no sort dropdown |
+| 4 | BetExplorer URL Sort | Uses `?s=r` URL parameter for sorting |
+
+### Recipe Actions (JSON Schema)
+Each recipe contains a JSON array of actions:
+```json
+[
+  {"type": "navigate", "url": "{baseUrl}{season}/results/"},
+  {"type": "waitForLoadState", "state": "networkidle", "timeout": 30000},
+  {"type": "click", "selector": "#js-leagueresults-sort + div.select"},
+  {"type": "wait", "milliseconds": 500},
+  {"type": "click", "selector": "li[rel='r']"},
+  {"type": "wait", "milliseconds": 2000},
+  {"type": "extractHtml", "selector": "table.table-main"}
+]
+```
+
+**Supported Actions:**
+- `navigate` - Navigate to URL with variable substitution
+- `click` - Click element by CSS selector
+- `wait` - Wait fixed milliseconds
+- `waitForLoadState` - Wait for Playwright load state
+- `waitForSelector` - Wait for element to appear
+- `evaluate` - Execute JavaScript in browser context
+- `extractHtml` - Extract HTML from page or selector
+
+**Variables:**
+- `{baseUrl}` - League's BetExplorer path (e.g., `https://www.betexplorer.com/soccer/england/premier-league/`)
+- `{season}` - Season name (e.g., `2023-2024`)
+
+### API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/recipes` | List all recipes |
+| GET | `/api/recipes/{id}` | Get recipe by ID |
+| POST | `/api/recipes` | Create new recipe |
+| PUT | `/api/recipes/{id}` | Update recipe |
+| DELETE | `/api/recipes/{id}` | Delete recipe |
+| POST | `/api/recipes/{id}/test` | Test recipe on league/season |
+| GET | `/api/recipes/stats` | Recipe statistics (success rate) |
+
+### Adaptive Fallback Flow
+
+```csharp
+// 1. Get recipes ordered by priority
+var recipes = await _recipeRepo.GetOrderedByPriorityAsync("betexplorer", "results");
+
+// 2. Prioritize last successful recipe
+if (leagueSeason.LastSuccessfulRecipeId.HasValue)
+{
+    var last = recipes.FirstOrDefault(r => r.Id == leagueSeason.LastSuccessfulRecipeId);
+    if (last != null)
+    {
+        recipes.Remove(last);
+        recipes.Insert(0, last);  // Try this first
+    }
+}
+
+// 3. Try recipes until one works
+foreach (var recipe in recipes)
+{
+    var result = await _recipeExecutor.ExecuteRecipeAsync(recipe, variables);
+    if (result.Success)
+    {
+        // 4. Remember which worked
+        leagueSeason.LastSuccessfulRecipeId = recipe.Id;
+        leagueSeason.LastRecipeTestedAt = DateTime.UtcNow;
+        break;
+    }
+}
+```
+
+### Files Created
+
+| File | Description |
+|------|-------------|
+| `src/Sazkomat.DataImport/Entities/ScraperRecipe.cs` | Recipe entity |
+| `src/Sazkomat.DataImport/Data/Configurations/ScraperRecipeConfiguration.cs` | EF configuration |
+| `src/Sazkomat.DataImport/Repositories/IScraperRecipeRepository.cs` | Repository interface |
+| `src/Sazkomat.DataImport/Repositories/ScraperRecipeRepository.cs` | Repository implementation |
+| `src/Sazkomat.DataImport/Services/RecipeExecutorService.cs` | Recipe execution + HTML parsing |
+| `src/Sazkomat.DataImport/Services/RecipeExecutionResult.cs` | Result DTO |
+| `src/Sazkomat.DataImport/Data/RecipeSeeder.cs` | Default recipe seeding |
+| `src/Sazkomat.Api/Endpoints/RecipeEndpoints.cs` | REST API endpoints |
+| `src/Sazkomat.DataImport/Migrations/20260131010000_AddScraperRecipes.cs` | Create table migration |
+| `src/Sazkomat.Configuration/Migrations/20260131010000_AddRecipeTrackingToLeagueSeason.cs` | Add tracking columns |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `src/Sazkomat.Configuration/Entities/LeagueSeason.cs` | +2 properties (LastSuccessfulRecipeId, LastRecipeTestedAt) |
+| `src/Sazkomat.DataImport/Services/SeasonSyncService.cs` | Integrated recipe-based scraping with TryScrapeWithRecipesAsync |
+| `src/Sazkomat.Api/Program.cs` | DI registration + MapRecipeEndpoints + RecipeSeeder call |
+
+### Database Schema
+
+**New table: `data_import.scraper_recipes`**
+```sql
+CREATE TABLE scraper_recipes (
+    id uuid PRIMARY KEY,
+    name varchar(100) NOT NULL,
+    description varchar(500),
+    provider varchar(50) NOT NULL,
+    page_type varchar(50) NOT NULL,
+    priority integer NOT NULL DEFAULT 100,
+    is_active boolean NOT NULL DEFAULT true,
+    actions_json jsonb NOT NULL DEFAULT '[]',
+    round_header_selector varchar(500) NOT NULL,
+    group_pattern_regex varchar(200),
+    match_row_selector varchar(500) NOT NULL,
+    odds_cell_selector varchar(500),
+    total_attempts integer NOT NULL DEFAULT 0,
+    successful_attempts integer NOT NULL DEFAULT 0,
+    created_at timestamptz NOT NULL,
+    updated_at timestamptz NOT NULL
+);
+
+CREATE UNIQUE INDEX ix_scraper_recipes_unique_name
+    ON scraper_recipes (provider, page_type, name);
+CREATE INDEX ix_scraper_recipes_provider_page_type
+    ON scraper_recipes (provider, page_type);
+CREATE INDEX ix_scraper_recipes_priority
+    ON scraper_recipes (priority);
+```
+
+**New columns in `configuration.league_seasons`:**
+- `last_successful_recipe_id` (uuid, nullable)
+- `last_recipe_tested_at` (timestamptz, nullable)
+
+### Benefits
+
+1. **No Code Changes for New Strategies** - Add recipes via API or database
+2. **Automatic Fallback** - If one strategy fails, try next
+3. **Learning System** - Remembers which recipe works for each league/season
+4. **Statistics** - Track success rates per recipe
+5. **Debugging** - Test recipes before deploying
+6. **Reusability** - Same recipe engine as Debug API
+
+### Error Handling
+
+When no recipe works:
+```json
+{
+  "success": false,
+  "error": "No suitable recipe found",
+  "errorCode": "NO_SUITABLE_RECIPE",
+  "details": "None of 4 available recipes succeeded for this season.",
+  "triedRecipes": [
+    { "name": "BetExplorer Full Workflow", "error": "Timeout waiting for selector" },
+    { "name": "BetExplorer Sort Only", "error": "Element not found: li[rel='r']" }
+  ]
+}
+```
+
+After failure:
+- `LastRecipeTestedAt` = attempt timestamp
+- `LastSuccessfulRecipeId` = `null` (none worked)
+
+This enables:
+1. Identifying seasons without working recipes
+2. Dashboard for monitoring "problem" seasons
+3. Auto-retry when new recipes are added
+
+---
+
 **Status:** ✅ Implementation Complete
-**Last Updated:** 2025-10-27
+**Last Updated:** 2026-01-31

@@ -44,6 +44,9 @@ public class DataImportDbContext : DbContext
     // Unmatched countries queue (for manual mapping)
     public DbSet<UnmatchedCountry> UnmatchedCountries => Set<UnmatchedCountry>();
 
+    // Scraper recipes for adaptive scraping
+    public DbSet<ScraperRecipe> ScraperRecipes => Set<ScraperRecipe>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -70,6 +73,9 @@ public class DataImportDbContext : DbContext
 
         // Unmatched countries queue
         modelBuilder.ApplyConfiguration(new UnmatchedCountryConfiguration());
+
+        // Scraper recipes
+        modelBuilder.ApplyConfiguration(new ScraperRecipeConfiguration());
     }
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

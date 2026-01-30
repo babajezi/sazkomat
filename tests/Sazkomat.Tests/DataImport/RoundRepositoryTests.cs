@@ -236,6 +236,64 @@ public class RoundRepositoryTests : IDisposable
     [Trait("Category", "Fast")]
     [Trait("Type", "Repository")]
     [Fact]
+    public async Task GetByLeagueSeasonRoundAsync_WithGroupName_FindsCorrectRound()
+    {
+        // Arrange - Two rounds with same number but different groups
+        var group1Round = new Round
+        {
+            Id = Guid.NewGuid(),
+            LeagueId = _testLeagueId,
+            SeasonId = _testSeasonId,
+            ProviderId = _testProviderId,
+            RoundNumber = 1,
+            GroupName = "GROUP 1",
+            MatchesCount = 10,
+            HomeWins = 4,
+            Draws = 3,
+            AwayWins = 3,
+            CumulativeOddsHome = 1.5m,
+            CumulativeOddsDraw = 3.0m,
+            CumulativeOddsAway = 2.5m,
+            SummaryResult = "4-3-3",
+            OddsComplete = "Yes",
+            ScrapedAt = DateTime.UtcNow,
+        };
+
+        var group2Round = new Round
+        {
+            Id = Guid.NewGuid(),
+            LeagueId = _testLeagueId,
+            SeasonId = _testSeasonId,
+            ProviderId = _testProviderId,
+            RoundNumber = 1,
+            GroupName = "GROUP 2",
+            MatchesCount = 8,
+            HomeWins = 3,
+            Draws = 2,
+            AwayWins = 3,
+            CumulativeOddsHome = 1.4m,
+            CumulativeOddsDraw = 2.8m,
+            CumulativeOddsAway = 2.2m,
+            SummaryResult = "3-2-3",
+            OddsComplete = "Yes",
+            ScrapedAt = DateTime.UtcNow,
+        };
+
+        await _context.Rounds.AddRangeAsync(group1Round, group2Round);
+        await _context.SaveChangesAsync();
+
+        // Act - Find GROUP 2 round
+        var result = await _repository.GetByLeagueSeasonRoundAsync(_testLeagueId, _testSeasonId, 1, "GROUP 2");
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal("GROUP 2", result.GroupName);
+        Assert.Equal(8, result.MatchesCount);
+    }
+
+    [Trait("Category", "Fast")]
+    [Trait("Type", "Repository")]
+    [Fact]
     public async Task CreateAsync_ValidRound_AddsRound()
     {
         // Arrange

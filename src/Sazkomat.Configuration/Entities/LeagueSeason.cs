@@ -8,6 +8,8 @@ public class LeagueSeason : Entity
     public Guid SeasonId { get; set; }
     public bool IsAvailableOnBetExplorer { get; set; } = true;
     public bool HasData { get; set; } = false;
+    public NoDataReason? NoDataReason { get; set; }
+    public string? NoDataNote { get; set; }
     public bool HasOdds { get; set; } = false;
     public DateTime? LastScrapedAt { get; set; }
     public int RoundsCount { get; set; } = 0;
@@ -18,6 +20,19 @@ public class LeagueSeason : Entity
     public bool IsCurrent { get; set; } = false;
     public SyncMode SyncMode { get; set; } = SyncMode.Historical;
     public DateTime? LastDataSyncAt { get; set; }
+
+    // Recipe tracking for adaptive scraping
+    /// <summary>
+    /// ID of the last recipe that successfully scraped this season.
+    /// Used to prioritize this recipe on subsequent syncs.
+    /// </summary>
+    public Guid? LastSuccessfulRecipeId { get; set; }
+
+    /// <summary>
+    /// When recipes were last tested for this season.
+    /// If LastSuccessfulRecipeId is null after testing, no recipe worked.
+    /// </summary>
+    public DateTime? LastRecipeTestedAt { get; set; }
 
     // Navigation
     public League League { get; set; } = null!;

@@ -28,10 +28,10 @@ public class RoundRepository : IRoundRepository
             .FirstOrDefaultAsync(r => r.Id == id);
     }
 
-    public async Task<Round?> GetByLeagueSeasonRoundAsync(Guid leagueId, Guid seasonId, int roundNumber)
+    public async Task<Round?> GetByLeagueSeasonRoundAsync(Guid leagueId, Guid seasonId, int roundNumber, string? groupName = null)
     {
         return await _context.Rounds
-            .FirstOrDefaultAsync(r => r.LeagueId == leagueId && r.SeasonId == seasonId && r.RoundNumber == roundNumber);
+            .FirstOrDefaultAsync(r => r.LeagueId == leagueId && r.SeasonId == seasonId && r.RoundNumber == roundNumber && r.GroupName == groupName);
     }
 
     public async Task<List<Round>> GetByLeagueAsync(Guid leagueId)

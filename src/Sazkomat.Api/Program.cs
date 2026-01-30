@@ -14,6 +14,7 @@ using Sazkomat.Configuration.Repositories;
 using Sazkomat.Configuration.Services;
 using Sazkomat.Configuration.Settings;
 using Sazkomat.DataImport.Data;
+using Sazkomat.DataImport.Debug;
 using Sazkomat.DataImport.Repositories;
 using Sazkomat.DataImport.Scrapers;
 using Sazkomat.DataImport.Services;
@@ -219,6 +220,7 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IRoundRepository, RoundRepository>();
 builder.Services.AddScoped<IMatchRepository, MatchRepository>();
 builder.Services.AddScoped<IImportJobRepository, ImportJobRepository>();
+builder.Services.AddScoped<IScraperRecipeRepository, ScraperRecipeRepository>();
 
 // Register Provider Cache repositories
 builder.Services.AddScoped<IProviderCountryRepository, ProviderCountryRepository>();
@@ -319,6 +321,12 @@ builder.Services.AddScoped<IGlobalRuleService, GlobalRuleService>();
 // Register Hangfire background services
 builder.Services.AddHostedService<RecurringSyncScheduler>();
 
+// Register debug services (available in all environments for debugging production issues)
+builder.Services.AddScoped<ScraperDebugService>();
+
+// Register recipe executor service for adaptive scraping
+builder.Services.AddScoped<RecipeExecutorService>();
+
 // Configure Hangfire
 var hangfireConnection = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("DefaultConnection string not found");
@@ -401,6 +409,8 @@ app.MapBetExplorerEndpoints();
 app.MapAuthEndpoints();
 app.MapUserAdminEndpoints();
 app.MapTipsportEndpoints();
+app.MapDebugEndpoints();
+app.MapRecipeEndpoints();
 
 // Auto migration and seed on startup
 using (var scope = app.Services.CreateScope())
@@ -428,6 +438,11 @@ using (var scope = app.Services.CreateScope())
         logger.LogInformation("Seeding country name mappings...");
         await CountryNameMappingSeeder.SeedTipsportMappingsAsync(dataImportContext);
         logger.LogInformation("Country name mappings seeded successfully");
+
+        // Seed default scraper recipes
+        logger.LogInformation("Seeding scraper recipes...");
+        await RecipeSeeder.SeedDefaultRecipesAsync(dataImportContext);
+        logger.LogInformation("Scraper recipes seeded successfully");
 
         // Cleanup orphaned jobs (stuck in Running status from previous crash/restart)
         logger.LogInformation("Checking for orphaned jobs...");

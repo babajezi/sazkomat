@@ -132,7 +132,8 @@ public class LiveSyncService : ILiveSyncService
                         league.Name, season.Name);
 
                     // Scrape all rounds for the season
-                    var scrapedRounds = await _scraper.ScrapeSeasonAsync(league, season.Name);
+                    var scrapeResult = await _scraper.ScrapeSeasonAsync(league, season.Name);
+                    var scrapedRounds = scrapeResult.Rounds;
                     _logger.LogInformation("Scraped {Count} rounds for {LeagueName} - {SeasonName}",
                         scrapedRounds.Count, league.Name, season.Name);
 
@@ -356,8 +357,8 @@ public class LiveSyncService : ILiveSyncService
                 round.RoundNumber, league.Name, season.Name);
 
             // Scrape all rounds for the season (scraper doesn't support single round)
-            var scrapedRounds = await _scraper.ScrapeSeasonAsync(league, season.Name);
-            var scrapedRound = scrapedRounds.FirstOrDefault(r => r.RoundNumber == round.RoundNumber);
+            var scrapeResult = await _scraper.ScrapeSeasonAsync(league, season.Name);
+            var scrapedRound = scrapeResult.Rounds.FirstOrDefault(r => r.RoundNumber == round.RoundNumber);
 
             if (scrapedRound == null)
             {

@@ -292,6 +292,7 @@ public static class ImportEndpoints
                 league = leagues.ContainsKey(r.LeagueId) ? leagues[r.LeagueId] : null,
                 season = seasons.ContainsKey(r.SeasonId) ? seasons[r.SeasonId] : null,
                 roundNumber = r.RoundNumber,
+                groupName = r.GroupName,
                 matchesCount = r.MatchesCount,
                 homeWins = r.HomeWins,
                 draws = r.Draws,

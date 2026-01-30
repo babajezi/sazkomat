@@ -23,24 +23,25 @@ public class FootballBetExplorerScraper : ILeagueScraper
         return sport.Code.Equals("football", StringComparison.OrdinalIgnoreCase);
     }
 
-    public async Task<List<Round>> ScrapeSeasonAsync(League league, string season)
+    public async Task<ScrapeResult> ScrapeSeasonAsync(League league, string season)
     {
         // Delegate to multi-season method with single season
         var results = await ScrapeMultipleSeasonsAsync(league, new[] { season });
-        return results.TryGetValue(season, out var rounds) ? rounds : new List<Round>();
+        return results.TryGetValue(season, out var result) ? result : ScrapeResult.Success(new List<Round>());
     }
 
     /// <summary>
     /// Scrapes multiple seasons from BetExplorer in a single browser session.
     /// More efficient - loads page once, then iterates through seasons via dropdown.
     /// </summary>
-    public async Task<Dictionary<string, List<Round>>> ScrapeMultipleSeasonsAsync(
+    public async Task<Dictionary<string, ScrapeResult>> ScrapeMultipleSeasonsAsync(
         League league,
         IEnumerable<string> seasons)
     {
-        var results = new Dictionary<string, List<Round>>();
+        var results = new Dictionary<string, ScrapeResult>();
         var countrySlug = league.Country?.Code?.ToLowerInvariant() ?? "unknown";
         var baseUrl = $"/football/{countrySlug}/{league.BetExplorerSlug}/";
+        // Always save debug HTML for troubleshooting
         var debugPattern = $"/tmp/betexplorer_{league.BetExplorerSlug}_{{season}}.html";
 
         _logger.LogInformation("Starting multi-season scrape for {League} from {BaseUrl}",
@@ -51,16 +52,25 @@ public class FootballBetExplorerScraper : ILeagueScraper
         {
             try
             {
-                var rounds = ParseHtmlContent(html, league.Id, season);
-                results[season] = rounds;
-                _logger.LogInformation("Scraped {RoundCount} rounds for {League} season {Season}",
-                    rounds.Count, league.Name, season);
+                // Detect page not found: empty HTML or very small HTML (< 1000 chars typically means redirect to homepage)
+                if (string.IsNullOrWhiteSpace(html) || html.Length < 1000)
+                {
+                    _logger.LogWarning("Page not found for {League} season {Season} (HTML length: {Length})",
+                        league.Name, season, html?.Length ?? 0);
+                    results[season] = ScrapeResult.PageNotFound($"{baseUrl}{season}");
+                    continue;
+                }
+
+                var (rounds, totalRoundHeadersFound) = ParseHtmlContent(html, league.Id, season);
+                results[season] = ScrapeResult.Success(rounds, totalRoundHeadersFound);
+                _logger.LogInformation("Scraped {RoundCount} rounds (of {TotalHeaders} found) for {League} season {Season}",
+                    rounds.Count, totalRoundHeadersFound, league.Name, season);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to parse HTML for {League} season {Season}",
                     league.Name, season);
-                results[season] = new List<Round>();
+                results[season] = ScrapeResult.ParsingError(ex.Message);
             }
         }
 
@@ -68,12 +78,14 @@ public class FootballBetExplorerScraper : ILeagueScraper
     }
 
     /// <summary>
-    /// Parses HTML content and returns rounds.
+    /// Parses HTML content and returns rounds with total round headers count.
     /// Extracted from ScrapeSeasonAsync for reuse in multi-season scraping.
     /// </summary>
-    private List<Round> ParseHtmlContent(string html, Guid leagueId, string season)
+    /// <returns>Tuple of (parsed rounds with data, total round headers found on page)</returns>
+    private (List<Round> rounds, int totalRoundHeadersFound) ParseHtmlContent(string html, Guid leagueId, string season)
     {
         var rounds = new List<Round>();
+        var totalRoundHeadersFound = 0;
 
         _logger.LogDebug("HTML downloaded, size: {Size} characters", html.Length);
 
@@ -111,11 +123,12 @@ public class FootballBetExplorerScraper : ILeagueScraper
                 rounds = ParseNewFormat(matchItems, leagueId, season);
                 _logger.LogInformation("Successfully scraped {RoundCount} rounds for season {Season}",
                     rounds.Count, season);
-                return rounds;
+                // New format doesn't have explicit round headers, so totalRoundHeadersFound = rounds.Count
+                return (rounds, rounds.Count);
             }
 
             _logger.LogWarning("No match tables or list items found for season {Season}", season);
-            return rounds;
+            return (rounds, 0);
         }
 
         _logger.LogInformation("Found {TableCount} tables to process (old format)", tables.Count);
@@ -134,6 +147,19 @@ public class FootballBetExplorerScraper : ILeagueScraper
             }
 
             _logger.LogDebug("Table {TableIndex} has {RowCount} rows", tableIndex, rows.Count);
+
+            // Debug: Log all th elements to see what headers exist
+            var allThElements = table.SelectNodes(".//th");
+            if (allThElements != null && allThElements.Any())
+            {
+                var thTexts = allThElements.Take(20).Select(th => th.InnerText.Trim()).Where(t => !string.IsNullOrWhiteSpace(t)).ToList();
+                _logger.LogInformation("DEBUG: Found {Count} th elements, samples: {Samples}",
+                    allThElements.Count, string.Join(", ", thTexts.Take(10)));
+            }
+            else
+            {
+                _logger.LogWarning("DEBUG: No th elements found in table!");
+            }
 
             // Use dictionary to accumulate matches per (group, round) - handles leagues with groups like East/West
             var roundMatches = new Dictionary<(string? GroupName, int RoundNumber), List<MatchResult>>();
@@ -160,6 +186,7 @@ public class FootballBetExplorerScraper : ILeagueScraper
                     if (!roundMatches.ContainsKey(key))
                     {
                         roundMatches[key] = new List<MatchResult>();
+                        totalRoundHeadersFound++; // Count unique round headers
                     }
                     continue;
                 }
@@ -190,10 +217,10 @@ public class FootballBetExplorerScraper : ILeagueScraper
             }
         }
 
-        _logger.LogDebug("Successfully parsed {RoundCount} rounds for season {Season}",
-            rounds.Count, season);
+        _logger.LogDebug("Successfully parsed {RoundCount} rounds (of {TotalHeaders} found) for season {Season}",
+            rounds.Count, totalRoundHeadersFound, season);
 
-        return rounds;
+        return (rounds, totalRoundHeadersFound);
     }
 
     /// <summary>

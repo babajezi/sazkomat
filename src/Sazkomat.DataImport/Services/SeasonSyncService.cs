@@ -2,7 +2,9 @@ using Microsoft.Extensions.Logging;
 using Sazkomat.Configuration.Entities;
 using Sazkomat.Configuration.Repositories;
 using Sazkomat.Core.Common;
+using Sazkomat.DataImport.Debug;
 using Sazkomat.DataImport.DTOs;
+using Sazkomat.DataImport.Entities;
 using Sazkomat.DataImport.Repositories;
 using Sazkomat.DataImport.Scrapers;
 using System.Text.Json;
@@ -17,6 +19,8 @@ public class SeasonSyncService : ISeasonSyncService
     private readonly ISeasonRepository _seasonRepository;
     private readonly IRoundRepository _roundRepository;
     private readonly IMatchRepository _matchRepository;
+    private readonly IScraperRecipeRepository _recipeRepository;
+    private readonly RecipeExecutorService _recipeExecutor;
     private readonly ScraperFactory _scraperFactory;
     private readonly ILogger<SeasonSyncService> _logger;
 
@@ -27,6 +31,8 @@ public class SeasonSyncService : ISeasonSyncService
         ISeasonRepository seasonRepository,
         IRoundRepository roundRepository,
         IMatchRepository matchRepository,
+        IScraperRecipeRepository recipeRepository,
+        RecipeExecutorService recipeExecutor,
         ScraperFactory scraperFactory,
         ILogger<SeasonSyncService> logger)
     {
@@ -36,6 +42,8 @@ public class SeasonSyncService : ISeasonSyncService
         _seasonRepository = seasonRepository;
         _roundRepository = roundRepository;
         _matchRepository = matchRepository;
+        _recipeRepository = recipeRepository;
+        _recipeExecutor = recipeExecutor;
         _scraperFactory = scraperFactory;
         _logger = logger;
     }
@@ -174,19 +182,38 @@ public class SeasonSyncService : ISeasonSyncService
                 return Result<SyncResponse>.Failure("Season not found");
             }
 
-            // Get scraper
-            var scraper = _scraperFactory.GetScraper(league.Sport);
-
             _logger.LogInformation(
                 "Scraping {LeagueName} season {SeasonName}...",
                 league.DisplayName, season.Name);
 
-            // Scrape the season
-            var rounds = await scraper.ScrapeSeasonAsync(league, season.Name);
+            // Try recipe-based scraping first
+            var recipeResult = await TryScrapeWithRecipesAsync(
+                provider, league, season, leagueSeason);
+
+            ScrapeResult scrapeResult;
+            if (recipeResult.Success && recipeResult.ScrapeResult != null)
+            {
+                scrapeResult = recipeResult.ScrapeResult;
+                _logger.LogInformation(
+                    "Recipe '{RecipeName}' succeeded for {LeagueName} {SeasonName}",
+                    recipeResult.SuccessfulRecipeName, league.DisplayName, season.Name);
+            }
+            else
+            {
+                // Fallback to traditional scraper
+                _logger.LogInformation(
+                    "No recipe worked, falling back to traditional scraper for {LeagueName} {SeasonName}",
+                    league.DisplayName, season.Name);
+
+                var scraper = _scraperFactory.GetScraper(league.Sport);
+                scrapeResult = await scraper.ScrapeSeasonAsync(league, season.Name);
+            }
+
+            var rounds = scrapeResult.Rounds;
 
             _logger.LogInformation(
-                "Scraped {RoundCount} rounds for {LeagueName} {SeasonName}",
-                rounds.Count, league.DisplayName, season.Name);
+                "Scraped {RoundCount} rounds for {LeagueName} {SeasonName} (Success: {IsSuccess}, Reason: {Reason})",
+                rounds.Count, league.DisplayName, season.Name, scrapeResult.IsSuccess, scrapeResult.FailureReason);
 
             // Save rounds to database
             var savedCount = 0;
@@ -200,9 +227,9 @@ public class SeasonSyncService : ISeasonSyncService
                 round.SeasonId = seasonId;
                 round.ProviderId = providerId;
 
-                // Check if round exists
+                // Check if round exists (including group name for leagues with groups)
                 var existingRound = await _roundRepository.GetByLeagueSeasonRoundAsync(
-                    leagueId, seasonId, round.RoundNumber);
+                    leagueId, seasonId, round.RoundNumber, round.GroupName);
 
                 if (existingRound == null)
                 {
@@ -237,13 +264,33 @@ public class SeasonSyncService : ISeasonSyncService
             }
 
             // Update league season metadata
-            // Only set HasData = true if we actually scraped some rounds
-            leagueSeason.HasData = rounds.Count > 0;
+            leagueSeason.HasData = scrapeResult.IsSuccess && rounds.Count > 0;
             leagueSeason.RoundsCount = rounds.Count;
             leagueSeason.MatchesCount = totalMatches;
             leagueSeason.HasOdds = hasOdds;
             leagueSeason.LastDataSyncAt = DateTime.UtcNow;
             leagueSeason.LastScrapedAt = DateTime.UtcNow;
+
+            // Determine NoDataReason and Note
+            if (!scrapeResult.IsSuccess)
+            {
+                leagueSeason.NoDataReason = scrapeResult.FailureReason;
+                leagueSeason.NoDataNote = scrapeResult.ErrorMessage;
+            }
+            else if (scrapeResult.IsPartialData)
+            {
+                leagueSeason.NoDataReason = NoDataReason.PartialData;
+                var missingRounds = scrapeResult.TotalRoundHeadersFound - rounds.Count;
+                leagueSeason.NoDataNote = $"Načteno {rounds.Count} z {scrapeResult.TotalRoundHeadersFound} kol ({missingRounds} kol bez výsledků - pravděpodobně zrušeno)";
+                _logger.LogWarning(
+                    "Partial data for {League} season: {LoadedRounds} of {TotalRounds} rounds have data",
+                    leagueId, rounds.Count, scrapeResult.TotalRoundHeadersFound);
+            }
+            else
+            {
+                leagueSeason.NoDataReason = null;
+                leagueSeason.NoDataNote = null;
+            }
 
             await _leagueSeasonRepository.UpdateAsync(leagueSeason);
 
@@ -268,6 +315,116 @@ public class SeasonSyncService : ISeasonSyncService
             _logger.LogError(ex, "Error syncing season data");
             return Result<SyncResponse>.Failure($"Error syncing season data: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// Attempts to scrape using recipes with adaptive fallback.
+    /// Returns success if any recipe works, otherwise returns failure with tried recipes info.
+    /// </summary>
+    private async Task<RecipeScrapeAttempt> TryScrapeWithRecipesAsync(
+        DataProvider provider,
+        League league,
+        Season season,
+        LeagueSeason leagueSeason)
+    {
+        // Get all active recipes for BetExplorer results pages
+        var recipes = await _recipeRepository.GetOrderedByPriorityAsync("betexplorer", "results");
+
+        if (!recipes.Any())
+        {
+            _logger.LogWarning("No active recipes found for betexplorer/results");
+            return RecipeScrapeAttempt.NoRecipes();
+        }
+
+        // If we have a last successful recipe, try it first
+        if (leagueSeason.LastSuccessfulRecipeId.HasValue)
+        {
+            var lastSuccessful = recipes.FirstOrDefault(r => r.Id == leagueSeason.LastSuccessfulRecipeId);
+            if (lastSuccessful != null)
+            {
+                recipes.Remove(lastSuccessful);
+                recipes.Insert(0, lastSuccessful);
+                _logger.LogInformation(
+                    "Prioritizing last successful recipe '{RecipeName}' for {League} {Season}",
+                    lastSuccessful.Name, league.DisplayName, season.Name);
+            }
+        }
+
+        var triedRecipes = new List<TriedRecipeInfo>();
+        var countrySlug = league.Country?.Code?.ToLowerInvariant() ?? "unknown";
+        var baseUrl = $"https://www.betexplorer.com/football/{countrySlug}/{league.BetExplorerSlug}/";
+
+        var variables = new Dictionary<string, string>
+        {
+            ["baseUrl"] = baseUrl,
+            ["season"] = season.Name
+        };
+
+        // Create a single ScraperDebugService instance for all recipe attempts
+        await using var debugService = new ScraperDebugService(
+            _logger as ILogger<ScraperDebugService> ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<ScraperDebugService>.Instance);
+
+        foreach (var recipe in recipes)
+        {
+            _logger.LogInformation("Trying recipe '{RecipeName}' for {League} {Season}",
+                recipe.Name, league.DisplayName, season.Name);
+
+            var execResult = await _recipeExecutor.ExecuteRecipeAsync(debugService, recipe, variables);
+
+            if (!execResult.Success)
+            {
+                triedRecipes.Add(new TriedRecipeInfo
+                {
+                    RecipeId = recipe.Id,
+                    RecipeName = recipe.Name,
+                    Error = execResult.ErrorReason,
+                    DurationMs = execResult.DurationMs
+                });
+                await _recipeRepository.IncrementStatsAsync(recipe.Id, success: false);
+                continue;
+            }
+
+            // Parse the HTML using recipe rules
+            var scrapeResult = _recipeExecutor.ParseHtmlWithRules(
+                execResult.Html!, recipe, league.Id, season.Name);
+
+            if (scrapeResult.IsSuccess && scrapeResult.Rounds.Count > 0)
+            {
+                // Success! Update statistics and league season
+                await _recipeRepository.IncrementStatsAsync(recipe.Id, success: true);
+
+                leagueSeason.LastSuccessfulRecipeId = recipe.Id;
+                leagueSeason.LastRecipeTestedAt = DateTime.UtcNow;
+                await _leagueSeasonRepository.UpdateAsync(leagueSeason);
+
+                return RecipeScrapeAttempt.Succeeded(recipe.Name, scrapeResult, triedRecipes);
+            }
+
+            // Parsing failed or no rounds found
+            var parseError = scrapeResult.IsSuccess
+                ? "Parsing succeeded but no rounds found"
+                : $"Parsing failed: {scrapeResult.ErrorMessage}";
+
+            triedRecipes.Add(new TriedRecipeInfo
+            {
+                RecipeId = recipe.Id,
+                RecipeName = recipe.Name,
+                Error = parseError,
+                DurationMs = execResult.DurationMs
+            });
+            await _recipeRepository.IncrementStatsAsync(recipe.Id, success: false);
+        }
+
+        // No recipe worked
+        leagueSeason.LastRecipeTestedAt = DateTime.UtcNow;
+        leagueSeason.LastSuccessfulRecipeId = null;
+        await _leagueSeasonRepository.UpdateAsync(leagueSeason);
+
+        _logger.LogWarning(
+            "No suitable recipe found for {League} {Season}. Tried {Count} recipes.",
+            league.DisplayName, season.Name, recipes.Count);
+
+        return RecipeScrapeAttempt.Failed(triedRecipes);
     }
 
     public async Task<Result<SyncResponse>> SyncAllMarkedSeasonsDataAsync(Guid providerId)
@@ -355,6 +512,43 @@ public class SeasonSyncService : ISeasonSyncService
         {
             _logger.LogError(ex, "Error syncing all marked seasons");
             return Result<SyncResponse>.Failure($"Error syncing all marked seasons: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Internal result type for recipe scraping attempts
+    /// </summary>
+    private class RecipeScrapeAttempt
+    {
+        public bool Success { get; set; }
+        public string? SuccessfulRecipeName { get; set; }
+        public ScrapeResult? ScrapeResult { get; set; }
+        public List<TriedRecipeInfo> TriedRecipes { get; set; } = new();
+        public bool NoRecipesAvailable { get; set; }
+
+        public static RecipeScrapeAttempt NoRecipes()
+        {
+            return new RecipeScrapeAttempt { NoRecipesAvailable = true };
+        }
+
+        public static RecipeScrapeAttempt Succeeded(string recipeName, ScrapeResult result, List<TriedRecipeInfo> tried)
+        {
+            return new RecipeScrapeAttempt
+            {
+                Success = true,
+                SuccessfulRecipeName = recipeName,
+                ScrapeResult = result,
+                TriedRecipes = tried
+            };
+        }
+
+        public static RecipeScrapeAttempt Failed(List<TriedRecipeInfo> tried)
+        {
+            return new RecipeScrapeAttempt
+            {
+                Success = false,
+                TriedRecipes = tried
+            };
         }
     }
 }

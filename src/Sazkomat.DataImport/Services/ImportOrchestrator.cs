@@ -321,7 +321,8 @@ public class ImportOrchestrator : IImportOrchestrator
 
                     // Scrape the season
                     logger.LogInformation("Calling scraper for {LeagueName} {SeasonName}...", league.Name, seasonName);
-                    var rounds = await scraper.ScrapeSeasonAsync(league, seasonName);
+                    var scrapeResult = await scraper.ScrapeSeasonAsync(league, seasonName);
+                    var rounds = scrapeResult.Rounds;
                     logger.LogInformation("Scraper returned {RoundCount} rounds for {LeagueName} {SeasonName}",
                         rounds.Count, league.Name, seasonName);
 

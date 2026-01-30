@@ -14,7 +14,17 @@ import {
 } from "@/components/ui/dialog";
 import { ChevronDown, ChevronUp, RefreshCw, Download, Loader2, CheckCircle, XCircle } from "lucide-react";
 import type { LeagueSeason, LeagueProvider } from "@/lib/api/types";
-import { SyncMode, ProviderType } from "@/lib/api/types";
+import { SyncMode, ProviderType, NoDataReason } from "@/lib/api/types";
+
+// Czech translations for NoDataReason
+const noDataReasonLabels: Record<NoDataReason, string> = {
+  [NoDataReason.None]: "",
+  [NoDataReason.PageNotFound]: "Stránka neexistuje",
+  [NoDataReason.NoRoundsFound]: "Žádná kola",
+  [NoDataReason.ParsingError]: "Chyba parsování",
+  [NoDataReason.NetworkError]: "Síťová chyba",
+  [NoDataReason.PartialData]: "Částečná data",
+};
 
 interface LeagueSeasonsDisplayProps {
   leagueId: string;
@@ -307,6 +317,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 function SeasonRow({ season, leagueId, onToggleSync, isToggling }: SeasonRowProps) {
   const [showWarning, setShowWarning] = useState(false);
   const [showRounds, setShowRounds] = useState(false);
+  const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
 
   // Fetch rounds automatically for seasons with data - needed for perfect rounds stats
   const { data: roundsData, isLoading: roundsLoading } = useQuery({
@@ -339,8 +350,17 @@ function SeasonRow({ season, leagueId, onToggleSync, isToggling }: SeasonRowProp
 
   const rounds: Round[] = roundsData?.rounds || [];
 
-  // Calculate "perfect" rounds stats (all same result)
-  const perfectRounds = rounds.reduce(
+  // Extract unique groups from rounds
+  const groups = [...new Set(rounds.map(r => r.groupName).filter(Boolean))] as string[];
+  const hasGroups = groups.length > 1;
+
+  // Filter rounds by selected group (if groups exist)
+  const filteredRounds = hasGroups && selectedGroup
+    ? rounds.filter(r => r.groupName === selectedGroup)
+    : rounds;
+
+  // Calculate "perfect" rounds stats (all same result) - use filtered rounds
+  const perfectRounds = filteredRounds.reduce(
     (acc, round) => {
       const isAllHome = round.homeWins > 0 && round.draws === 0 && round.awayWins === 0;
       const isAllDraw = round.draws > 0 && round.homeWins === 0 && round.awayWins === 0;
@@ -369,12 +389,28 @@ function SeasonRow({ season, leagueId, onToggleSync, isToggling }: SeasonRowProp
             <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
               {season.syncMode}
             </span>
-            {season.hasData && (
+            {season.hasData && season.noDataReason !== NoDataReason.PartialData && (
               <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">
                 ✓ Data
               </span>
             )}
+            {season.hasData && season.noDataReason === NoDataReason.PartialData && (
+              <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded">
+                ⚠ {noDataReasonLabels[NoDataReason.PartialData]}
+              </span>
+            )}
+            {!season.hasData && season.noDataReason && season.noDataReason !== NoDataReason.None && (
+              <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded">
+                ✗ {noDataReasonLabels[season.noDataReason]}
+              </span>
+            )}
           </div>
+          {/* Note for partial data or error */}
+          {season.noDataNote && (
+            <div className="text-xs text-gray-500 italic mt-1">
+              {season.noDataNote}
+            </div>
+          )}
           <div className="flex flex-col gap-1 items-end">
             <Button
               variant={season.syncEnabled ? "default" : "outline"}
@@ -444,9 +480,28 @@ function SeasonRow({ season, leagueId, onToggleSync, isToggling }: SeasonRowProp
             </div>
           ) : rounds.length > 0 ? (
             <div className="space-y-1">
+              {hasGroups && (
+                <div className="flex flex-wrap gap-1 mb-3">
+                  <button
+                    onClick={() => setSelectedGroup(null)}
+                    className={`px-2 py-1 text-xs rounded ${!selectedGroup ? 'bg-blue-500 text-white' : 'bg-gray-100 hover:bg-gray-200'}`}
+                  >
+                    Všechny ({rounds.length})
+                  </button>
+                  {groups.map(group => (
+                    <button
+                      key={group}
+                      onClick={() => setSelectedGroup(group)}
+                      className={`px-2 py-1 text-xs rounded ${selectedGroup === group ? 'bg-blue-500 text-white' : 'bg-gray-100 hover:bg-gray-200'}`}
+                    >
+                      {group} ({rounds.filter(r => r.groupName === group).length})
+                    </button>
+                  ))}
+                </div>
+              )}
               <div className="text-xs font-medium text-gray-500 mb-2">Kola:</div>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-                {rounds.map((round) => {
+                {filteredRounds.map((round) => {
                   // Only highlight if ALL results are of one type (others are 0)
                   const isAllHome = round.homeWins > 0 && round.draws === 0 && round.awayWins === 0;
                   const isAllDraw = round.draws > 0 && round.homeWins === 0 && round.awayWins === 0;

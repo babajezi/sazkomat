@@ -648,6 +648,11 @@ namespace Sazkomat.Configuration.Migrations
                         .HasDefaultValue(false)
                         .HasColumnName("has_odds");
 
+                    b.Property<string>("NoDataReason")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("no_data_reason");
+
                     b.Property<bool>("IsAvailableOnBetExplorer")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")

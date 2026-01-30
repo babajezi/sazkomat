@@ -33,6 +33,15 @@ public class LeagueSeasonConfiguration : IEntityTypeConfiguration<LeagueSeason>
             .IsRequired()
             .HasDefaultValue(false);
 
+        builder.Property(ls => ls.NoDataReason)
+            .HasColumnName("no_data_reason")
+            .HasConversion<string>()
+            .HasMaxLength(30);
+
+        builder.Property(ls => ls.NoDataNote)
+            .HasColumnName("no_data_note")
+            .HasMaxLength(500);
+
         builder.Property(ls => ls.HasOdds)
             .HasColumnName("has_odds")
             .IsRequired()
@@ -70,6 +79,12 @@ public class LeagueSeasonConfiguration : IEntityTypeConfiguration<LeagueSeason>
 
         builder.Property(ls => ls.LastDataSyncAt)
             .HasColumnName("last_data_sync_at");
+
+        builder.Property(ls => ls.LastSuccessfulRecipeId)
+            .HasColumnName("last_successful_recipe_id");
+
+        builder.Property(ls => ls.LastRecipeTestedAt)
+            .HasColumnName("last_recipe_tested_at");
 
         builder.Property(ls => ls.CreatedAt)
             .HasColumnName("created_at")

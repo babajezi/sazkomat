@@ -18,6 +18,7 @@ public class RoundConfiguration : IEntityTypeConfiguration<Round>
         builder.Property(r => r.SeasonId).HasColumnName("season_id").IsRequired();
         builder.Property(r => r.ProviderId).HasColumnName("provider_id").IsRequired();
         builder.Property(r => r.RoundNumber).HasColumnName("round_number").IsRequired();
+        builder.Property(r => r.GroupName).HasColumnName("group_name").HasMaxLength(50);
         builder.Property(r => r.StartDate).HasColumnName("start_date");
         builder.Property(r => r.EndDate).HasColumnName("end_date");
         builder.Property(r => r.MatchesCount).HasColumnName("matches_count").IsRequired();
@@ -38,12 +39,12 @@ public class RoundConfiguration : IEntityTypeConfiguration<Round>
         builder.Ignore(r => r.League);
         builder.Ignore(r => r.Season);
 
-        // Unique constraint
-        builder.HasIndex(r => new { r.LeagueId, r.SeasonId, r.RoundNumber })
+        // Unique constraint (includes GroupName for leagues with groups)
+        builder.HasIndex(r => new { r.LeagueId, r.SeasonId, r.GroupName, r.RoundNumber })
             .IsUnique();
 
         // Indexes
-        builder.HasIndex(r => new { r.LeagueId, r.SeasonId });
+        builder.HasIndex(r => new { r.LeagueId, r.SeasonId, r.GroupName });
         builder.HasIndex(r => r.ScrapedAt);
         builder.HasIndex(r => r.SeasonId);
         builder.HasIndex(r => r.ProviderId);
