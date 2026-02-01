@@ -507,5 +507,118 @@ This enables:
 
 ---
 
+## Frontend - Recipe Management UI
+
+### Overview
+Added a complete Recipe Management interface at `/recipes` for viewing, creating, editing, testing, and deleting scraper recipes.
+
+**Implementation Date:** 2026-01-31
+
+### Features
+
+#### Recipe List Page (`/recipes`)
+- **Statistics Cards** - Total recipes, active count, total attempts, average success rate
+- **Filtering** - Search by name/description, filter by provider, filter by active status
+- **Sorting** - Sort by priority, name, or success rate (ascending/descending)
+- **Visual Success Rate** - Progress bar with color coding (green ≥80%, yellow ≥50%, red <50%)
+- **Quick Actions** - Test, Edit, Delete buttons per recipe
+
+#### Create/Edit Dialog (`RecipeFormDialog`)
+- Name, description, provider, page type, priority, active toggle
+- JSON editor for actions with syntax validation
+- XPath selectors: round header, match row, group pattern regex, odds cell
+- Form validation with error messages
+
+#### Test Dialog (`TestRecipeDialog`)
+- League selection dropdown
+- Season selection (filtered by selected league)
+- Generated test URL preview
+- Test execution with loading state
+- Results display:
+  - Success/failure status
+  - Rounds found, matches found, duration, HTML size
+  - Sample rounds (first 5) with group names and match counts
+  - Execution logs
+
+### Files Created
+
+| File | Description |
+|------|-------------|
+| `frontend/app/recipes/page.tsx` | Main recipe management page (370 lines) |
+| `frontend/components/RecipeFormDialog.tsx` | Create/Edit recipe dialog (280 lines) |
+| `frontend/components/TestRecipeDialog.tsx` | Test recipe dialog (220 lines) |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `frontend/lib/api/types.ts` | +80 lines: Recipe types (ScraperRecipe, RecipeListItem, CreateRecipeRequest, etc.) |
+| `frontend/lib/api/client.ts` | +50 lines: recipeApi module (getAll, getById, create, update, delete, test, getStats) |
+| `frontend/components/Header.tsx` | +5 lines: Added "Recepty" link in navigation |
+
+### TypeScript Types Added
+
+```typescript
+interface ScraperRecipe {
+  id: string;
+  name: string;
+  description: string | null;
+  provider: string;
+  pageType: string;
+  priority: number;
+  isActive: boolean;
+  actionsJson: string;
+  roundHeaderSelector: string;
+  groupPatternRegex: string | null;
+  matchRowSelector: string;
+  oddsCellSelector: string | null;
+  totalAttempts: number;
+  successfulAttempts: number;
+  successRate: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface TestRecipeResponse {
+  success: boolean;
+  roundsFound: number;
+  totalMatches: number;
+  roundsSample: RoundSample[];
+  htmlLength: number;
+  logs: string[];
+  durationMs: number;
+  error: string | null;
+}
+```
+
+### API Client Methods
+
+```typescript
+const recipeApi = {
+  getAll: () => Promise<RecipeListItem[]>,
+  getById: (id) => Promise<ScraperRecipe>,
+  getByProvider: (provider, pageType) => Promise<RecipeListItem[]>,
+  create: (request) => Promise<{ id: string }>,
+  update: (id, request) => Promise<{ message: string }>,
+  delete: (id) => Promise<{ message: string }>,
+  test: (id, request) => Promise<TestRecipeResponse>,
+  getStats: () => Promise<RecipeStats[]>,
+};
+```
+
+### UI Components Used
+- Card, Table, Button, Input, Label, Textarea, Badge
+- Select (dropdown for filters)
+- Dialog (create/edit/test modals)
+- AlertDialog (delete confirmation)
+- Alert (success/error messages)
+- Icons: Plus, Pencil, Trash2, PlayCircle, Search, CheckCircle2, XCircle, etc.
+
+### Navigation
+- Added "Recepty" link in Header navigation (between "Nespárované Země" and "Admin")
+- Accessible at: `http://localhost:3000/recipes`
+
+---
+
 **Status:** ✅ Implementation Complete
 **Last Updated:** 2026-01-31
