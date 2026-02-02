@@ -39,6 +39,8 @@ public class RecipeExecutorService
                 recipe.Name, string.Join(", ", variables.Select(kv => $"{kv.Key}={kv.Value}")));
 
             // Deserialize actions from JSON
+            // DebugAction uses [JsonConverter(typeof(DebugActionConverter))] attribute
+            // which handles polymorphic deserialization regardless of "type" property position
             var actions = JsonSerializer.Deserialize<List<DebugAction>>(recipe.ActionsJson);
             if (actions == null || actions.Count == 0)
             {
@@ -52,6 +54,12 @@ public class RecipeExecutorService
             foreach (var action in actions.OfType<NavigateAction>())
             {
                 action.Url = ReplaceVariables(action.Url, variables);
+            }
+
+            // Replace variables in EvaluateAction scripts
+            foreach (var action in actions.OfType<EvaluateAction>())
+            {
+                action.Script = ReplaceVariables(action.Script, variables);
             }
 
             // Execute via ScraperDebugService
@@ -123,13 +131,16 @@ public class RecipeExecutorService
 
             var rounds = new List<Round>();
             var totalRoundHeadersFound = 0;
+            var totalMatchRowsFound = 0;
 
             // Find tables containing match data
             var tables = doc.DocumentNode.SelectNodes("//table[contains(@class, 'table-main')]");
             if (tables == null || !tables.Any())
             {
-                _logger.LogWarning("No tables found with class 'table-main' using recipe {RecipeName}", recipe.Name);
-                return ScrapeResult.Success(new List<Round>(), 0);
+                _logger.LogWarning("No tables found with class 'table-main' using recipe {RecipeName}. Returning NoResults.", recipe.Name);
+                var emptyResult = ScrapeResult.Success(new List<Round>(), 0, 0);
+                _logger.LogInformation("Empty result FailureReason: {Reason}", emptyResult.FailureReason);
+                return emptyResult;
             }
 
             _logger.LogInformation("Found {TableCount} tables to process", tables.Count);
@@ -185,12 +196,17 @@ public class RecipeExecutorService
 
                     // Parse match row
                     var matchData = ParseMatchRow(row, season);
-                    if (matchData != null && currentRoundNumber.HasValue && currentRoundNumber.Value > 0)
+                    if (matchData != null)
                     {
-                        var key = (currentGroupName, currentRoundNumber.Value);
-                        if (roundMatches.ContainsKey(key))
+                        totalMatchRowsFound++;
+
+                        if (currentRoundNumber.HasValue && currentRoundNumber.Value > 0)
                         {
-                            roundMatches[key].Add(matchData);
+                            var key = (currentGroupName, currentRoundNumber.Value);
+                            if (roundMatches.ContainsKey(key))
+                            {
+                                roundMatches[key].Add(matchData);
+                            }
                         }
                     }
                 }
@@ -209,10 +225,13 @@ public class RecipeExecutorService
                 }
             }
 
-            _logger.LogInformation("Recipe parsing completed: {RoundCount} rounds (of {TotalHeaders} found)",
-                rounds.Count, totalRoundHeadersFound);
+            _logger.LogInformation("Recipe parsing completed: {RoundCount} rounds, {TotalHeaders} headers, {TotalMatches} match rows found",
+                rounds.Count, totalRoundHeadersFound, totalMatchRowsFound);
 
-            return ScrapeResult.Success(rounds, totalRoundHeadersFound);
+            var result = ScrapeResult.Success(rounds, totalRoundHeadersFound, totalMatchRowsFound);
+            _logger.LogInformation("ScrapeResult created: IsSuccess={IsSuccess}, FailureReason={Reason}",
+                result.IsSuccess, result.FailureReason);
+            return result;
         }
         catch (Exception ex)
         {
@@ -266,12 +285,25 @@ public class RecipeExecutorService
 
     private int ExtractRoundNumber(string headerText)
     {
-        var match = Regex.Match(headerText, @"\d+");
-        if (match.Success && int.TryParse(match.Value, out var roundNumber))
+        // Must match pattern "number. Round" or "number.Round" or "Round number"
+        // Examples: "38. Round", "1.Round", "Round 15", "GROUP 1 - 22.ROUND"
+        // This prevents false positives from dates like "22.10.1994"
+        var patterns = new[]
         {
-            return roundNumber;
+            @"(\d+)\.\s*Round",      // "38. Round", "1.Round"
+            @"Round\s*(\d+)",        // "Round 15"
+            @"(\d+)\s*Round",        // "22ROUND"
+        };
+
+        foreach (var pattern in patterns)
+        {
+            var match = Regex.Match(headerText, pattern, RegexOptions.IgnoreCase);
+            if (match.Success && int.TryParse(match.Groups[1].Value, out var roundNumber))
+            {
+                return roundNumber;
+            }
         }
-        return 0;
+        return 0; // No valid round number found
     }
 
     private MatchResult? ParseMatchRow(HtmlNode row, string season)

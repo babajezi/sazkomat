@@ -3,21 +3,10 @@ using System.Text.Json.Serialization;
 namespace Sazkomat.DataImport.Debug;
 
 /// <summary>
-/// Base class for debug actions with JSON polymorphism
+/// Base class for debug actions with JSON polymorphism.
+/// Uses custom DebugActionConverter to handle "type" discriminator at any position in JSON.
 /// </summary>
-[JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]
-[JsonDerivedType(typeof(NavigateAction), "navigate")]
-[JsonDerivedType(typeof(WaitAction), "wait")]
-[JsonDerivedType(typeof(WaitForSelectorAction), "waitForSelector")]
-[JsonDerivedType(typeof(WaitForLoadStateAction), "waitForLoadState")]
-[JsonDerivedType(typeof(ClickAction), "click")]
-[JsonDerivedType(typeof(TypeTextAction), "typeText")]
-[JsonDerivedType(typeof(SelectAction), "select")]
-[JsonDerivedType(typeof(ScreenshotAction), "screenshot")]
-[JsonDerivedType(typeof(LogElementsAction), "logElements")]
-[JsonDerivedType(typeof(ExtractHtmlAction), "extractHtml")]
-[JsonDerivedType(typeof(EvaluateAction), "evaluate")]
-[JsonDerivedType(typeof(ScrollAction), "scroll")]
+[JsonConverter(typeof(DebugActionConverter))]
 public abstract class DebugAction
 {
     // Type is determined by JSON discriminator, no property needed
@@ -161,6 +150,24 @@ public class EvaluateAction : DebugAction
 
     [JsonPropertyName("script")]
     public string Script { get; set; } = "";
+
+    /// <summary>
+    /// Optional variable name to store the result for later use
+    /// </summary>
+    [JsonPropertyName("storeAs")]
+    public string? StoreAs { get; set; }
+}
+
+public class NavigateToVariableAction : DebugAction
+{
+    [JsonIgnore]
+    public override string ActionType => "navigateToVariable";
+
+    /// <summary>
+    /// Name of the stored variable containing the URL
+    /// </summary>
+    [JsonPropertyName("variable")]
+    public string Variable { get; set; } = "";
 }
 
 public class ScrollAction : DebugAction

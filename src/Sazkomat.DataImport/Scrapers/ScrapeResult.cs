@@ -17,6 +17,11 @@ public class ScrapeResult
     /// </summary>
     public int TotalRoundHeadersFound { get; }
 
+    /// <summary>
+    /// Number of match rows found on the page (even if not assigned to rounds)
+    /// </summary>
+    public int TotalMatchRowsFound { get; }
+
     public bool IsSuccess => FailureReason == null || FailureReason == NoDataReason.None;
 
     /// <summary>
@@ -24,19 +29,34 @@ public class ScrapeResult
     /// </summary>
     public bool IsPartialData => TotalRoundHeadersFound > 0 && Rounds.Count < TotalRoundHeadersFound;
 
-    private ScrapeResult(List<Round> rounds, NoDataReason? failureReason, string? errorMessage, int totalRoundHeadersFound = 0)
+    /// <summary>
+    /// True if page has match results but no round structure
+    /// </summary>
+    public bool HasResultsWithoutRounds => TotalMatchRowsFound > 0 && Rounds.Count == 0;
+
+    private ScrapeResult(List<Round> rounds, NoDataReason? failureReason, string? errorMessage, int totalRoundHeadersFound = 0, int totalMatchRowsFound = 0)
     {
         Rounds = rounds;
         FailureReason = failureReason;
         ErrorMessage = errorMessage;
         TotalRoundHeadersFound = totalRoundHeadersFound > 0 ? totalRoundHeadersFound : rounds.Count;
+        TotalMatchRowsFound = totalMatchRowsFound > 0 ? totalMatchRowsFound : rounds.Sum(r => r.MatchesCount);
     }
 
     /// <summary>
-    /// Create success result. If rounds is empty, sets NoRoundsFound reason.
+    /// Create success result. If rounds is empty, sets NoRoundsFound or NoResults reason.
     /// </summary>
-    public static ScrapeResult Success(List<Round> rounds, int totalRoundHeadersFound = 0)
-        => new(rounds, rounds.Count > 0 ? null : NoDataReason.NoRoundsFound, null, totalRoundHeadersFound);
+    public static ScrapeResult Success(List<Round> rounds, int totalRoundHeadersFound = 0, int totalMatchRowsFound = 0)
+    {
+        if (rounds.Count > 0)
+        {
+            return new(rounds, null, null, totalRoundHeadersFound, totalMatchRowsFound);
+        }
+
+        // No rounds found - distinguish between "has results" and "empty page"
+        var reason = totalMatchRowsFound > 0 ? NoDataReason.NoRoundsFound : NoDataReason.NoResults;
+        return new(rounds, reason, null, totalRoundHeadersFound, totalMatchRowsFound);
+    }
 
     /// <summary>
     /// Create result for page not found (301/404 redirect)

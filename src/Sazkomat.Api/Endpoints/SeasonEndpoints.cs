@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Sazkomat.Configuration.Repositories;
 using Sazkomat.Configuration.Services;
+using Sazkomat.DataImport.Repositories;
 
 namespace Sazkomat.Api.Endpoints;
 
@@ -33,7 +34,8 @@ public static class SeasonEndpoints
         group.MapGet("/available", async (
             [FromQuery] Guid leagueId,
             ILeagueSeasonRepository leagueSeasonRepository,
-            ISeasonRepository seasonRepository) =>
+            ISeasonRepository seasonRepository,
+            IScraperRecipeRepository recipeRepository) =>
         {
             var leagueSeasons = await leagueSeasonRepository.GetByLeagueIdAsync(leagueId);
 
@@ -42,6 +44,22 @@ public static class SeasonEndpoints
                 .Select(ls => ls.SeasonId)
                 .ToList();
 
+            // Pre-load recipe names for all used recipes
+            var recipeIds = leagueSeasons
+                .Where(ls => ls.LastSuccessfulRecipeId.HasValue)
+                .Select(ls => ls.LastSuccessfulRecipeId!.Value)
+                .Distinct()
+                .ToList();
+            var recipeNames = new Dictionary<Guid, string>();
+            foreach (var recipeId in recipeIds)
+            {
+                var recipe = await recipeRepository.GetByIdAsync(recipeId);
+                if (recipe != null)
+                {
+                    recipeNames[recipeId] = recipe.Name;
+                }
+            }
+
             var seasons = new List<object>();
             foreach (var seasonId in seasonIds)
             {
@@ -49,6 +67,10 @@ public static class SeasonEndpoints
                 if (season != null)
                 {
                     var leagueSeason = leagueSeasons.First(ls => ls.SeasonId == seasonId);
+                    var recipeName = leagueSeason.LastSuccessfulRecipeId.HasValue &&
+                                     recipeNames.TryGetValue(leagueSeason.LastSuccessfulRecipeId.Value, out var name)
+                        ? name : null;
+
                     seasons.Add(new
                     {
                         id = season.Id,
@@ -61,7 +83,8 @@ public static class SeasonEndpoints
                         hasOdds = leagueSeason.HasOdds,
                         roundsCount = leagueSeason.RoundsCount,
                         matchesCount = leagueSeason.MatchesCount,
-                        lastScrapedAt = leagueSeason.LastScrapedAt
+                        lastScrapedAt = leagueSeason.LastScrapedAt,
+                        lastSuccessfulRecipeName = recipeName
                     });
                 }
             }
@@ -76,9 +99,25 @@ public static class SeasonEndpoints
             [FromQuery] Guid? leagueId,
             ILeagueSeasonRepository leagueSeasonRepository,
             ISeasonRepository seasonRepository,
-            ILeagueRepository leagueRepository) =>
+            ILeagueRepository leagueRepository,
+            IScraperRecipeRepository recipeRepository) =>
         {
             List<dynamic> leagueSeasons;
+
+            // Helper to get recipe names
+            var recipeNameCache = new Dictionary<Guid, string>();
+            async Task<string?> GetRecipeName(Guid? recipeId)
+            {
+                if (!recipeId.HasValue) return null;
+                if (recipeNameCache.TryGetValue(recipeId.Value, out var cached)) return cached;
+                var recipe = await recipeRepository.GetByIdAsync(recipeId.Value);
+                if (recipe != null)
+                {
+                    recipeNameCache[recipeId.Value] = recipe.Name;
+                    return recipe.Name;
+                }
+                return null;
+            }
 
             if (leagueId.HasValue)
             {
@@ -109,7 +148,8 @@ public static class SeasonEndpoints
                             syncEnabled = ls.SyncEnabled,
                             isCurrent = ls.IsCurrent,
                             syncMode = ls.SyncMode.ToString(),
-                            lastDataSyncAt = ls.LastDataSyncAt
+                            lastDataSyncAt = ls.LastDataSyncAt,
+                            lastSuccessfulRecipeName = await GetRecipeName(ls.LastSuccessfulRecipeId)
                         });
                     }
                 }
@@ -146,7 +186,8 @@ public static class SeasonEndpoints
                             syncEnabled = ls.SyncEnabled,
                             isCurrent = ls.IsCurrent,
                             syncMode = ls.SyncMode.ToString(),
-                            lastDataSyncAt = ls.LastDataSyncAt
+                            lastDataSyncAt = ls.LastDataSyncAt,
+                            lastSuccessfulRecipeName = await GetRecipeName(ls.LastSuccessfulRecipeId)
                         });
                     }
                 }

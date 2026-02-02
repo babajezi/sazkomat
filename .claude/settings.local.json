@@ -154,7 +154,28 @@
       "Bash(/tmp/betano_db_countries.txt)",
       "Bash(docker image ls:*)",
       "WebFetch(domain:raw.githubusercontent.com)",
-      "Bash(docker rmi:*)"
+      "Bash(docker rmi:*)",
+      "Bash(pkill:*)",
+      "Bash(ls:*)",
+      "Bash(dotnet tool update:*)",
+      "Bash(pgrep:*)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(__NEW_LINE_23b6a58fb6d8f62b__ sleep 20)",
+      "Bash(__NEW_LINE_1f896e86a989a954__ sleep 25)",
+      "Bash(# Run sync in background and capture logs curl -s -X POST \"\"http://localhost:3001/api/sync/seasons/data/01cabd9f-190f-427f-963d-4d6daaf93c67/a018e527-9e27-408d-ace8-c09dd275b6ff\"\" \\\\ -H \"\"Content-Type: application/json\"\" \\\\ -d ''{\"\"providerId\"\": \"\"a0000000-0000-0000-0000-000000000001\"\"}'' & # Wait for scraping to complete sleep 45 # Check the debug HTML file that should be saved ls -la /tmp/betexplorer_championship_*.html || echo \"\"No debug files found\"\" # Show last part of API logs docker logs sazkomat-api 2>&1)",
+      "Bash(# Use the already fetched debug HTML from the API container docker exec sazkomat-api cat /tmp/betexplorer_championship_2020.html)",
+      "Bash(# Check if debug file exists in the container docker exec sazkomat-api ls -la /tmp/betexplorer*.html || echo \"\"No debug files\"\" # Check if the file was written docker exec sazkomat-api cat /tmp/betexplorer_championship_2020.html)",
+      "Bash(# Get full HTML from container and search for Round docker exec sazkomat-api cat /tmp/betexplorer_championship_2020.html)",
+      "Bash(grep:*)",
+      "Bash(jq:*)",
+      "Bash(tree:*)",
+      "Bash(lsof:*)",
+      "Bash(xargs kill:*)",
+      "Bash(for i in 1 2 3 4 5 6 7 8)",
+      "Bash(do cat /tmp/claude/-home-hermik-projekty-sazkomat/tasks/bb6326d.output)",
+      "Bash(done)",
+      "Bash(fuser:*)",
+      "Bash(~/.dotnet/tools/dotnet-ef database update:*)"
     ],
     "additionalDirectories": [
       "c:\\projects\\claude-share",
@@ -162,36 +183,6 @@
     ]
   },
   "hooks": {
-    "Notification": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "powershell -File .claude/hooks/notification.ps1"
-          }
-        ]
-      }
-    ],
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "powershell -File .claude/hooks/user-prompt-submit.ps1"
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "powershell -File .claude/hooks/stop.ps1"
-          }
-        ]
-      }
-    ]
   },
   "statusLine": {
     "type": "command",

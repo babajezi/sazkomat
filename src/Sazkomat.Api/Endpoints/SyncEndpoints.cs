@@ -307,16 +307,18 @@ public static class SyncEndpoints
         // Syncs rounds and matches for ALL seasons of a league (fail-fast on error)
         group.MapPost("/league/{leagueId}/season-data", async (
             ISyncService syncService,
-            Guid leagueId) =>
+            Guid leagueId,
+            SyncLeagueSeasonDataRequest? request) =>
         {
-            var result = await syncService.SyncLeagueSeasonDataAsync(leagueId);
+            var forceUpdate = request?.ForceUpdate ?? false;
+            var result = await syncService.SyncLeagueSeasonDataAsync(leagueId, forceUpdate);
 
             return result.IsSuccess
                 ? Results.Ok(new { jobId = result.Value, message = "Season data sync started" })
                 : Results.BadRequest(new { error = result.Error });
         })
         .WithName("SyncLeagueSeasonData")
-        .WithSummary("Sync rounds and matches for all seasons of a league. Historical seasons with HasData=true are skipped. Fail-fast on error.")
+        .WithSummary("Sync rounds and matches for all seasons of a league. Historical seasons with HasData=true are skipped unless forceUpdate is true. Fail-fast on error.")
         .Produces(200)
         .Produces(400);
 
@@ -340,6 +342,8 @@ public static class SyncEndpoints
 }
 
 public record SyncSeasonDataRequest(Guid ProviderId, bool ForceUpdate = false);
+
+public record SyncLeagueSeasonDataRequest(bool ForceUpdate = false);
 
 public record MultiSportSyncRequest(string ProviderCode, List<string>? SportCodes = null);
 

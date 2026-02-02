@@ -17,10 +17,16 @@ public enum NoDataReason
     PageNotFound = 1,
 
     /// <summary>
-    /// Scraper found no rounds on the page
+    /// Scraper found no rounds on the page (but page has match results)
     /// Display: "Žádná kola"
     /// </summary>
     NoRoundsFound = 2,
+
+    /// <summary>
+    /// Page exists but has no match results at all (empty page)
+    /// Display: "Žádné výsledky"
+    /// </summary>
+    NoResults = 7,
 
     /// <summary>
     /// HTML parsing error
@@ -39,5 +45,12 @@ public enum NoDataReason
     /// Display: "Částečná data"
     /// Note field contains explanation (e.g., "Sezóna zrušena po 1. kole")
     /// </summary>
-    PartialData = 5
+    PartialData = 5,
+
+    /// <summary>
+    /// No suitable scraping recipe found for this page
+    /// Display: "Chybí recept"
+    /// Note field contains list of tried recipes
+    /// </summary>
+    NoRecipeFound = 6
 }

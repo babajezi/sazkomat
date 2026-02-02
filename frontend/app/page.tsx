@@ -266,6 +266,20 @@ function Dashboard() {
                   </Link>
                 </CardContent>
               </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>🧪 Scraping Recepty</CardTitle>
+                  <CardDescription>
+                    Konfigurace scrapovacích strategií s adaptivním fallbackem
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Link href="/recipes">
+                    <Button className="w-full" variant="outline">Správa receptů</Button>
+                  </Link>
+                </CardContent>
+              </Card>
             </div>
 
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mt-6">

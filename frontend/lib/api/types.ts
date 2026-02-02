@@ -91,7 +91,9 @@ export enum NoDataReason {
   NoRoundsFound = "NoRoundsFound",
   ParsingError = "ParsingError",
   NetworkError = "NetworkError",
-  PartialData = "PartialData"
+  PartialData = "PartialData",
+  NoRecipeFound = "NoRecipeFound",
+  NoResults = "NoResults"
 }
 
 export enum SyncType {
@@ -254,6 +256,7 @@ export interface LeagueSeason {
   isCurrent: boolean;
   syncMode: SyncMode;
   lastDataSyncAt?: string | null;
+  lastSuccessfulRecipeName?: string | null;
 }
 
 export interface AvailableSeason extends Season {
@@ -264,6 +267,7 @@ export interface AvailableSeason extends Season {
   roundsCount: number;
   matchesCount: number;
   lastScrapedAt?: string | null;
+  lastSuccessfulRecipeName?: string | null;
 }
 
 export interface HistoricalImportRequest {
@@ -939,4 +943,113 @@ export interface UnmatchedCountryStats {
   mapped: number;
   ignored: number;
   unavailable: number;
+}
+
+// ==================== SCRAPER RECIPES ====================
+
+export interface ScraperRecipe {
+  id: string;
+  name: string;
+  description: string | null;
+  provider: string;
+  pageType: string;
+  priority: number;
+  isActive: boolean;
+  actionsJson: string;
+  roundHeaderSelector: string;
+  groupPatternRegex: string | null;
+  matchRowSelector: string;
+  oddsCellSelector: string | null;
+  totalAttempts: number;
+  successfulAttempts: number;
+  successRate: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RecipeListItem {
+  id: string;
+  name: string;
+  description: string | null;
+  provider: string;
+  pageType: string;
+  priority: number;
+  isActive: boolean;
+  totalAttempts: number;
+  successfulAttempts: number;
+  successRate: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateRecipeRequest {
+  name: string;
+  description?: string;
+  provider?: string;
+  pageType?: string;
+  priority?: number;
+  isActive?: boolean;
+  actionsJson: string;
+  roundHeaderSelector: string;
+  groupPatternRegex?: string;
+  matchRowSelector: string;
+  oddsCellSelector?: string;
+}
+
+export interface UpdateRecipeRequest {
+  name?: string;
+  description?: string;
+  provider?: string;
+  pageType?: string;
+  priority?: number;
+  isActive?: boolean;
+  actionsJson?: string;
+  roundHeaderSelector?: string;
+  groupPatternRegex?: string;
+  matchRowSelector?: string;
+  oddsCellSelector?: string;
+}
+
+export interface TestRecipeRequest {
+  leagueId: string;
+  season: string;
+}
+
+export interface RoundSample {
+  roundNumber: number;
+  groupName: string | null;
+  matchesCount: number;
+  summaryResult: string;
+}
+
+export interface TestRecipeResponse {
+  success: boolean;
+  roundsFound: number;
+  totalMatches: number;
+  roundsSample: RoundSample[];
+  htmlLength: number;
+  logs: string[];
+  durationMs: number;
+  error: string | null;
+}
+
+export interface RecipeStats {
+  id: string;
+  name: string;
+  provider: string;
+  pageType: string;
+  totalAttempts: number;
+  successfulAttempts: number;
+  successRate: number;
+}
+
+// Recipe Action types for JSON editor
+export interface RecipeAction {
+  type: 'navigate' | 'click' | 'wait' | 'waitForLoadState' | 'waitForSelector' | 'evaluate' | 'extractHtml';
+  url?: string;
+  selector?: string;
+  milliseconds?: number;
+  state?: string;
+  timeout?: number;
+  script?: string;
 }

@@ -198,15 +198,43 @@ public class SeasonSyncService : ISeasonSyncService
                     "Recipe '{RecipeName}' succeeded for {LeagueName} {SeasonName}",
                     recipeResult.SuccessfulRecipeName, league.DisplayName, season.Name);
             }
+            else if (recipeResult.ScrapeResult != null)
+            {
+                // Recipe extracted HTML but found no rounds/results - use the ScrapeResult with correct FailureReason
+                scrapeResult = recipeResult.ScrapeResult;
+                var reasonText = scrapeResult.FailureReason == NoDataReason.NoRoundsFound
+                    ? "má výsledky ale bez struktury kol"
+                    : "nemá žádné výsledky";
+                _logger.LogInformation(
+                    "Recipe for {LeagueName} {SeasonName}: stránka existuje, {Reason}",
+                    league.DisplayName, season.Name, reasonText);
+            }
             else
             {
-                // Fallback to traditional scraper
-                _logger.LogInformation(
-                    "No recipe worked, falling back to traditional scraper for {LeagueName} {SeasonName}",
+                // No recipe worked - mark as NoRecipeFound and return
+                _logger.LogWarning(
+                    "No suitable recipe found for {LeagueName} {SeasonName}. Marking as NoRecipeFound.",
                     league.DisplayName, season.Name);
 
-                var scraper = _scraperFactory.GetScraper(league.Sport);
-                scrapeResult = await scraper.ScrapeSeasonAsync(league, season.Name);
+                var triedRecipeNames = string.Join(", ", recipeResult.TriedRecipes.Select(r => r.RecipeName));
+
+                leagueSeason.HasData = false;
+                leagueSeason.NoDataReason = NoDataReason.NoRecipeFound;
+                leagueSeason.NoDataNote = recipeResult.NoRecipesAvailable
+                    ? "Žádný aktivní recept pro betexplorer/results"
+                    : $"Vyzkoušeno {recipeResult.TriedRecipes.Count} receptů: {triedRecipeNames}";
+                leagueSeason.LastRecipeTestedAt = DateTime.UtcNow;
+                await _leagueSeasonRepository.UpdateAsync(leagueSeason);
+
+                return Result<SyncResponse>.Success(new SyncResponse
+                {
+                    Success = false,
+                    Message = $"No suitable recipe found for {league.DisplayName} - {season.Name}",
+                    Statistics = new SyncStatistics
+                    {
+                        Skipped = 1
+                    }
+                });
             }
 
             var rounds = scrapeResult.Rounds;
@@ -373,6 +401,9 @@ public class SeasonSyncService : ISeasonSyncService
 
             if (!execResult.Success)
             {
+                _logger.LogWarning("Recipe '{RecipeName}' failed for {League} {Season}: {Error}",
+                    recipe.Name, league.DisplayName, season.Name, execResult.ErrorReason);
+
                 triedRecipes.Add(new TriedRecipeInfo
                 {
                     RecipeId = recipe.Id,
@@ -388,6 +419,11 @@ public class SeasonSyncService : ISeasonSyncService
             var scrapeResult = _recipeExecutor.ParseHtmlWithRules(
                 execResult.Html!, recipe, league.Id, season.Name);
 
+            _logger.LogInformation(
+                "Recipe '{RecipeName}' parsing result: Rounds={Rounds}, TotalHeaders={Headers}, TotalMatchRows={MatchRows}, FailureReason={Reason}, IsSuccess={IsSuccess}",
+                recipe.Name, scrapeResult.Rounds.Count, scrapeResult.TotalRoundHeadersFound,
+                scrapeResult.TotalMatchRowsFound, scrapeResult.FailureReason, scrapeResult.IsSuccess);
+
             if (scrapeResult.IsSuccess && scrapeResult.Rounds.Count > 0)
             {
                 // Success! Update statistics and league season
@@ -400,16 +436,49 @@ public class SeasonSyncService : ISeasonSyncService
                 return RecipeScrapeAttempt.Succeeded(recipe.Name, scrapeResult, triedRecipes);
             }
 
-            // Parsing failed or no rounds found
-            var parseError = scrapeResult.IsSuccess
-                ? "Parsing succeeded but no rounds found"
-                : $"Parsing failed: {scrapeResult.ErrorMessage}";
+            // Page exists but has no rounds - don't fallback to other recipes!
+            // NoRoundsFound = has match results but no round headers
+            // NoResults = empty page with no match results at all
+            var isNoRoundsOrNoResults = scrapeResult.FailureReason == NoDataReason.NoRoundsFound ||
+                                        scrapeResult.FailureReason == NoDataReason.NoResults;
 
+            _logger.LogInformation(
+                "Recipe '{RecipeName}' decision: FailureReason={Reason}, IsNoRoundsOrNoResults={IsNoRoundsOrNoResults}",
+                recipe.Name, scrapeResult.FailureReason, isNoRoundsOrNoResults);
+
+            if (isNoRoundsOrNoResults)
+            {
+                var reasonText = scrapeResult.FailureReason == NoDataReason.NoRoundsFound
+                    ? $"Page has {scrapeResult.TotalMatchRowsFound} match results but no round structure"
+                    : "Page exists but has no match results";
+
+                _logger.LogInformation(
+                    "Recipe '{RecipeName}' for {League} {Season}: {Reason}. Not trying fallback recipes.",
+                    recipe.Name, league.DisplayName, season.Name, reasonText);
+
+                await _recipeRepository.IncrementStatsAsync(recipe.Id, success: false);
+
+                triedRecipes.Add(new TriedRecipeInfo
+                {
+                    RecipeId = recipe.Id,
+                    RecipeName = recipe.Name,
+                    Error = reasonText,
+                    DurationMs = execResult.DurationMs
+                });
+
+                // Return with the scrape result - it contains the correct FailureReason
+                _logger.LogInformation(
+                    "Returning FailedWithResult with FailureReason={Reason}",
+                    scrapeResult.FailureReason);
+                return RecipeScrapeAttempt.FailedWithResult(scrapeResult, triedRecipes);
+            }
+
+            // Parsing failed - try next recipe
             triedRecipes.Add(new TriedRecipeInfo
             {
                 RecipeId = recipe.Id,
                 RecipeName = recipe.Name,
-                Error = parseError,
+                Error = $"Parsing failed: {scrapeResult.ErrorMessage}",
                 DurationMs = execResult.DurationMs
             });
             await _recipeRepository.IncrementStatsAsync(recipe.Id, success: false);
@@ -547,6 +616,16 @@ public class SeasonSyncService : ISeasonSyncService
             return new RecipeScrapeAttempt
             {
                 Success = false,
+                TriedRecipes = tried
+            };
+        }
+
+        public static RecipeScrapeAttempt FailedWithResult(ScrapeResult result, List<TriedRecipeInfo> tried)
+        {
+            return new RecipeScrapeAttempt
+            {
+                Success = false,
+                ScrapeResult = result,
                 TriedRecipes = tried
             };
         }

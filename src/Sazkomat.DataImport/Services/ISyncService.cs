@@ -48,12 +48,13 @@ public interface ISyncService
 
     /// <summary>
     /// Synchronizes season data (rounds, matches) for all seasons of a specific league.
-    /// Historical seasons with HasData=true are automatically skipped.
+    /// Historical seasons with HasData=true are automatically skipped unless forceUpdate is true.
     /// Fail-fast: stops on first error.
     /// </summary>
     /// <param name="leagueId">League ID to sync seasons for</param>
+    /// <param name="forceUpdate">If true, re-sync seasons even if they already have data</param>
     /// <returns>SyncJob ID for tracking progress</returns>
-    Task<Result<Guid>> SyncLeagueSeasonDataAsync(Guid leagueId);
+    Task<Result<Guid>> SyncLeagueSeasonDataAsync(Guid leagueId, bool forceUpdate = false);
 
     /// <summary>
     /// Refreshes the list of available seasons for a league from BetExplorer.

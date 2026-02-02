@@ -81,6 +81,12 @@ export function Header() {
                   >
                     Nespárované Země
                   </Link>
+                  <Link
+                    href="/recipes"
+                    className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                  >
+                    Recepty
+                  </Link>
                   {isAdmin && (
                     <Link
                       href="/admin"

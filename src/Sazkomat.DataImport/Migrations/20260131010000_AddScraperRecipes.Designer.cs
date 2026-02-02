@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Sazkomat.DataImport.Data;
@@ -11,9 +12,11 @@ using Sazkomat.DataImport.Data;
 namespace Sazkomat.DataImport.Migrations
 {
     [DbContext(typeof(DataImportDbContext))]
-    partial class DataImportDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260131010000_AddScraperRecipes")]
+    partial class AddScraperRecipes
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

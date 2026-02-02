@@ -237,6 +237,9 @@ public static class RecipeEndpoints
                 Success = scrapeResult.IsSuccess && scrapeResult.Rounds.Count > 0,
                 RoundsFound = scrapeResult.Rounds.Count,
                 TotalMatches = scrapeResult.Rounds.Sum(r => r.MatchesCount),
+                TotalRoundHeadersFound = scrapeResult.TotalRoundHeadersFound,
+                TotalMatchRowsFound = scrapeResult.TotalMatchRowsFound,
+                FailureReason = scrapeResult.FailureReason?.ToString(),
                 RoundsSample = scrapeResult.Rounds.Take(5).Select(r => new RoundSampleDto
                 {
                     RoundNumber = r.RoundNumber,
@@ -349,6 +352,18 @@ public record TestRecipeResponse
     public bool Success { get; init; }
     public int RoundsFound { get; init; }
     public int TotalMatches { get; init; }
+    /// <summary>
+    /// Total round headers found on page (may differ from RoundsFound if rounds have no matches)
+    /// </summary>
+    public int TotalRoundHeadersFound { get; init; }
+    /// <summary>
+    /// Total match rows found on page (even if not assigned to rounds)
+    /// </summary>
+    public int TotalMatchRowsFound { get; init; }
+    /// <summary>
+    /// The failure reason from ScrapeResult (NoRoundsFound, NoResults, etc.)
+    /// </summary>
+    public string? FailureReason { get; init; }
     public List<RoundSampleDto> RoundsSample { get; init; } = new();
     public int HtmlLength { get; init; }
     public List<string> Logs { get; init; } = new();

@@ -16,6 +16,7 @@ public class ScraperDebugService : IAsyncDisposable
     private IPage? _page;
     private readonly List<string> _logs = new();
     private readonly Stopwatch _sessionStopwatch = new();
+    private readonly Dictionary<string, string> _storedVariables = new();
     private bool _initialized = false;
 
     private static readonly string DebugDirectory = "/app/debug";
@@ -116,6 +117,7 @@ public class ScraperDebugService : IAsyncDisposable
             var details = action switch
             {
                 NavigateAction nav => await ExecuteNavigate(nav),
+                NavigateToVariableAction navVar => await ExecuteNavigateToVariable(navVar),
                 WaitAction wait => await ExecuteWait(wait),
                 WaitForSelectorAction wfs => await ExecuteWaitForSelector(wfs),
                 WaitForLoadStateAction wls => await ExecuteWaitForLoadState(wls),
@@ -163,6 +165,34 @@ public class ScraperDebugService : IAsyncDisposable
         Log($"Navigating to: {action.Url}");
 
         await _page.GotoAsync(action.Url, new PageGotoOptions
+        {
+            WaitUntil = WaitUntilState.Load,
+            Timeout = 30000
+        });
+
+        var finalUrl = _page.Url;
+        Log($"Navigation complete, URL: {finalUrl}");
+
+        return new NavigateDetails { FinalUrl = finalUrl };
+    }
+
+    private async Task<NavigateDetails> ExecuteNavigateToVariable(NavigateToVariableAction action)
+    {
+        if (_page == null) throw new InvalidOperationException("Page not initialized");
+
+        if (!_storedVariables.TryGetValue(action.Variable, out var url))
+        {
+            throw new InvalidOperationException($"Variable '{action.Variable}' not found. Available: {string.Join(", ", _storedVariables.Keys)}");
+        }
+
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            throw new InvalidOperationException($"Variable '{action.Variable}' is empty or null");
+        }
+
+        Log($"Navigating to variable '{action.Variable}': {url}");
+
+        await _page.GotoAsync(url, new PageGotoOptions
         {
             WaitUntil = WaitUntilState.Load,
             Timeout = 30000
@@ -389,6 +419,10 @@ public class ScraperDebugService : IAsyncDisposable
 
         Log($"Extracted {html.Length} chars of HTML");
 
+        // Debug: log first 200 chars of HTML to diagnose empty pages
+        var preview = html.Length > 200 ? html.Substring(0, 200) + "..." : html;
+        Log($"HTML preview: {preview.Replace("\n", " ").Replace("\r", "")}");
+
         return new ExtractHtmlDetails
         {
             Html = html,
@@ -405,7 +439,15 @@ public class ScraperDebugService : IAsyncDisposable
 
         var result = await _page.EvaluateAsync<object?>(action.Script);
 
-        Log($"JavaScript result: {result?.ToString()?.Substring(0, Math.Min(200, result.ToString()?.Length ?? 0))}");
+        var resultStr = result?.ToString() ?? "";
+        Log($"JavaScript result: {resultStr.Substring(0, Math.Min(200, resultStr.Length))}");
+
+        // Store result in variable if storeAs is specified
+        if (!string.IsNullOrEmpty(action.StoreAs))
+        {
+            _storedVariables[action.StoreAs] = resultStr;
+            Log($"Stored result in variable '{action.StoreAs}'");
+        }
 
         return new EvaluateDetails { Result = result };
     }

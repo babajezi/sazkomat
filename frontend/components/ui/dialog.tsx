@@ -41,14 +41,19 @@ export function DialogContent({
 
   if (!open) return null
 
+  // Extract width/max-width classes from className, default to max-w-lg
+  const hasWidthClass = /\b(max-w-|w-\[)/.test(className)
+  const baseClasses = "relative z-50 bg-white rounded-lg shadow-lg mx-4"
+  const defaultWidth = hasWidthClass ? "" : "max-w-lg w-full"
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div
         className="fixed inset-0 bg-black/50"
         onClick={() => onOpenChange(false)}
       />
-      <div className="relative z-50 bg-white rounded-lg shadow-lg max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
-        <div className={`p-6 ${className}`}>{children}</div>
+      <div className={`${baseClasses} ${defaultWidth} ${className}`}>
+        <div className="p-6">{children}</div>
       </div>
     </div>
   )

@@ -5,13 +5,14 @@ export function middleware(request: NextRequest) {
   const token = request.cookies.get('sazkomat_token')?.value;
   const { pathname } = request.nextUrl;
 
-  // Allow access to: /, /api/*, /_next/*, static files, favicon
+  // Allow access to: /, /api/*, /_next/*, static files, favicon, /recipes
   if (
     pathname === '/' ||
     pathname.startsWith('/api/') ||
     pathname.startsWith('/_next/') ||
     pathname.includes('.') ||
-    pathname === '/favicon.ico'
+    pathname === '/favicon.ico' ||
+    pathname === '/recipes'  // Temporarily allow recipes without auth
   ) {
     return NextResponse.next();
   }

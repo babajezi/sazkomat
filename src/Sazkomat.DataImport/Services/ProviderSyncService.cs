@@ -1192,10 +1192,10 @@ public class ProviderSyncService : ISyncService
 
     /// <summary>
     /// Synchronizes season data (rounds, matches) for all seasons of a specific league.
-    /// Historical seasons with HasData=true are automatically skipped.
+    /// Historical seasons with HasData=true are automatically skipped unless forceUpdate is true.
     /// Fail-fast: stops on first error.
     /// </summary>
-    public async Task<Result<Guid>> SyncLeagueSeasonDataAsync(Guid leagueId)
+    public async Task<Result<Guid>> SyncLeagueSeasonDataAsync(Guid leagueId, bool forceUpdate = false)
     {
         var stopwatch = Stopwatch.StartNew();
 
@@ -1288,13 +1288,13 @@ public class ProviderSyncService : ISyncService
                         leagueSeason.Season?.Name ?? "unknown", league.DisplayName);
 
                     // Call existing SyncSeasonDataAsync which handles:
-                    // - Skipping historical seasons with HasData=true
+                    // - Skipping historical seasons with HasData=true (unless forceUpdate)
                     // - Setting HasData=true after successful sync
                     var result = await _seasonSyncService.SyncSeasonDataAsync(
                         BetExplorerProviderId,
                         leagueId,
                         leagueSeason.SeasonId,
-                        forceUpdate: false);
+                        forceUpdate: forceUpdate);
 
                     if (result.IsSuccess && result.Value != null)
                     {

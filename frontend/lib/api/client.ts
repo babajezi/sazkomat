@@ -53,6 +53,14 @@ import type {
   GoogleLoginRequest,
   UpdateLanguageRequest,
   UpdateUserRequest,
+  // Recipe types
+  RecipeListItem,
+  ScraperRecipe,
+  CreateRecipeRequest,
+  UpdateRecipeRequest,
+  TestRecipeRequest,
+  TestRecipeResponse,
+  RecipeStats,
 } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
@@ -400,10 +408,12 @@ export const syncApi = {
 
   // Sync rounds and matches for all seasons of a league
   syncLeagueSeasonData: async (
-    leagueId: string
+    leagueId: string,
+    forceUpdate: boolean = false
   ): Promise<{ jobId: string; message: string }> => {
     const { data } = await apiClient.post<{ jobId: string; message: string }>(
-      `/sync/league/${leagueId}/season-data`
+      `/sync/league/${leagueId}/season-data`,
+      { forceUpdate }
     );
     return data;
   },
@@ -872,6 +882,59 @@ export const unmatchedCountryApi = {
   ): Promise<{ unmatchedCountry: UnmatchedCountry; suggestions: Country[] }> => {
     const queryParams = search ? `?search=${encodeURIComponent(search)}` : "";
     const { data } = await apiClient.get(`/unmatched-countries/suggestions/${id}${queryParams}`);
+    return data;
+  },
+};
+
+// Recipe endpoints
+export const recipeApi = {
+  // Get all recipes
+  getAll: async (): Promise<RecipeListItem[]> => {
+    const { data } = await apiClient.get<RecipeListItem[]>("/recipes");
+    return data;
+  },
+
+  // Get recipe by ID (full detail)
+  getById: async (id: string): Promise<ScraperRecipe> => {
+    const { data } = await apiClient.get<ScraperRecipe>(`/recipes/${id}`);
+    return data;
+  },
+
+  // Get recipes by provider and page type
+  getByProvider: async (provider: string, pageType: string): Promise<RecipeListItem[]> => {
+    const { data } = await apiClient.get<RecipeListItem[]>(
+      `/recipes/by-provider/${provider}/${pageType}`
+    );
+    return data;
+  },
+
+  // Create new recipe
+  create: async (request: CreateRecipeRequest): Promise<{ id: string }> => {
+    const { data } = await apiClient.post<{ id: string }>("/recipes", request);
+    return data;
+  },
+
+  // Update recipe
+  update: async (id: string, request: UpdateRecipeRequest): Promise<{ message: string }> => {
+    const { data } = await apiClient.put<{ message: string }>(`/recipes/${id}`, request);
+    return data;
+  },
+
+  // Delete recipe
+  delete: async (id: string): Promise<{ message: string }> => {
+    const { data } = await apiClient.delete<{ message: string }>(`/recipes/${id}`);
+    return data;
+  },
+
+  // Test recipe on a league/season
+  test: async (id: string, request: TestRecipeRequest): Promise<TestRecipeResponse> => {
+    const { data } = await apiClient.post<TestRecipeResponse>(`/recipes/${id}/test`, request);
+    return data;
+  },
+
+  // Get recipe statistics
+  getStats: async (): Promise<RecipeStats[]> => {
+    const { data } = await apiClient.get<RecipeStats[]>("/recipes/stats");
     return data;
   },
 };

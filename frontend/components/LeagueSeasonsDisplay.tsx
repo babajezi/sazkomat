@@ -24,6 +24,8 @@ const noDataReasonLabels: Record<NoDataReason, string> = {
   [NoDataReason.ParsingError]: "Chyba parsování",
   [NoDataReason.NetworkError]: "Síťová chyba",
   [NoDataReason.PartialData]: "Částečná data",
+  [NoDataReason.NoRecipeFound]: "Chybí recept",
+  [NoDataReason.NoResults]: "Žádné výsledky",
 };
 
 interface LeagueSeasonsDisplayProps {
@@ -33,10 +35,14 @@ interface LeagueSeasonsDisplayProps {
 
 type SyncStatus = "idle" | "loading" | "success" | "error";
 
+// BetExplorer provider ID constant
+const BETEXPLORER_PROVIDER_ID = "a0000000-0000-0000-0000-000000000001";
+
 export function LeagueSeasonsDisplay({ leagueId, leagueProviders }: LeagueSeasonsDisplayProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [syncDataStatus, setSyncDataStatus] = useState<SyncStatus>("idle");
   const [refreshListStatus, setRefreshListStatus] = useState<SyncStatus>("idle");
+  const [syncingSeasonId, setSyncingSeasonId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
@@ -73,7 +79,7 @@ export function LeagueSeasonsDisplay({ leagueId, leagueProviders }: LeagueSeason
 
   // Sync data mutation (rounds and matches)
   const syncDataMutation = useMutation({
-    mutationFn: () => syncApi.syncLeagueSeasonData(leagueId),
+    mutationFn: (forceUpdate: boolean = false) => syncApi.syncLeagueSeasonData(leagueId, forceUpdate),
     onMutate: () => {
       setSyncDataStatus("loading");
       setErrorMessage(null);
@@ -121,9 +127,33 @@ export function LeagueSeasonsDisplay({ leagueId, leagueProviders }: LeagueSeason
     },
   });
 
-  const handleSyncData = () => {
+  // Sync single season mutation
+  const syncSeasonMutation = useMutation({
+    mutationFn: (seasonId: string) =>
+      syncApi.syncSeasonData(leagueId, seasonId, {
+        providerId: BETEXPLORER_PROVIDER_ID,
+        forceUpdate: true,
+      }),
+    onMutate: (seasonId) => {
+      setSyncingSeasonId(seasonId);
+      setErrorMessage(null);
+    },
+    onSuccess: () => {
+      // Refresh seasons list after sync
+      refetch();
+      setSyncingSeasonId(null);
+    },
+    onError: (error: Error) => {
+      setErrorMessage(error.message || "Season sync failed");
+      setSyncingSeasonId(null);
+      // Reset error after 5 seconds
+      setTimeout(() => setErrorMessage(null), 5000);
+    },
+  });
+
+  const handleSyncData = (forceUpdate: boolean = false) => {
     if (syncDataStatus !== "loading") {
-      syncDataMutation.mutate();
+      syncDataMutation.mutate(forceUpdate);
     }
   };
 
@@ -157,7 +187,7 @@ export function LeagueSeasonsDisplay({ leagueId, leagueProviders }: LeagueSeason
 
     if (syncDataStatus === "error") {
       return (
-        <Button variant="destructive" size="sm" onClick={handleSyncData}>
+        <Button variant="destructive" size="sm" onClick={() => handleSyncData()}>
           <XCircle className="mr-2 h-4 w-4" />
           Chyba - zkusit znovu
         </Button>
@@ -165,16 +195,28 @@ export function LeagueSeasonsDisplay({ leagueId, leagueProviders }: LeagueSeason
     }
 
     return (
-      <Button
-        variant="default"
-        size="sm"
-        onClick={handleSyncData}
-        disabled={isDisabled}
-        title="Stáhnout kola a zápasy pro všechny sezóny"
-      >
-        <Download className="mr-2 h-4 w-4" />
-        Sync data
-      </Button>
+      <div className="flex gap-2">
+        <Button
+          variant="default"
+          size="sm"
+          onClick={() => handleSyncData(false)}
+          disabled={isDisabled}
+          title="Stáhnout kola a zápasy pro všechny sezóny (přeskočí sezóny s daty)"
+        >
+          <Download className="mr-2 h-4 w-4" />
+          Sync data
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handleSyncData(true)}
+          disabled={isDisabled}
+          title="Vynutit re-sync všech sezón (ignoruje existující data)"
+        >
+          <RefreshCw className="mr-2 h-4 w-4" />
+          Force Sync
+        </Button>
+      </div>
     );
   };
 
@@ -286,6 +328,8 @@ export function LeagueSeasonsDisplay({ leagueId, leagueProviders }: LeagueSeason
                 toggleSyncMutation.mutate({ id: season.id, enabled })
               }
               isToggling={toggleSyncMutation.isPending}
+              onSyncSeason={() => syncSeasonMutation.mutate(season.seasonId)}
+              isSyncing={syncingSeasonId === season.seasonId}
             />
           ))}
         </div>
@@ -310,11 +354,13 @@ interface SeasonRowProps {
   leagueId: string;
   onToggleSync: (enabled: boolean) => void;
   isToggling: boolean;
+  onSyncSeason: () => void;
+  isSyncing: boolean;
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
-function SeasonRow({ season, leagueId, onToggleSync, isToggling }: SeasonRowProps) {
+function SeasonRow({ season, leagueId, onToggleSync, isToggling, onSyncSeason, isSyncing }: SeasonRowProps) {
   const [showWarning, setShowWarning] = useState(false);
   const [showRounds, setShowRounds] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
@@ -412,14 +458,29 @@ function SeasonRow({ season, leagueId, onToggleSync, isToggling }: SeasonRowProp
             </div>
           )}
           <div className="flex flex-col gap-1 items-end">
-            <Button
-              variant={season.syncEnabled ? "default" : "outline"}
-              size="sm"
-              onClick={handleToggleClick}
-              disabled={isToggling}
-            >
-              {season.syncEnabled ? "✓ Sync ON" : "○ Sync OFF"}
-            </Button>
+            <div className="flex gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onSyncSeason}
+                disabled={isSyncing}
+                title="Synchronizovat tuto sezónu (force)"
+              >
+                {isSyncing ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
+              </Button>
+              <Button
+                variant={season.syncEnabled ? "default" : "outline"}
+                size="sm"
+                onClick={handleToggleClick}
+                disabled={isToggling}
+              >
+                {season.syncEnabled ? "✓ Sync ON" : "○ Sync OFF"}
+              </Button>
+            </div>
             {season.hasData && (
               <button
                 onClick={() => setShowRounds(!showRounds)}
@@ -464,9 +525,14 @@ function SeasonRow({ season, leagueId, onToggleSync, isToggling }: SeasonRowProp
         )}
       </div>
 
-      {season.lastDataSyncAt && (
-        <div className="text-xs text-gray-500 mt-1">
-          Poslední sync dat: {new Date(season.lastDataSyncAt).toLocaleString("cs-CZ")}
+      {(season.lastDataSyncAt || season.lastSuccessfulRecipeName) && (
+        <div className="text-xs text-gray-500 mt-1 flex flex-wrap gap-x-3">
+          {season.lastDataSyncAt && (
+            <span>Poslední sync dat: {new Date(season.lastDataSyncAt).toLocaleString("cs-CZ")}</span>
+          )}
+          {season.lastSuccessfulRecipeName && (
+            <span className="text-blue-600">Recept: {season.lastSuccessfulRecipeName}</span>
+          )}
         </div>
       )}
 
