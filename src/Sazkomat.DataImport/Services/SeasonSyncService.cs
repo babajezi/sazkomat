@@ -218,11 +218,23 @@ public class SeasonSyncService : ISeasonSyncService
 
                 var triedRecipeNames = string.Join(", ", recipeResult.TriedRecipes.Select(r => r.RecipeName));
 
-                leagueSeason.HasData = false;
-                leagueSeason.NoDataReason = NoDataReason.NoRecipeFound;
-                leagueSeason.NoDataNote = recipeResult.NoRecipesAvailable
-                    ? "Žádný aktivní recept pro betexplorer/results"
-                    : $"Vyzkoušeno {recipeResult.TriedRecipes.Count} receptů: {triedRecipeNames}";
+                // Only mark as NoRecipeFound if there's no existing data in DB
+                // If rounds exist from previous sync, preserve the state
+                if (leagueSeason.RoundsCount == 0)
+                {
+                    leagueSeason.HasData = false;
+                    leagueSeason.NoDataReason = NoDataReason.NoRecipeFound;
+                    leagueSeason.NoDataNote = recipeResult.NoRecipesAvailable
+                        ? "Žádný aktivní recept pro betexplorer/results"
+                        : $"Vyzkoušeno {recipeResult.TriedRecipes.Count} receptů: {triedRecipeNames}";
+                }
+                else
+                {
+                    // Data exists from previous sync, just log the failure
+                    _logger.LogWarning(
+                        "Recipe failed for {League} {Season} but existing data preserved ({Rounds} rounds)",
+                        league.DisplayName, season.Name, leagueSeason.RoundsCount);
+                }
                 leagueSeason.LastRecipeTestedAt = DateTime.UtcNow;
                 await _leagueSeasonRepository.UpdateAsync(leagueSeason);
 
@@ -397,9 +409,43 @@ public class SeasonSyncService : ISeasonSyncService
             _logger.LogInformation("Trying recipe '{RecipeName}' for {League} {Season}",
                 recipe.Name, league.DisplayName, season.Name);
 
-            var execResult = await _recipeExecutor.ExecuteRecipeAsync(debugService, recipe, variables);
+            // Retry logic for Playwright transient errors
+            const int maxRetries = 2;
+            RecipeExecutionResult? execResult = null;
 
-            if (!execResult.Success)
+            for (int attempt = 1; attempt <= maxRetries; attempt++)
+            {
+                execResult = await _recipeExecutor.ExecuteRecipeAsync(debugService, recipe, variables);
+
+                if (execResult.Success)
+                    break;
+
+                // Check if it's a transient Playwright error worth retrying
+                var isTransientError = execResult.ErrorReason?.Contains("Execution context was destroyed") == true ||
+                                       execResult.ErrorReason?.Contains("Target page, context or browser has been closed") == true ||
+                                       execResult.ErrorReason?.Contains("Navigation") == true;
+
+                if (isTransientError && attempt < maxRetries)
+                {
+                    _logger.LogWarning(
+                        "Recipe '{RecipeName}' failed with transient error for {League} {Season}, retrying ({Attempt}/{MaxRetries}): {Error}",
+                        recipe.Name, league.DisplayName, season.Name, attempt, maxRetries, execResult.ErrorReason);
+
+                    // Small delay before retry
+                    await Task.Delay(1000);
+
+                    // Reinitialize browser for retry
+                    await debugService.DisposeAsync();
+                    await using var newDebugService = new ScraperDebugService(
+                        _logger as ILogger<ScraperDebugService> ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<ScraperDebugService>.Instance);
+                    execResult = await _recipeExecutor.ExecuteRecipeAsync(newDebugService, recipe, variables);
+
+                    if (execResult.Success)
+                        break;
+                }
+            }
+
+            if (!execResult!.Success)
             {
                 _logger.LogWarning("Recipe '{RecipeName}' failed for {League} {Season}: {Error}",
                     recipe.Name, league.DisplayName, season.Name, execResult.ErrorReason);
@@ -455,6 +501,11 @@ public class SeasonSyncService : ISeasonSyncService
                 _logger.LogInformation(
                     "Recipe '{RecipeName}' for {League} {Season}: {Reason}. Not trying fallback recipes.",
                     recipe.Name, league.DisplayName, season.Name, reasonText);
+
+                // Still save the recipe - it successfully determined the page state
+                leagueSeason.LastSuccessfulRecipeId = recipe.Id;
+                leagueSeason.LastRecipeTestedAt = DateTime.UtcNow;
+                await _leagueSeasonRepository.UpdateAsync(leagueSeason);
 
                 await _recipeRepository.IncrementStatsAsync(recipe.Id, success: false);
 

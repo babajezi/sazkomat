@@ -1280,10 +1280,22 @@ public class ProviderSyncService : ISyncService
                 return Result<Guid>.Success(syncJob.Id);
             }
 
+            var random = new Random();
+            var isFirstSeason = true;
+
             foreach (var leagueSeason in completedSeasons)
             {
                 try
                 {
+                    // Random delay between seasons (1-2 seconds) to avoid Playwright resource contention
+                    if (!isFirstSeason)
+                    {
+                        var delayMs = random.Next(1000, 2001);
+                        _logger.LogDebug("Waiting {DelayMs}ms before next season sync", delayMs);
+                        await Task.Delay(delayMs);
+                    }
+                    isFirstSeason = false;
+
                     _logger.LogInformation("Syncing season {SeasonName} for {LeagueName}",
                         leagueSeason.Season?.Name ?? "unknown", league.DisplayName);
 
