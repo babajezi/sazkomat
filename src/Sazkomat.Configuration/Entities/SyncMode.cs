@@ -15,5 +15,11 @@ public enum SyncMode
     /// Current mode - data is synced continuously to capture new rounds/matches
     /// Used for ongoing seasons
     /// </summary>
-    Current
+    Current,
+
+    /// <summary>
+    /// Future mode - season has not started yet, no sync needed
+    /// Used for seasons with StartYear > current year
+    /// </summary>
+    Future
 }

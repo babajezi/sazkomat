@@ -83,6 +83,13 @@ public class SeasonSyncService : ISeasonSyncService
             {
                 var leagueSeasons = await _leagueSeasonRepository.GetByLeagueIdAsync(league.Id, includeRelations: true);
 
+                // First, find the current season (matching patterns)
+                var currentSeason = leagueSeasons
+                    .Where(ls => ls.Season != null)
+                    .FirstOrDefault(ls => patterns.Contains(ls.Season!.Name, StringComparer.OrdinalIgnoreCase));
+
+                var currentSeasonStartYear = currentSeason?.Season?.StartYear;
+
                 foreach (var leagueSeason in leagueSeasons)
                 {
                     var season = leagueSeason.Season;
@@ -91,8 +98,17 @@ public class SeasonSyncService : ISeasonSyncService
                     // Check if season name matches any of the patterns
                     var isCurrent = patterns.Contains(season.Name, StringComparer.OrdinalIgnoreCase);
 
+                    // Check if season is in the future (StartYear > current season's StartYear)
+                    var isFuture = currentSeasonStartYear.HasValue && season.StartYear > currentSeasonStartYear.Value;
+
                     // Update IsCurrent and SyncMode
-                    var newSyncMode = isCurrent ? SyncMode.Current : SyncMode.Historical;
+                    SyncMode newSyncMode;
+                    if (isFuture)
+                        newSyncMode = SyncMode.Future;
+                    else if (isCurrent)
+                        newSyncMode = SyncMode.Current;
+                    else
+                        newSyncMode = SyncMode.Historical;
 
                     // Only update if values changed
                     if (leagueSeason.IsCurrent != isCurrent || leagueSeason.SyncMode != newSyncMode)
@@ -108,7 +124,7 @@ public class SeasonSyncService : ISeasonSyncService
                             "Marked {League} - {Season} as {Status}",
                             league.DisplayName,
                             season.Name,
-                            isCurrent ? "CURRENT" : "Historical");
+                            newSyncMode.ToString().ToUpper());
                     }
                 }
             }
