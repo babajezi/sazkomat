@@ -255,6 +255,76 @@ public static class ConfigurationEndpoints
         .Produces(200)
         .Produces(400);
 
+        // ===== LEAGUE VALIDATION & LOCKING =====
+
+        // POST /api/config/leagues/{leagueId}/validate
+        group.MapPost("/leagues/{leagueId:guid}/validate", async (
+            Guid leagueId,
+            ILeagueSeasonValidationService validationService) =>
+        {
+            var result = await validationService.ValidateLeagueAsync(leagueId);
+
+            return Results.Ok(new
+            {
+                totalSeasons = result.TotalSeasons,
+                validSeasons = result.ValidSeasons,
+                seasonsWithWarnings = result.SeasonsWithWarnings,
+                seasonsWithErrors = result.SeasonsWithErrors,
+                canLockCount = result.CanLockCount,
+                alreadyLockedCount = result.AlreadyLockedCount,
+                seasonResults = result.SeasonResults.Select(sr => new
+                {
+                    seasonId = sr.SeasonId,
+                    seasonName = sr.SeasonName,
+                    isValid = sr.IsValid,
+                    canBeLocked = sr.CanBeLocked,
+                    issues = sr.Issues.Select(i => new
+                    {
+                        code = i.Code,
+                        message = i.Message,
+                        severity = i.Severity.ToString()
+                    })
+                })
+            });
+        })
+        .WithName("ValidateLeague")
+        .WithSummary("Validate all historical seasons for a league")
+        .Produces(200);
+
+        // POST /api/config/leagues/{leagueId}/lock
+        group.MapPost("/leagues/{leagueId:guid}/lock", async (
+            Guid leagueId,
+            ILeagueSeasonValidationService validationService) =>
+        {
+            var lockedCount = await validationService.LockValidSeasonsAsync(leagueId);
+
+            return Results.Ok(new
+            {
+                message = $"Locked {lockedCount} seasons",
+                lockedCount
+            });
+        })
+        .WithName("LockLeagueSeasons")
+        .WithSummary("Lock all valid historical seasons for a league")
+        .Produces(200);
+
+        // POST /api/config/leagues/{leagueId}/unlock
+        group.MapPost("/leagues/{leagueId:guid}/unlock", async (
+            Guid leagueId,
+            ILeagueSeasonValidationService validationService) =>
+        {
+            var unlockedCount = await validationService.UnlockAllSeasonsAsync(leagueId);
+
+            return Results.Ok(new
+            {
+                message = $"Unlocked {unlockedCount} seasons",
+                unlockedCount
+            });
+        })
+        .WithName("UnlockLeagueSeasons")
+        .WithSummary("Unlock all locked seasons for a league")
+        .Produces(200);
+
         // ===== PROVIDER MAPPING MANAGEMENT =====
 
         // DELETE /api/config/country-providers/by-provider

@@ -48,6 +48,9 @@ Base URL: `http://localhost:3001`
 | DELETE | /api/config/leagues/{id} | Smazání ligy |
 | PATCH | /api/config/leagues/{leagueId}/providers/{providerId} | Toggle sync status |
 | GET | /api/config/leagues/{leagueId}/betting-availability | Betting providers pro ligu |
+| POST | /api/config/leagues/{leagueId}/validate | Validace všech historických sezón ligy |
+| POST | /api/config/leagues/{leagueId}/lock | Zamčení všech validních sezón ligy |
+| POST | /api/config/leagues/{leagueId}/unlock | Odemčení všech zamčených sezón ligy |
 
 ### Sezóny
 
@@ -57,6 +60,9 @@ Base URL: `http://localhost:3001`
 | GET | /api/config/seasons/available | Dostupné sezóny pro ligu (?leagueId) |
 | GET | /api/config/league-seasons | League-season vztahy (?leagueId) |
 | PATCH | /api/config/seasons/league-seasons/{id}/sync-enabled | Enable/disable sync |
+| POST | /api/config/seasons/league-seasons/{id}/validate | Validace jednotlivé sezóny |
+| POST | /api/config/seasons/league-seasons/{id}/lock | Zamčení sezóny |
+| POST | /api/config/seasons/league-seasons/{id}/unlock | Odemčení sezóny |
 
 ### Data Providers
 
