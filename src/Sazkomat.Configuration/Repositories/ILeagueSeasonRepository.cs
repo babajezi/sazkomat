@@ -17,4 +17,6 @@ public interface ILeagueSeasonRepository
     Task<List<LeagueSeason>> GetSyncEnabledAsync();
     Task UpdateSyncEnabledAsync(Guid leagueSeasonId, bool enabled);
     Task UpdateIsCurrentAsync(Guid leagueSeasonId, bool isCurrent, SyncMode syncMode);
+    Task UpdateLockStatusAsync(Guid id, bool isLocked);
+    Task UpdateLastValidatedAsync(Guid id);
 }

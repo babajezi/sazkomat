@@ -143,6 +143,16 @@ public class SeasonSyncService : ISeasonSyncService
                 return Result<SyncResponse>.Failure("League season not found");
             }
 
+            // Check if season is locked
+            if (leagueSeason.IsLocked)
+            {
+                _logger.LogWarning(
+                    "Cannot sync locked season: {League} - {Season}",
+                    leagueId, seasonId);
+
+                return Result<SyncResponse>.Failure("Season is locked and cannot be synced. Unlock the season first if you need to update data.");
+            }
+
             // Check if we should skip this season
             if (!forceUpdate &&
                 leagueSeason.SyncMode == SyncMode.Historical &&
@@ -553,10 +563,14 @@ public class SeasonSyncService : ISeasonSyncService
         {
             _logger.LogInformation("Syncing all marked seasons for provider {ProviderId}", providerId);
 
-            // Get all sync-enabled league seasons
-            var syncEnabledSeasons = await _leagueSeasonRepository.GetSyncEnabledAsync();
+            // Get all sync-enabled league seasons (excluding locked ones)
+            var allSyncEnabledSeasons = await _leagueSeasonRepository.GetSyncEnabledAsync();
+            var lockedCount = allSyncEnabledSeasons.Count(s => s.IsLocked);
+            var syncEnabledSeasons = allSyncEnabledSeasons.Where(s => !s.IsLocked).ToList();
 
-            _logger.LogInformation("Found {Count} seasons marked for sync", syncEnabledSeasons.Count);
+            _logger.LogInformation(
+                "Found {Count} seasons marked for sync ({LockedCount} locked, skipped)",
+                syncEnabledSeasons.Count, lockedCount);
 
             if (!syncEnabledSeasons.Any())
             {

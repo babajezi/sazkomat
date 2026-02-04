@@ -34,6 +34,23 @@ public class LeagueSeason : Entity
     /// </summary>
     public DateTime? LastRecipeTestedAt { get; set; }
 
+    // Validation and locking
+    /// <summary>
+    /// Whether this season is locked (validated and finalized).
+    /// Locked seasons cannot be synced or modified.
+    /// </summary>
+    public bool IsLocked { get; set; } = false;
+
+    /// <summary>
+    /// When the season was locked.
+    /// </summary>
+    public DateTime? LockedAt { get; set; }
+
+    /// <summary>
+    /// When the season was last validated.
+    /// </summary>
+    public DateTime? LastValidatedAt { get; set; }
+
     // Navigation
     public League League { get; set; } = null!;
     public Season Season { get; set; } = null!;

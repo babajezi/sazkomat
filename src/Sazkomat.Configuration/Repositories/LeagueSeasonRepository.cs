@@ -142,4 +142,25 @@ public class LeagueSeasonRepository : ILeagueSeasonRepository
             await _context.SaveChangesAsync();
         }
     }
+
+    public async Task UpdateLockStatusAsync(Guid id, bool isLocked)
+    {
+        var leagueSeason = await _context.LeagueSeasons.FindAsync(id);
+        if (leagueSeason != null)
+        {
+            leagueSeason.IsLocked = isLocked;
+            leagueSeason.LockedAt = isLocked ? DateTime.UtcNow : null;
+            await _context.SaveChangesAsync();
+        }
+    }
+
+    public async Task UpdateLastValidatedAsync(Guid id)
+    {
+        var leagueSeason = await _context.LeagueSeasons.FindAsync(id);
+        if (leagueSeason != null)
+        {
+            leagueSeason.LastValidatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+        }
+    }
 }

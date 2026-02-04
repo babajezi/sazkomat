@@ -100,6 +100,59 @@ Systém konfigurovatelných "receptů" pro web scraping s automatickým fallback
 
 ---
 
+## Validace a zamykání sezón
+
+Workflow pro finalizaci historických dat:
+
+### Účel
+
+- **Validace** - kontrola kvality dat před uzamčením
+- **Zamčení** - označení sezóny jako finální (nelze synchronizovat)
+- **Odemčení** - umožnění zpětných úprav
+
+### Validační pravidla
+
+| Pravidlo | Závažnost | Podmínka |
+|----------|-----------|----------|
+| Bez dat | Error | `SyncMode == Historical && !HasData` |
+| Chyba parsování | Error | `NoDataReason == ParsingError` |
+| Síťová chyba | Error | `NoDataReason == NetworkError` |
+| Bez receptu | Warning | `HasData && LastSuccessfulRecipeId == null` |
+| Neobvyklý počet zápasů | Warning | `MatchesCount` mimo 50-200% průměru ligy |
+| Neobvyklý počet kol | Warning | `RoundsCount` mimo 50-200% průměru ligy |
+| Stránka neexistuje | Warning | `NoDataReason == PageNotFound` (může být legitimní) |
+
+### Logika zamykání
+
+- `CanBeLocked = true` pokud žádné **Error** issues
+- **Warning** issues umožní zamknout s upozorněním
+- Zamčená sezóna **NELZE synchronizovat** (sync endpoint vrátí chybu)
+
+### API Endpointy
+
+| Metoda | Endpoint | Popis |
+|--------|----------|-------|
+| POST | `/api/config/seasons/league-seasons/{id}/validate` | Spustí validaci |
+| POST | `/api/config/seasons/league-seasons/{id}/lock` | Zamkne sezónu |
+| POST | `/api/config/seasons/league-seasons/{id}/unlock` | Odemkne sezónu |
+
+### LeagueSeason fields
+
+- `IsLocked` - zda je sezóna zamčená
+- `LockedAt` - kdy byla zamčena
+- `LastValidatedAt` - kdy byla naposledy validována
+
+### Sync blokování
+
+```csharp
+if (leagueSeason.IsLocked)
+{
+    return Result.Failure("Season is locked and cannot be synced");
+}
+```
+
+---
+
 ## Auto-Activation (Betting Providers)
 
 Pro betting providery existuje speciální auto-aktivační logika:

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Sazkomat.Configuration.Models;
 using Sazkomat.Configuration.Repositories;
 using Sazkomat.Configuration.Services;
 using Sazkomat.DataImport.Repositories;
@@ -149,7 +150,10 @@ public static class SeasonEndpoints
                             isCurrent = ls.IsCurrent,
                             syncMode = ls.SyncMode.ToString(),
                             lastDataSyncAt = ls.LastDataSyncAt,
-                            lastSuccessfulRecipeName = await GetRecipeName(ls.LastSuccessfulRecipeId)
+                            lastSuccessfulRecipeName = await GetRecipeName(ls.LastSuccessfulRecipeId),
+                            isLocked = ls.IsLocked,
+                            lockedAt = ls.LockedAt,
+                            lastValidatedAt = ls.LastValidatedAt
                         });
                     }
                 }
@@ -187,7 +191,10 @@ public static class SeasonEndpoints
                             isCurrent = ls.IsCurrent,
                             syncMode = ls.SyncMode.ToString(),
                             lastDataSyncAt = ls.LastDataSyncAt,
-                            lastSuccessfulRecipeName = await GetRecipeName(ls.LastSuccessfulRecipeId)
+                            lastSuccessfulRecipeName = await GetRecipeName(ls.LastSuccessfulRecipeId),
+                            isLocked = ls.IsLocked,
+                            lockedAt = ls.LockedAt,
+                            lastValidatedAt = ls.LastValidatedAt
                         });
                     }
                 }
@@ -210,6 +217,108 @@ public static class SeasonEndpoints
         .WithName("UpdateSyncEnabled")
         .WithSummary("Enable or disable sync for a league season")
         .Produces(204)
+        .Produces(404);
+
+        // POST /api/config/seasons/league-seasons/{id}/validate
+        group.MapPost("/league-seasons/{id}/validate", async (
+            Guid id,
+            ILeagueSeasonValidationService validationService,
+            ILeagueSeasonRepository leagueSeasonRepository) =>
+        {
+            var result = await validationService.ValidateAsync(id);
+
+            // Update last validated timestamp
+            await leagueSeasonRepository.UpdateLastValidatedAsync(id);
+
+            return Results.Ok(new
+            {
+                isValid = result.IsValid,
+                canBeLocked = result.CanBeLocked,
+                issues = result.Issues.Select(i => new
+                {
+                    code = i.Code,
+                    message = i.Message,
+                    severity = i.Severity.ToString()
+                })
+            });
+        })
+        .WithName("ValidateLeagueSeason")
+        .WithSummary("Validate a league season before locking")
+        .Produces(200);
+
+        // POST /api/config/seasons/league-seasons/{id}/lock
+        group.MapPost("/league-seasons/{id}/lock", async (
+            Guid id,
+            ILeagueSeasonValidationService validationService,
+            ILeagueSeasonRepository leagueSeasonRepository) =>
+        {
+            var leagueSeason = await leagueSeasonRepository.GetByIdAsync(id);
+            if (leagueSeason == null)
+            {
+                return Results.NotFound(new { error = "League season not found" });
+            }
+
+            if (leagueSeason.IsLocked)
+            {
+                return Results.BadRequest(new { error = "Season is already locked" });
+            }
+
+            // Validate before locking
+            var validation = await validationService.ValidateAsync(id);
+            if (!validation.CanBeLocked)
+            {
+                return Results.BadRequest(new
+                {
+                    error = "Season cannot be locked due to validation errors",
+                    issues = validation.Issues
+                        .Where(i => i.Severity == IssueSeverity.Error)
+                        .Select(i => new { code = i.Code, message = i.Message })
+                });
+            }
+
+            // Lock the season
+            await leagueSeasonRepository.UpdateLockStatusAsync(id, true);
+            await leagueSeasonRepository.UpdateLastValidatedAsync(id);
+
+            return Results.Ok(new
+            {
+                message = "Season locked successfully",
+                lockedAt = DateTime.UtcNow,
+                warnings = validation.Issues
+                    .Where(i => i.Severity == IssueSeverity.Warning)
+                    .Select(i => i.Message)
+            });
+        })
+        .WithName("LockLeagueSeason")
+        .WithSummary("Lock a league season after validation")
+        .Produces(200)
+        .Produces(400)
+        .Produces(404);
+
+        // POST /api/config/seasons/league-seasons/{id}/unlock
+        group.MapPost("/league-seasons/{id}/unlock", async (
+            Guid id,
+            ILeagueSeasonRepository leagueSeasonRepository) =>
+        {
+            var leagueSeason = await leagueSeasonRepository.GetByIdAsync(id);
+            if (leagueSeason == null)
+            {
+                return Results.NotFound(new { error = "League season not found" });
+            }
+
+            if (!leagueSeason.IsLocked)
+            {
+                return Results.BadRequest(new { error = "Season is not locked" });
+            }
+
+            await leagueSeasonRepository.UpdateLockStatusAsync(id, false);
+
+            return Results.Ok(new { message = "Season unlocked successfully" });
+        })
+        .WithName("UnlockLeagueSeason")
+        .WithSummary("Unlock a previously locked league season")
+        .Produces(200)
+        .Produces(400)
         .Produces(404);
     }
 }

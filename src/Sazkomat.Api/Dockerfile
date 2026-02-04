@@ -2,8 +2,9 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
-# Copy solution file
+# Copy solution file and build props
 COPY Sazkomat.sln ./
+COPY Directory.Build.props ./
 
 # Copy only production project files (tests not needed for API build)
 COPY src/Sazkomat.Core/*.csproj ./src/Sazkomat.Core/
@@ -20,12 +21,9 @@ RUN --mount=type=cache,target=/root/.nuget/packages \
 # Copy everything else
 COPY . .
 
-# Build the API project
-WORKDIR /src/src/Sazkomat.Api
-RUN dotnet build -c Release -o /app/build
-
-# Publish Stage
+# Publish Stage (build is included in publish)
 FROM build AS publish
+WORKDIR /src/src/Sazkomat.Api
 RUN dotnet publish -c Release -o /app/publish /p:UseAppHost=false
 
 # Install Playwright browsers only (no system deps needed in build stage)

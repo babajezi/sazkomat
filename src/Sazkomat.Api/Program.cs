@@ -215,6 +215,7 @@ builder.Services.AddScoped<IDatabaseResetService, DatabaseResetService>();
 builder.Services.AddScoped<ISyncWorkflowService, SyncWorkflowService>();
 builder.Services.AddScoped<IUniversalImportExportService, UniversalImportExportService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<ILeagueSeasonValidationService, LeagueSeasonValidationService>();
 
 // Register DataImport repositories
 builder.Services.AddScoped<IRoundRepository, RoundRepository>();

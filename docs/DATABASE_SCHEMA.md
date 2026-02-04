@@ -88,10 +88,13 @@ PostgreSQL 16 s dvěma schématy:
 | matches_count | integer | NOT NULL, DEFAULT 0 |
 | last_scraped_at | timestamptz | NULL |
 | last_data_sync_at | timestamptz | NULL |
+| is_locked | boolean | NOT NULL, DEFAULT false |
+| locked_at | timestamptz | NULL |
+| last_validated_at | timestamptz | NULL |
 | created_at | timestamptz | NOT NULL |
 | updated_at | timestamptz | NOT NULL |
 
-**Unique Index:** (league_id, season_id)
+**Indexes:** (league_id, season_id) UNIQUE, is_locked
 
 **Enums:**
 - `no_data_reason`: "None", "PageNotFound", "NoRoundsFound", "NoResults", "ParsingError", "NetworkError", "PartialData", "NoRecipeFound"
@@ -433,4 +436,4 @@ PostgreSQL 16 s dvěma schématy:
 
 ---
 
-**Poslední aktualizace:** 2026-02-01
+**Poslední aktualizace:** 2026-02-03

@@ -86,6 +86,17 @@ public class LeagueSeasonConfiguration : IEntityTypeConfiguration<LeagueSeason>
         builder.Property(ls => ls.LastRecipeTestedAt)
             .HasColumnName("last_recipe_tested_at");
 
+        builder.Property(ls => ls.IsLocked)
+            .HasColumnName("is_locked")
+            .IsRequired()
+            .HasDefaultValue(false);
+
+        builder.Property(ls => ls.LockedAt)
+            .HasColumnName("locked_at");
+
+        builder.Property(ls => ls.LastValidatedAt)
+            .HasColumnName("last_validated_at");
+
         builder.Property(ls => ls.CreatedAt)
             .HasColumnName("created_at")
             .IsRequired();
@@ -116,5 +127,6 @@ public class LeagueSeasonConfiguration : IEntityTypeConfiguration<LeagueSeason>
         builder.HasIndex(ls => ls.LastScrapedAt);
         builder.HasIndex(ls => ls.SyncEnabled);
         builder.HasIndex(ls => ls.IsCurrent);
+        builder.HasIndex(ls => ls.IsLocked);
     }
 }

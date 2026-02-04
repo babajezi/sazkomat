@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { seasonApi, syncApi } from "@/lib/api/client";
 import { Button } from "@/components/ui/button";
@@ -12,9 +12,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ChevronDown, ChevronUp, RefreshCw, Download, Loader2, CheckCircle, XCircle } from "lucide-react";
-import type { LeagueSeason, LeagueProvider } from "@/lib/api/types";
-import { SyncMode, ProviderType, NoDataReason } from "@/lib/api/types";
+import { ChevronDown, ChevronUp, RefreshCw, Download, Loader2, CheckCircle, XCircle, Lock, LockOpen, CheckCircle2, AlertTriangle } from "lucide-react";
+import type { LeagueSeason, LeagueProvider, LeagueValidationResult } from "@/lib/api/types";
+import { SyncMode, ProviderType, NoDataReason, IssueSeverity } from "@/lib/api/types";
 
 // Czech translations for NoDataReason
 const noDataReasonLabels: Record<NoDataReason, string> = {
@@ -44,6 +44,11 @@ export function LeagueSeasonsDisplay({ leagueId, leagueProviders }: LeagueSeason
   const [refreshListStatus, setRefreshListStatus] = useState<SyncStatus>("idle");
   const [syncingSeasonId, setSyncingSeasonId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // League-level validation and locking state
+  const [isValidatingLeague, setIsValidatingLeague] = useState(false);
+  const [leagueValidationResult, setLeagueValidationResult] = useState<LeagueValidationResult | null>(null);
+  const [isLockingValid, setIsLockingValid] = useState(false);
+  const [isUnlockingAll, setIsUnlockingAll] = useState(false);
   const queryClient = useQueryClient();
 
   // Check if league has betting provider mapping
@@ -148,6 +153,60 @@ export function LeagueSeasonsDisplay({ leagueId, leagueProviders }: LeagueSeason
       setSyncingSeasonId(null);
       // Reset error after 5 seconds
       setTimeout(() => setErrorMessage(null), 5000);
+    },
+  });
+
+  // League-level validate mutation
+  const validateLeagueMutation = useMutation({
+    mutationFn: () => seasonApi.validateLeague(leagueId),
+    onMutate: () => {
+      setIsValidatingLeague(true);
+      setErrorMessage(null);
+      setLeagueValidationResult(null);
+    },
+    onSuccess: (result) => {
+      setLeagueValidationResult(result);
+      setIsValidatingLeague(false);
+    },
+    onError: (error: Error) => {
+      setErrorMessage(error.message || "League validation failed");
+      setIsValidatingLeague(false);
+    },
+  });
+
+  // League-level lock valid seasons mutation
+  const lockValidMutation = useMutation({
+    mutationFn: () => seasonApi.lockValidSeasons(leagueId),
+    onMutate: () => {
+      setIsLockingValid(true);
+      setErrorMessage(null);
+    },
+    onSuccess: () => {
+      setIsLockingValid(false);
+      setLeagueValidationResult(null);
+      refetch();
+    },
+    onError: (error: Error) => {
+      setErrorMessage(error.message || "Lock failed");
+      setIsLockingValid(false);
+    },
+  });
+
+  // League-level unlock all seasons mutation
+  const unlockAllMutation = useMutation({
+    mutationFn: () => seasonApi.unlockAllSeasons(leagueId),
+    onMutate: () => {
+      setIsUnlockingAll(true);
+      setErrorMessage(null);
+    },
+    onSuccess: () => {
+      setIsUnlockingAll(false);
+      setLeagueValidationResult(null);
+      refetch();
+    },
+    onError: (error: Error) => {
+      setErrorMessage(error.message || "Unlock failed");
+      setIsUnlockingAll(false);
     },
   });
 
@@ -277,6 +336,9 @@ export function LeagueSeasonsDisplay({ leagueId, leagueProviders }: LeagueSeason
     );
   }
 
+  // Count locked seasons for unlock button
+  const lockedSeasonsCount = seasons?.filter(s => s.isLocked).length ?? 0;
+
   return (
     <div className="mt-4 border-t pt-4">
       <div className="flex justify-between items-center mb-3">
@@ -294,6 +356,143 @@ export function LeagueSeasonsDisplay({ leagueId, leagueProviders }: LeagueSeason
           </Button>
         </div>
       </div>
+
+      {/* League-level validation buttons */}
+      {seasons && seasons.length > 0 && (
+        <div className="mb-3 flex flex-wrap gap-2 items-center">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => validateLeagueMutation.mutate()}
+            disabled={isValidatingLeague}
+          >
+            {isValidatingLeague ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Validuji...
+              </>
+            ) : (
+              <>
+                <CheckCircle2 className="mr-2 h-4 w-4" />
+                Validovat ligu
+              </>
+            )}
+          </Button>
+
+          {leagueValidationResult && leagueValidationResult.canLockCount > 0 && (
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => lockValidMutation.mutate()}
+              disabled={isLockingValid}
+              className="bg-purple-600 hover:bg-purple-700"
+            >
+              {isLockingValid ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Zamykám...
+                </>
+              ) : (
+                <>
+                  <Lock className="mr-2 h-4 w-4" />
+                  Zamknout validní ({leagueValidationResult.canLockCount})
+                </>
+              )}
+            </Button>
+          )}
+
+          {lockedSeasonsCount > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => unlockAllMutation.mutate()}
+              disabled={isUnlockingAll}
+              className="text-purple-600 border-purple-300 hover:bg-purple-50"
+            >
+              {isUnlockingAll ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Odemykám...
+                </>
+              ) : (
+                <>
+                  <LockOpen className="mr-2 h-4 w-4" />
+                  Odemknout vše ({lockedSeasonsCount})
+                </>
+              )}
+            </Button>
+          )}
+        </div>
+      )}
+
+      {/* League validation results panel */}
+      {leagueValidationResult && (
+        <div className="mb-3 p-3 rounded border bg-gray-50">
+          <div className="flex flex-wrap gap-4 text-sm mb-2">
+            <span className="flex items-center gap-1">
+              <CheckCircle className="h-4 w-4 text-green-600" />
+              <span className="font-medium">{leagueValidationResult.validSeasons}</span> OK
+            </span>
+            <span className="flex items-center gap-1">
+              <AlertTriangle className="h-4 w-4 text-amber-500" />
+              <span className="font-medium">{leagueValidationResult.seasonsWithWarnings}</span> varování
+            </span>
+            <span className="flex items-center gap-1">
+              <XCircle className="h-4 w-4 text-red-600" />
+              <span className="font-medium">{leagueValidationResult.seasonsWithErrors}</span> chyb
+            </span>
+            {leagueValidationResult.alreadyLockedCount > 0 && (
+              <span className="flex items-center gap-1">
+                <Lock className="h-4 w-4 text-purple-600" />
+                <span className="font-medium">{leagueValidationResult.alreadyLockedCount}</span> již zamčeno
+              </span>
+            )}
+          </div>
+
+          {/* Show seasons with issues */}
+          {leagueValidationResult.seasonResults.filter(sr => sr.issues.length > 0).length > 0 && (
+            <details className="text-sm">
+              <summary className="cursor-pointer text-gray-600 hover:text-gray-900">
+                Zobrazit detaily ({leagueValidationResult.seasonResults.filter(sr => sr.issues.length > 0).length} sezón s problémy)
+              </summary>
+              <div className="mt-2 space-y-2 max-h-48 overflow-y-auto">
+                {leagueValidationResult.seasonResults
+                  .filter(sr => sr.issues.length > 0)
+                  .map(sr => (
+                    <div key={sr.seasonId} className="p-2 bg-white rounded border">
+                      <div className="font-medium flex items-center gap-2">
+                        {sr.seasonName}
+                        {sr.canBeLocked ? (
+                          <span className="text-xs bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded">
+                            varování
+                          </span>
+                        ) : (
+                          <span className="text-xs bg-red-100 text-red-800 px-1.5 py-0.5 rounded">
+                            chyba
+                          </span>
+                        )}
+                      </div>
+                      <ul className="mt-1 text-xs text-gray-600">
+                        {sr.issues.map((issue, idx) => (
+                          <li key={idx} className={`flex items-center gap-1 ${
+                            issue.severity === IssueSeverity.Error ? "text-red-600" : "text-amber-600"
+                          }`}>
+                            {issue.severity === IssueSeverity.Error ? (
+                              <XCircle className="h-3 w-3" />
+                            ) : (
+                              <AlertTriangle className="h-3 w-3" />
+                            )}
+                            {issue.message}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+              </div>
+            </details>
+          )}
+        </div>
+      )}
 
       {/* Error message */}
       {errorMessage && (
@@ -360,7 +559,14 @@ interface SeasonRowProps {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
-function SeasonRow({ season, leagueId, onToggleSync, isToggling, onSyncSeason, isSyncing }: SeasonRowProps) {
+function SeasonRow({
+  season,
+  leagueId,
+  onToggleSync,
+  isToggling,
+  onSyncSeason,
+  isSyncing,
+}: SeasonRowProps) {
   const [showWarning, setShowWarning] = useState(false);
   const [showRounds, setShowRounds] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
@@ -427,11 +633,15 @@ function SeasonRow({ season, leagueId, onToggleSync, isToggling, onSyncSeason, i
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <span className="font-medium">{season.seasonName}</span>
-            {season.isCurrent && (
+            {season.isCurrent ? (
               <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">
                 Aktuální
               </span>
-            )}
+            ) : season.startYear > new Date().getFullYear() ? (
+              <span className="text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded">
+                Budoucí
+              </span>
+            ) : null}
             <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
               {season.syncMode}
             </span>
@@ -450,6 +660,12 @@ function SeasonRow({ season, leagueId, onToggleSync, isToggling, onSyncSeason, i
                 ✗ {noDataReasonLabels[season.noDataReason]}
               </span>
             )}
+            {season.isLocked && (
+              <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded flex items-center gap-1">
+                <Lock className="h-3 w-3" />
+                Zamknuto {season.lockedAt && new Date(season.lockedAt).toLocaleDateString("cs-CZ")}
+              </span>
+            )}
           </div>
           {/* Note for partial data or error */}
           {season.noDataNote && (
@@ -459,12 +675,13 @@ function SeasonRow({ season, leagueId, onToggleSync, isToggling, onSyncSeason, i
           )}
           <div className="flex flex-col gap-1 items-end">
             <div className="flex gap-1">
+              {/* Sync button - disabled when locked */}
               <Button
                 variant="outline"
                 size="sm"
                 onClick={onSyncSeason}
-                disabled={isSyncing}
-                title="Synchronizovat tuto sezónu (force)"
+                disabled={isSyncing || season.isLocked}
+                title={season.isLocked ? "Sezóna je zamčená" : "Synchronizovat tuto sezónu (force)"}
               >
                 {isSyncing ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -472,11 +689,13 @@ function SeasonRow({ season, leagueId, onToggleSync, isToggling, onSyncSeason, i
                   <RefreshCw className="h-4 w-4" />
                 )}
               </Button>
+
               <Button
                 variant={season.syncEnabled ? "default" : "outline"}
                 size="sm"
                 onClick={handleToggleClick}
-                disabled={isToggling}
+                disabled={isToggling || season.isLocked}
+                title={season.isLocked ? "Sezóna je zamčená" : undefined}
               >
                 {season.syncEnabled ? "✓ Sync ON" : "○ Sync OFF"}
               </Button>

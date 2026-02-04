@@ -96,6 +96,42 @@ export enum NoDataReason {
   NoResults = "NoResults"
 }
 
+export enum IssueSeverity {
+  Warning = "Warning",
+  Error = "Error"
+}
+
+export interface ValidationIssue {
+  code: string;
+  message: string;
+  severity: IssueSeverity;
+}
+
+export interface LeagueSeasonValidationResult {
+  isValid: boolean;
+  canBeLocked: boolean;
+  issues: ValidationIssue[];
+}
+
+// League-level validation types
+export interface SeasonValidationResultItem {
+  seasonId: string;
+  seasonName: string;
+  isValid: boolean;
+  canBeLocked: boolean;
+  issues: ValidationIssue[];
+}
+
+export interface LeagueValidationResult {
+  totalSeasons: number;
+  validSeasons: number;
+  seasonsWithWarnings: number;
+  seasonsWithErrors: number;
+  canLockCount: number;
+  alreadyLockedCount: number;
+  seasonResults: SeasonValidationResultItem[];
+}
+
 export enum SyncType {
   Countries = "Countries",
   Leagues = "Leagues",
@@ -257,6 +293,10 @@ export interface LeagueSeason {
   syncMode: SyncMode;
   lastDataSyncAt?: string | null;
   lastSuccessfulRecipeName?: string | null;
+  // Validation and locking
+  isLocked: boolean;
+  lockedAt?: string | null;
+  lastValidatedAt?: string | null;
 }
 
 export interface AvailableSeason extends Season {
