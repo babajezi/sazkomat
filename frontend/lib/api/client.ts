@@ -61,6 +61,8 @@ import type {
   TestRecipeRequest,
   TestRecipeResponse,
   RecipeStats,
+  // Validation types
+  LeagueValidationResult,
 } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
@@ -379,6 +381,28 @@ export const seasonApi = {
       `/config/seasons/league-seasons/${leagueSeasonId}/sync-enabled`,
       request
     );
+  },
+
+  // League-level validation endpoints
+  validateLeague: async (leagueId: string): Promise<LeagueValidationResult> => {
+    const { data } = await apiClient.post<LeagueValidationResult>(
+      `/config/leagues/${leagueId}/validate`
+    );
+    return data;
+  },
+
+  lockValidSeasons: async (leagueId: string): Promise<{ message: string; lockedCount: number }> => {
+    const { data } = await apiClient.post<{ message: string; lockedCount: number }>(
+      `/config/leagues/${leagueId}/lock`
+    );
+    return data;
+  },
+
+  unlockAllSeasons: async (leagueId: string): Promise<{ message: string; unlockedCount: number }> => {
+    const { data } = await apiClient.post<{ message: string; unlockedCount: number }>(
+      `/config/leagues/${leagueId}/unlock`
+    );
+    return data;
   },
 };
 
