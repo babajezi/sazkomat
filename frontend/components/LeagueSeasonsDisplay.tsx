@@ -633,18 +633,19 @@ function SeasonRow({
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <span className="font-medium">{season.seasonName}</span>
-            {season.isCurrent ? (
+            {season.syncMode === SyncMode.Current ? (
               <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">
                 Aktuální
               </span>
-            ) : season.startYear > new Date().getFullYear() ? (
-              <span className="text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded">
+            ) : season.syncMode === SyncMode.Future ? (
+              <span className="text-xs bg-purple-100 text-purple-800 px-2 py-0.5 rounded">
                 Budoucí
               </span>
-            ) : null}
-            <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
-              {season.syncMode}
-            </span>
+            ) : (
+              <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
+                Historická
+              </span>
+            )}
             {season.hasData && season.noDataReason !== NoDataReason.PartialData && (
               <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">
                 ✓ Data

@@ -82,7 +82,8 @@ export enum ImportJobType {
 
 export enum SyncMode {
   Historical = "Historical",
-  Current = "Current"
+  Current = "Current",
+  Future = "Future"
 }
 
 export enum NoDataReason {
