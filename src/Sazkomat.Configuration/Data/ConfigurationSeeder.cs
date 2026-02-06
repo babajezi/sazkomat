@@ -21,9 +21,11 @@ public static class ConfigurationSeeder
         if (betExplorer != null)
         {
             var needsUpdate = false;
-            if (string.IsNullOrEmpty(betExplorer.CurrentSeasonPatterns) || betExplorer.CurrentSeasonPatterns == "[]")
+            // Only set default patterns if completely empty (null/empty string)
+            // Empty array "[]" is a valid state - means pure automatic detection
+            if (string.IsNullOrEmpty(betExplorer.CurrentSeasonPatterns))
             {
-                betExplorer.CurrentSeasonPatterns = "[\"2025\",\"2025-2026\"]";
+                betExplorer.CurrentSeasonPatterns = "[]";
                 needsUpdate = true;
             }
             if (betExplorer.ScanCapabilities != BetExplorerCapabilities)
@@ -50,7 +52,7 @@ public static class ConfigurationSeeder
                 IsActive = true,
                 Priority = 10,
                 Type = ProviderType.Scraper,
-                CurrentSeasonPatterns = "[\"2025\",\"2025-2026\"]",
+                CurrentSeasonPatterns = "[]", // Empty = automatic detection based on year
                 ScanCapabilities = BetExplorerCapabilities
             };
             context.DataProviders.Add(betExplorer);

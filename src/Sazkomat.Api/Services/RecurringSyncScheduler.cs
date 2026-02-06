@@ -32,6 +32,22 @@ public class RecurringSyncScheduler : IHostedService
             // This can be enabled/disabled via configuration
             var enableLiveSync = _configuration.GetValue<bool>("Hangfire:EnableRecurringLiveSync", false);
 
+            // Schedule current season detection job - runs daily at 6:00 UTC
+            // This automatically updates SyncMode based on:
+            // - Current year for single-year seasons (2026 = Current in year 2026)
+            // - Next season having data for split seasons (2025-2026 = Historical if 2026-2027 has data)
+            _recurringJobManager.AddOrUpdate<ISeasonSyncService>(
+                "detect-current-seasons",
+                service => service.DetectAndMarkCurrentSeasonsAsync(
+                    Guid.Parse("a0000000-0000-0000-0000-000000000001")), // BetExplorer provider
+                Cron.Daily(6, 0), // Every day at 6:00 UTC
+                new RecurringJobOptions
+                {
+                    TimeZone = TimeZoneInfo.Utc
+                });
+
+            _logger.LogInformation("Scheduled recurring current season detection job (daily at 6:00 UTC)");
+
             if (enableLiveSync)
             {
                 var cronExpression = _configuration.GetValue<string>("Hangfire:LiveSyncCronExpression")

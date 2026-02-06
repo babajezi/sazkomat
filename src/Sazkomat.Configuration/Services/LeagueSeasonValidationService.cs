@@ -47,12 +47,26 @@ public class LeagueSeasonValidationService : ILeagueSeasonValidationService
         // Rule 1: Historical season without data
         if (leagueSeason.SyncMode == SyncMode.Historical && !leagueSeason.HasData)
         {
-            result.Issues.Add(new ValidationIssue
+            if (leagueSeason.LastDataSyncAt == null)
             {
-                Code = "NO_DATA",
-                Message = "Historická sezóna nemá žádná data",
-                Severity = IssueSeverity.Error
-            });
+                // Sync neproběhl vůbec → Error (blokující)
+                result.Issues.Add(new ValidationIssue
+                {
+                    Code = "NOT_SYNCED",
+                    Message = "Historická sezóna nebyla synchronizována",
+                    Severity = IssueSeverity.Error
+                });
+            }
+            else
+            {
+                // Sync proběhl, ale prázdný výsledek → Warning (lze zamknout)
+                result.Issues.Add(new ValidationIssue
+                {
+                    Code = "NO_DATA_AFTER_SYNC",
+                    Message = "Sezóna byla zpracována, ale nemá žádná data (může být legitimní pro staré sezóny)",
+                    Severity = IssueSeverity.Warning
+                });
+            }
         }
 
         // Rule 2: Parsing error

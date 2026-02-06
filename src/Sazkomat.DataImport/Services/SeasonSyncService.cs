@@ -61,14 +61,13 @@ public class SeasonSyncService : ISeasonSyncService
                 return Result.Failure("Provider not found");
             }
 
-            // Parse current season patterns
-            var patterns = JsonSerializer.Deserialize<string[]>(provider.CurrentSeasonPatterns);
-            if (patterns == null || patterns.Length == 0)
-            {
-                return Result.Failure("No current season patterns defined for provider");
-            }
+            // Parse current season patterns (used as override)
+            var patterns = JsonSerializer.Deserialize<string[]>(provider.CurrentSeasonPatterns) ?? Array.Empty<string>();
+            var currentYear = DateTime.UtcNow.Year;
 
-            _logger.LogInformation("Current season patterns: {Patterns}", string.Join(", ", patterns));
+            _logger.LogInformation(
+                "Current season detection: Year={Year}, Override patterns: [{Patterns}]",
+                currentYear, string.Join(", ", patterns));
 
             // Get all active leagues
             var leagues = await _leagueRepository.GetAllAsync();
@@ -81,34 +80,17 @@ public class SeasonSyncService : ISeasonSyncService
             // For each active league, check its seasons
             foreach (var league in activeLeagues)
             {
-                var leagueSeasons = await _leagueSeasonRepository.GetByLeagueIdAsync(league.Id, includeRelations: true);
-
-                // First, find the current season (matching patterns)
-                var currentSeason = leagueSeasons
-                    .Where(ls => ls.Season != null)
-                    .FirstOrDefault(ls => patterns.Contains(ls.Season!.Name, StringComparer.OrdinalIgnoreCase));
-
-                var currentSeasonStartYear = currentSeason?.Season?.StartYear;
+                var leagueSeasons = (await _leagueSeasonRepository.GetByLeagueIdAsync(league.Id, includeRelations: true))
+                    .OrderByDescending(ls => ls.Season?.StartYear ?? 0)
+                    .ToList();
 
                 foreach (var leagueSeason in leagueSeasons)
                 {
                     var season = leagueSeason.Season;
                     if (season == null) continue;
 
-                    // Check if season name matches any of the patterns
-                    var isCurrent = patterns.Contains(season.Name, StringComparer.OrdinalIgnoreCase);
-
-                    // Check if season is in the future (StartYear > current season's StartYear)
-                    var isFuture = currentSeasonStartYear.HasValue && season.StartYear > currentSeasonStartYear.Value;
-
-                    // Update IsCurrent and SyncMode
-                    SyncMode newSyncMode;
-                    if (isFuture)
-                        newSyncMode = SyncMode.Future;
-                    else if (isCurrent)
-                        newSyncMode = SyncMode.Current;
-                    else
-                        newSyncMode = SyncMode.Historical;
+                    var newSyncMode = DetermineSyncMode(season, patterns, currentYear, leagueSeasons);
+                    var isCurrent = newSyncMode == SyncMode.Current;
 
                     // Only update if values changed
                     if (leagueSeason.IsCurrent != isCurrent || leagueSeason.SyncMode != newSyncMode)
@@ -138,6 +120,76 @@ public class SeasonSyncService : ISeasonSyncService
             _logger.LogError(ex, "Error detecting current seasons");
             return Result.Failure($"Error detecting current seasons: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// Determines the SyncMode for a season using smart detection logic:
+    /// 1. Pattern override - if season matches CurrentSeasonPatterns, it's Current
+    /// 2. Future check - if startYear > currentYear, it's Future
+    /// 3. Single year seasons (e.g., 2026) - Current if currentYear == startYear
+    /// 4. Split seasons (e.g., 2025-2026):
+    ///    - Current if currentYear == endYear (we're in spring of the season)
+    ///    - Future if currentYear == startYear (season hasn't started yet - fall)
+    ///    - Historical if next season has data
+    /// </summary>
+    private SyncMode DetermineSyncMode(
+        Season season,
+        string[] patterns,
+        int currentYear,
+        List<LeagueSeason> allLeagueSeasons)
+    {
+        // 1. Pattern override - admin can force a season to be Current
+        if (patterns.Contains(season.Name, StringComparer.OrdinalIgnoreCase))
+            return SyncMode.Current;
+
+        // 2. Future check - startYear is strictly after currentYear
+        if (season.StartYear > currentYear)
+            return SyncMode.Future;
+
+        var isSplitSeason = season.EndYear.HasValue && season.StartYear != season.EndYear.Value;
+
+        if (isSplitSeason)
+        {
+            // Split season (e.g., 2025-2026): plays from fall of startYear to spring of endYear
+
+            // If currentYear == startYear → season hasn't started yet (Future)
+            // Example: In Feb 2026, season 2026-2027 is Future (starts in fall 2026)
+            if (currentYear == season.StartYear)
+                return SyncMode.Future;
+
+            // If currentYear == endYear → we're in the middle of the season (Current)
+            // Example: In Feb 2026, season 2025-2026 is Current (ends in spring 2026)
+            if (currentYear == season.EndYear.Value)
+            {
+                // But check if NEXT season already has data → this one is done
+                var nextSeasonStartYear = season.StartYear + 1;
+                var nextSeason = allLeagueSeasons
+                    .FirstOrDefault(ls => ls.Season?.StartYear == nextSeasonStartYear);
+
+                if (nextSeason?.HasData == true)
+                    return SyncMode.Historical;
+
+                return SyncMode.Current;
+            }
+        }
+        else
+        {
+            // Single year season (e.g., 2026): plays within one calendar year (spring to fall)
+            if (currentYear == season.StartYear)
+            {
+                // Check if next season has data → this one is done
+                var nextSeasonStartYear = season.StartYear + 1;
+                var nextSeason = allLeagueSeasons
+                    .FirstOrDefault(ls => ls.Season?.StartYear == nextSeasonStartYear);
+
+                if (nextSeason?.HasData == true)
+                    return SyncMode.Historical;
+
+                return SyncMode.Current;
+            }
+        }
+
+        return SyncMode.Historical;
     }
 
     public async Task<Result<SyncResponse>> SyncSeasonDataAsync(
@@ -508,30 +560,40 @@ public class SeasonSyncService : ISeasonSyncService
                 return RecipeScrapeAttempt.Succeeded(recipe.Name, scrapeResult, triedRecipes);
             }
 
-            // Page exists but has no rounds - don't fallback to other recipes!
-            // NoRoundsFound = has match results but no round headers
-            // NoResults = empty page with no match results at all
-            var isNoRoundsOrNoResults = scrapeResult.FailureReason == NoDataReason.NoRoundsFound ||
-                                        scrapeResult.FailureReason == NoDataReason.NoResults;
+            // NoRoundsFound = page has match results but no round headers → TRY fallback (might be wrong tab, e.g. Main vs Apertura)
+            // NoResults = empty page with no match results → TRY fallback (might be wrong tab selection)
+            var isNoRoundsFound = scrapeResult.FailureReason == NoDataReason.NoRoundsFound;
+            var isNoResults = scrapeResult.FailureReason == NoDataReason.NoResults;
 
             _logger.LogInformation(
-                "Recipe '{RecipeName}' decision: FailureReason={Reason}, IsNoRoundsOrNoResults={IsNoRoundsOrNoResults}",
-                recipe.Name, scrapeResult.FailureReason, isNoRoundsOrNoResults);
+                "Recipe '{RecipeName}' decision: FailureReason={Reason}, NoRoundsFound={NoRoundsFound}, NoResults={NoResults}",
+                recipe.Name, scrapeResult.FailureReason, isNoRoundsFound, isNoResults);
 
-            if (isNoRoundsOrNoResults)
+            if (isNoRoundsFound)
             {
-                var reasonText = scrapeResult.FailureReason == NoDataReason.NoRoundsFound
-                    ? $"Page has {scrapeResult.TotalMatchRowsFound} match results but no round structure"
-                    : "Page exists but has no match results";
-
+                // Page has match data but no round structure - could be wrong tab selection (e.g., Main vs Apertura/Clausura)
+                // Try fallback recipes to see if different tab structure works
                 _logger.LogInformation(
-                    "Recipe '{RecipeName}' for {League} {Season}: {Reason}. Not trying fallback recipes.",
-                    recipe.Name, league.DisplayName, season.Name, reasonText);
+                    "Recipe '{RecipeName}' for {League} {Season}: Page has {MatchCount} match results but no round structure. Trying fallback recipes.",
+                    recipe.Name, league.DisplayName, season.Name, scrapeResult.TotalMatchRowsFound);
 
-                // Still save the recipe - it successfully determined the page state
-                leagueSeason.LastSuccessfulRecipeId = recipe.Id;
-                leagueSeason.LastRecipeTestedAt = DateTime.UtcNow;
-                await _leagueSeasonRepository.UpdateAsync(leagueSeason);
+                await _recipeRepository.IncrementStatsAsync(recipe.Id, success: false);
+                triedRecipes.Add(new TriedRecipeInfo
+                {
+                    RecipeId = recipe.Id,
+                    RecipeName = recipe.Name,
+                    Error = $"No round structure found ({scrapeResult.TotalMatchRowsFound} matches), trying fallback",
+                    DurationMs = execResult.DurationMs
+                });
+                continue;
+            }
+
+            if (isNoResults)
+            {
+                // Page has no match results - try fallback recipes (could be wrong tab selection)
+                _logger.LogInformation(
+                    "Recipe '{RecipeName}' for {League} {Season}: No results found. Trying fallback recipes.",
+                    recipe.Name, league.DisplayName, season.Name);
 
                 await _recipeRepository.IncrementStatsAsync(recipe.Id, success: false);
 
@@ -539,15 +601,12 @@ public class SeasonSyncService : ISeasonSyncService
                 {
                     RecipeId = recipe.Id,
                     RecipeName = recipe.Name,
-                    Error = reasonText,
+                    Error = "No results found, trying fallback",
                     DurationMs = execResult.DurationMs
                 });
 
-                // Return with the scrape result - it contains the correct FailureReason
-                _logger.LogInformation(
-                    "Returning FailedWithResult with FailureReason={Reason}",
-                    scrapeResult.FailureReason);
-                return RecipeScrapeAttempt.FailedWithResult(scrapeResult, triedRecipes);
+                // Continue to next recipe
+                continue;
             }
 
             // Parsing failed - try next recipe

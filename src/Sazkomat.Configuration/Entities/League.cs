@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations.Schema;
 using Sazkomat.Core.Entities;
 
 namespace Sazkomat.Configuration.Entities;
@@ -15,6 +16,13 @@ public class League : Entity
     public bool IsActive { get; set; } = true;
     public int Priority { get; set; } = 5;
     public string? Notes { get; set; }
+
+    // Aggregated season stats (not mapped to database)
+    [NotMapped]
+    public int HistoricalSeasonsCount { get; set; }
+
+    [NotMapped]
+    public int LockedSeasonsCount { get; set; }
 
     // Navigation
     public Sport Sport { get; set; } = null!;

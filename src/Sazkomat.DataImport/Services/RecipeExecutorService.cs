@@ -126,6 +126,71 @@ public class RecipeExecutorService
         {
             _logger.LogDebug("Parsing HTML with recipe '{RecipeName}' rules", recipe.Name);
 
+            // Check for stage markers (e.g., <!-- STAGE: First Stage -->)
+            // Used by First/Second Stage recipe for leagues like Argentina Reserve League
+            var stageMarkerRegex = new Regex(@"<!-- STAGE: (.+?) -->");
+            var stageMatches = stageMarkerRegex.Matches(html);
+
+            if (stageMatches.Count > 0)
+            {
+                _logger.LogInformation("Found {StageCount} stage markers in HTML", stageMatches.Count);
+
+                var allRounds = new List<Round>();
+                var totalHeaders = 0;
+                var totalMatches = 0;
+
+                // Split HTML by stage markers and parse each section
+                var sections = stageMarkerRegex.Split(html);
+                // sections[0] = text before first marker (ignore)
+                // sections[1] = stage name, sections[2] = HTML content
+                // sections[3] = stage name, sections[4] = HTML content, etc.
+
+                for (int i = 1; i < sections.Length; i += 2)
+                {
+                    var stageName = sections[i].Trim();
+                    var stageHtml = i + 1 < sections.Length ? sections[i + 1] : "";
+
+                    if (string.IsNullOrWhiteSpace(stageHtml))
+                    {
+                        _logger.LogWarning("Stage '{StageName}' has no content", stageName);
+                        continue;
+                    }
+
+                    _logger.LogInformation("Parsing stage '{StageName}' with {Size} characters", stageName, stageHtml.Length);
+
+                    // Parse this stage's HTML with stage name as prefix for GroupName
+                    var stageResult = ParseHtmlWithRulesInternal(stageHtml, recipe, leagueId, season, stageName);
+                    allRounds.AddRange(stageResult.Rounds);
+                    totalHeaders += stageResult.TotalRoundHeadersFound;
+                    totalMatches += stageResult.TotalMatchRowsFound;
+
+                    _logger.LogInformation("Stage '{StageName}': {RoundCount} rounds, {HeaderCount} headers, {MatchCount} matches",
+                        stageName, stageResult.Rounds.Count, stageResult.TotalRoundHeadersFound, stageResult.TotalMatchRowsFound);
+                }
+
+                _logger.LogInformation("Recipe parsing completed: {RoundCount} rounds, {HeaderCount} headers, {MatchCount} match rows found",
+                    allRounds.Count, totalHeaders, totalMatches);
+
+                return ScrapeResult.Success(allRounds, totalHeaders, totalMatches);
+            }
+
+            // No stage markers - parse normally
+            return ParseHtmlWithRulesInternal(html, recipe, leagueId, season, null);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error parsing HTML with recipe rules");
+            return ScrapeResult.ParsingError(ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Internal parsing method that handles a single HTML section (optionally with a stage prefix for GroupName).
+    /// </summary>
+    private ScrapeResult ParseHtmlWithRulesInternal(string html, ScraperRecipe recipe, Guid leagueId, string season, string? stageName)
+    {
+        try
+        {
             var doc = new HtmlDocument();
             doc.LoadHtml(html);
 
@@ -219,7 +284,9 @@ public class RecipeExecutorService
 
                     if (matches.Any())
                     {
-                        var round = CreateRoundFromMatches(leagueId, roundNumber, groupName, matches);
+                        // Combine stageName with groupName if both present
+                        var effectiveGroupName = GetEffectiveGroupName(stageName, groupName);
+                        var round = CreateRoundFromMatches(leagueId, roundNumber, effectiveGroupName, matches);
                         rounds.Add(round);
                     }
                 }
@@ -235,9 +302,20 @@ public class RecipeExecutorService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error parsing HTML with recipe '{RecipeName}'", recipe.Name);
+            _logger.LogError(ex, "Error parsing HTML with recipe rules");
             return ScrapeResult.ParsingError(ex.Message);
         }
+    }
+
+    /// <summary>
+    /// Gets the effective group name, combining stage name and group name if both present.
+    /// </summary>
+    private static string? GetEffectiveGroupName(string? stageName, string? groupName)
+    {
+        if (stageName == null && groupName == null) return null;
+        if (stageName == null) return groupName;
+        if (groupName == null) return stageName;
+        return $"{stageName} - {groupName}";
     }
 
     private string ReplaceVariables(string input, Dictionary<string, string> variables)
@@ -485,7 +563,7 @@ public class RecipeExecutorService
 
     private Round CreateRoundFromMatches(Guid leagueId, int roundNumber, string? groupName, List<MatchResult> matches)
     {
-        const int maxMatchesPerRound = 15;
+        const int maxMatchesPerRound = 17;
         if (matches.Count > maxMatchesPerRound)
         {
             var groupInfo = groupName != null ? $" (Group: {groupName})" : "";

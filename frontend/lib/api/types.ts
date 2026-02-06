@@ -212,6 +212,9 @@ export interface League {
   sport?: Sport;
   country?: Country;
   leagueProviders?: LeagueProvider[];
+  // Aggregated season stats
+  historicalSeasonsCount?: number;
+  lockedSeasonsCount?: number;
 }
 
 export interface LeagueProvider {

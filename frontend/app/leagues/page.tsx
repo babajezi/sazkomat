@@ -27,6 +27,13 @@ import { useLanguage } from "@/contexts/UserContext";
 import type { League, LeagueProvider } from "@/lib/api/types";
 import { ProviderType, BooleanFilterValue, HasProvidersFilter } from "@/lib/api/types";
 
+enum LockFilter {
+  All = "",
+  FullyLocked = "fully",
+  PartiallyLocked = "partial",
+  NotLocked = "none"
+}
+
 export default function LeaguesPage() {
   const queryClient = useQueryClient();
   const { language } = useLanguage();
@@ -42,6 +49,7 @@ export default function LeaguesPage() {
   const [filterBettable, setFilterBettable] = useState<string>("");
   const [filterHasProviders, setFilterHasProviders] = useState<string>(HasProvidersFilter.All);
   const [filterProviderId, setFilterProviderId] = useState<string>("");
+  const [filterLockStatus, setFilterLockStatus] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState<string>("");
 
   const { data: leagues, isLoading, error } = useQuery({
@@ -242,6 +250,21 @@ export default function LeaguesPage() {
       }
     }
 
+    // Filtr podle stavu zamčení sezón
+    if (filterLockStatus === LockFilter.FullyLocked) {
+      const historical = league.historicalSeasonsCount ?? 0;
+      const locked = league.lockedSeasonsCount ?? 0;
+      if (!(locked === historical && historical > 0)) return false;
+    }
+    if (filterLockStatus === LockFilter.PartiallyLocked) {
+      const historical = league.historicalSeasonsCount ?? 0;
+      const locked = league.lockedSeasonsCount ?? 0;
+      if (!(locked > 0 && locked < historical)) return false;
+    }
+    if (filterLockStatus === LockFilter.NotLocked) {
+      if ((league.lockedSeasonsCount ?? 0) !== 0) return false;
+    }
+
     return true;
   });
 
@@ -327,7 +350,7 @@ export default function LeaguesPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-8 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="filter-sport">Sport</Label>
                   <select
@@ -455,6 +478,21 @@ export default function LeaguesPage() {
                   </select>
                 </div>
 
+                <div className="grid gap-2">
+                  <Label htmlFor="filter-lock-status">Zamčení</Label>
+                  <select
+                    id="filter-lock-status"
+                    value={filterLockStatus}
+                    onChange={(e) => { setFilterLockStatus(e.target.value); setPage(0); }}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <option value={LockFilter.All}>Vše</option>
+                    <option value={LockFilter.FullyLocked}>Plně zamčené</option>
+                    <option value={LockFilter.PartiallyLocked}>Částečně zamčené</option>
+                    <option value={LockFilter.NotLocked}>Nezamčené</option>
+                  </select>
+                </div>
+
                 <div className="grid gap-2 items-end">
                   <Button
                     variant="outline"
@@ -466,6 +504,7 @@ export default function LeaguesPage() {
                       setFilterBettable("");
                       setFilterHasProviders("");
                       setFilterProviderId("");
+                      setFilterLockStatus("");
                       setPage(0);
                     }}
                     className="w-full"
@@ -523,6 +562,31 @@ export default function LeaguesPage() {
                       <Badge variant={league.isActive ? "default" : "outline"}>
                         {league.isActive ? "Aktivní" : "Neaktivní"}
                       </Badge>
+                      {/* Lock status icon */}
+                      {(() => {
+                        const historical = league.historicalSeasonsCount ?? 0;
+                        const locked = league.lockedSeasonsCount ?? 0;
+                        if (historical > 0 && locked === historical) {
+                          return (
+                            <span
+                              className="text-green-600 text-lg cursor-help"
+                              title={`Plně zamčeno: ${locked}/${historical} sezón`}
+                            >
+                              🔒
+                            </span>
+                          );
+                        } else if (locked > 0 && locked < historical) {
+                          return (
+                            <span
+                              className="text-yellow-600 text-lg cursor-help"
+                              title={`Částečně zamčeno: ${locked}/${historical} sezón`}
+                            >
+                              🔓
+                            </span>
+                          );
+                        }
+                        return null;
+                      })()}
                     </CardTitle>
                     <CardDescription>
                       {getSportName(league.sportId)} • Priorita:{" "}

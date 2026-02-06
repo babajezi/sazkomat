@@ -46,7 +46,32 @@ public class LeagueRepository : ILeagueRepository
             query = query.Where(l => l.IsActive);
         }
 
-        return await query.ToListAsync();
+        var leagues = await query.ToListAsync();
+
+        // Load aggregated season stats
+        if (leagues.Count > 0)
+        {
+            var leagueIds = leagues.Select(l => l.Id).ToList();
+            var seasonStats = await _context.LeagueSeasons
+                .Where(ls => leagueIds.Contains(ls.LeagueId))
+                .GroupBy(ls => ls.LeagueId)
+                .Select(g => new
+                {
+                    LeagueId = g.Key,
+                    HistoricalCount = g.Count(ls => ls.SyncMode == SyncMode.Historical),
+                    LockedCount = g.Count(ls => ls.IsLocked)
+                })
+                .ToListAsync();
+
+            foreach (var league in leagues)
+            {
+                var stats = seasonStats.FirstOrDefault(s => s.LeagueId == league.Id);
+                league.HistoricalSeasonsCount = stats?.HistoricalCount ?? 0;
+                league.LockedSeasonsCount = stats?.LockedCount ?? 0;
+            }
+        }
+
+        return leagues;
     }
 
     public async Task<League?> GetByIdAsync(Guid id)

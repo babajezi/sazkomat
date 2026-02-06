@@ -89,6 +89,59 @@ public class FootballBetExplorerScraper : ILeagueScraper
 
         _logger.LogDebug("HTML downloaded, size: {Size} characters", html.Length);
 
+        // Check for stage markers (e.g., <!-- STAGE: First Stage -->)
+        // Used by First/Second Stage recipe for leagues like Argentina Reserve League
+        var stageMarkerRegex = new System.Text.RegularExpressions.Regex(@"<!-- STAGE: (.+?) -->");
+        var stageMatches = stageMarkerRegex.Matches(html);
+
+        if (stageMatches.Count > 0)
+        {
+            _logger.LogInformation("Found {StageCount} stage markers in HTML", stageMatches.Count);
+
+            // Split HTML by stage markers and parse each section
+            var sections = stageMarkerRegex.Split(html);
+            // sections[0] = text before first marker (ignore)
+            // sections[1] = stage name, sections[2] = HTML content
+            // sections[3] = stage name, sections[4] = HTML content, etc.
+
+            for (int i = 1; i < sections.Length; i += 2)
+            {
+                var stageName = sections[i].Trim();
+                var stageHtml = i + 1 < sections.Length ? sections[i + 1] : "";
+
+                if (string.IsNullOrWhiteSpace(stageHtml))
+                {
+                    _logger.LogWarning("Stage '{StageName}' has no content", stageName);
+                    continue;
+                }
+
+                _logger.LogInformation("Parsing stage '{StageName}' with {Size} characters", stageName, stageHtml.Length);
+
+                // Parse this stage's HTML with stage name as group prefix
+                var (stageRounds, stageHeaders) = ParseHtmlContentWithStage(stageHtml, leagueId, season, stageName);
+                rounds.AddRange(stageRounds);
+                totalRoundHeadersFound += stageHeaders;
+
+                _logger.LogInformation("Stage '{StageName}': {RoundCount} rounds, {HeaderCount} headers",
+                    stageName, stageRounds.Count, stageHeaders);
+            }
+
+            return (rounds, totalRoundHeadersFound);
+        }
+
+        // No stage markers - parse normally
+        return ParseHtmlContentWithStage(html, leagueId, season, null);
+    }
+
+    /// <summary>
+    /// Parses HTML content with optional stage prefix for GroupName.
+    /// </summary>
+    private (List<Round> rounds, int totalRoundHeadersFound) ParseHtmlContentWithStage(
+        string html, Guid leagueId, string season, string? stageName)
+    {
+        var rounds = new List<Round>();
+        var totalRoundHeadersFound = 0;
+
         // Parse HTML
         _logger.LogDebug("Parsing HTML document...");
         var doc = new HtmlDocument();
@@ -120,7 +173,7 @@ public class FootballBetExplorerScraper : ILeagueScraper
             if (matchItems != null && matchItems.Any())
             {
                 _logger.LogInformation("Using NEW list-based format: found {MatchCount} match items", matchItems.Count);
-                rounds = ParseNewFormat(matchItems, leagueId, season);
+                rounds = ParseNewFormat(matchItems, leagueId, season, stageName);
                 _logger.LogInformation("Successfully scraped {RoundCount} rounds for season {Season}",
                     rounds.Count, season);
                 // New format doesn't have explicit round headers, so totalRoundHeadersFound = rounds.Count
@@ -208,10 +261,16 @@ public class FootballBetExplorerScraper : ILeagueScraper
 
                 if (matches.Any())
                 {
-                    var round = CreateRoundFromMatches(leagueId, season, roundNumber, groupName, matches);
+                    // Combine stage name with group name if both exist
+                    // stageName = "First Stage", groupName = null → effectiveGroupName = "First Stage"
+                    // stageName = "First Stage", groupName = "East" → effectiveGroupName = "First Stage - East"
+                    // stageName = null, groupName = "East" → effectiveGroupName = "East"
+                    var effectiveGroupName = GetEffectiveGroupName(stageName, groupName);
+
+                    var round = CreateRoundFromMatches(leagueId, season, roundNumber, effectiveGroupName, matches);
                     rounds.Add(round);
                     _logger.LogInformation("Parsed {GroupPrefix}Round {RoundNumber}: {MatchCount} matches, {OddsStatus} odds",
-                        groupName != null ? $"{groupName} - " : "",
+                        effectiveGroupName != null ? $"{effectiveGroupName} - " : "",
                         roundNumber, matches.Count, round.OddsComplete);
                 }
             }
@@ -227,7 +286,7 @@ public class FootballBetExplorerScraper : ILeagueScraper
     /// Parses the NEW list-based HTML format (post-2011 seasons).
     /// Matches are in ul/li elements with class table-main__matchInfo.
     /// </summary>
-    private List<Round> ParseNewFormat(HtmlNodeCollection matchItems, Guid leagueId, string season)
+    private List<Round> ParseNewFormat(HtmlNodeCollection matchItems, Guid leagueId, string season, string? stageName)
     {
         var rounds = new List<Round>();
 
@@ -249,9 +308,11 @@ public class FootballBetExplorerScraper : ILeagueScraper
         // The new format doesn't have clear round delineation
         if (allMatches.Any())
         {
-            var round = CreateRoundFromMatches(leagueId, season, 1, null, allMatches);
+            // Use stageName as groupName for new format (no internal groups)
+            var round = CreateRoundFromMatches(leagueId, season, 1, stageName, allMatches);
             rounds.Add(round);
-            _logger.LogInformation("NEW FORMAT: Parsed {MatchCount} matches into 1 round", allMatches.Count);
+            _logger.LogInformation("NEW FORMAT: Parsed {MatchCount} matches into 1 round{StageInfo}",
+                allMatches.Count, stageName != null ? $" (stage: {stageName})" : "");
         }
 
         return rounds;
@@ -396,6 +457,25 @@ public class FootballBetExplorerScraper : ILeagueScraper
 
         _logger.LogWarning("Could not extract round number from: {HeaderText}", headerText);
         return 0;
+    }
+
+    /// <summary>
+    /// Combines stage name and group name into effective group name.
+    /// Used for multi-stage leagues like Argentina Reserve League.
+    /// </summary>
+    private static string? GetEffectiveGroupName(string? stageName, string? groupName)
+    {
+        if (stageName == null && groupName == null)
+            return null;
+
+        if (stageName == null)
+            return groupName;
+
+        if (groupName == null)
+            return stageName;
+
+        // Both exist - combine them
+        return $"{stageName} - {groupName}";
     }
 
     private MatchResult? ParseMatchRow(HtmlNode row, string season)
@@ -608,7 +688,7 @@ public class FootballBetExplorerScraper : ILeagueScraper
     {
         // Validation: No league has more than 15 matches per round
         // If we see more, it's a parsing error (e.g., multiple rounds merged)
-        const int maxMatchesPerRound = 15;
+        const int maxMatchesPerRound = 17;
         if (matches.Count > maxMatchesPerRound)
         {
             var groupInfo = groupName != null ? $" (Group: {groupName})" : "";
