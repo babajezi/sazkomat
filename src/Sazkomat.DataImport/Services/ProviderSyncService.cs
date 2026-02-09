@@ -1108,8 +1108,7 @@ public class ProviderSyncService : ISyncService
 
                             if (leagueSeason == null)
                             {
-                                // Determine if this is a current season
-                                var isCurrent = IsCurrentSeason(startYear, endYear);
+                                var syncMode = DetermineSyncModeSimple(startYear, endYear);
 
                                 leagueSeason = new LeagueSeason
                                 {
@@ -1118,8 +1117,8 @@ public class ProviderSyncService : ISyncService
                                     IsAvailableOnBetExplorer = true,
                                     HasData = false,
                                     HasOdds = false,
-                                    IsCurrent = isCurrent,
-                                    SyncMode = isCurrent ? SyncMode.Current : SyncMode.Historical
+                                    IsCurrent = syncMode == SyncMode.Current,
+                                    SyncMode = syncMode
                                 };
                                 await _leagueSeasonRepository.AddAsync(leagueSeason);
                                 stats.Created++;
@@ -1208,14 +1207,10 @@ public class ProviderSyncService : ISyncService
                 return Result<Guid>.Failure("League not found");
             }
 
-            // Check if league has betting provider mapping
-            var leagueProviders = await _leagueProviderRepository.GetByLeagueIdAsync(leagueId);
-            var hasBettingProvider = leagueProviders.Any(lp =>
-                lp.Provider?.Type == ProviderType.BettingProvider && lp.IsActive);
-
-            if (!hasBettingProvider)
+            // Verify league has a BetExplorer slug (needed for scraping)
+            if (string.IsNullOrEmpty(league.BetExplorerSlug))
             {
-                return Result<Guid>.Failure("League does not have active betting provider mapping");
+                return Result<Guid>.Failure("League does not have a BetExplorer slug configured");
             }
 
             // Create SyncJob for tracking
@@ -1409,14 +1404,10 @@ public class ProviderSyncService : ISyncService
                 return Result<Guid>.Failure("League not found");
             }
 
-            // Check if league has betting provider mapping
-            var leagueProviders = await _leagueProviderRepository.GetByLeagueIdAsync(leagueId);
-            var hasBettingProvider = leagueProviders.Any(lp =>
-                lp.Provider?.Type == ProviderType.BettingProvider && lp.IsActive);
-
-            if (!hasBettingProvider)
+            // Verify league has a BetExplorer slug (needed for scraping)
+            if (string.IsNullOrEmpty(league.BetExplorerSlug))
             {
-                return Result<Guid>.Failure("League does not have active betting provider mapping");
+                return Result<Guid>.Failure("League does not have a BetExplorer slug configured");
             }
 
             _logger.LogInformation("Starting seasons list refresh for league {LeagueName} ({LeagueId})",
@@ -1488,17 +1479,20 @@ public class ProviderSyncService : ISyncService
                     var leagueSeason = await _leagueSeasonRepository.GetByLeagueAndSeasonAsync(leagueId, existingSeason.Id);
                     if (leagueSeason == null)
                     {
+                        var syncMode = DetermineSyncModeSimple(startYear, endYear);
                         leagueSeason = new LeagueSeason
                         {
                             LeagueId = leagueId,
                             SeasonId = existingSeason.Id,
                             IsAvailableOnBetExplorer = true,
                             HasData = false,
-                            HasOdds = false
+                            HasOdds = false,
+                            IsCurrent = syncMode == SyncMode.Current,
+                            SyncMode = syncMode
                         };
                         await _leagueSeasonRepository.AddAsync(leagueSeason);
                         stats.Created++;
-                        _logger.LogDebug("Created league season mapping for {SeasonName}", seasonName);
+                        _logger.LogDebug("Created league season mapping for {SeasonName} (SyncMode: {SyncMode})", seasonName, syncMode);
                     }
                     else if (!leagueSeason.IsAvailableOnBetExplorer)
                     {
@@ -1546,17 +1540,38 @@ public class ProviderSyncService : ISyncService
     /// Determines if a season is current based on year.
     /// A season is current if the current year falls within its range.
     /// </summary>
-    private bool IsCurrentSeason(int startYear, int endYear)
+    /// <summary>
+    /// Determines SyncMode based on season years relative to current year.
+    /// Split seasons (2025-2026): startYear = fall start, endYear = spring end.
+    /// In Feb 2026: 2024-2025 = Historical, 2025-2026 = Current, 2026-2027 = Future.
+    /// </summary>
+    private static SyncMode DetermineSyncModeSimple(int startYear, int endYear)
     {
         var currentYear = DateTime.UtcNow.Year;
 
-        // If it's a split season (e.g., 2025-2026), check if we're in that range
-        if (startYear != endYear)
+        // Future: starts after current year
+        if (startYear > currentYear)
+            return SyncMode.Future;
+
+        var isSplitSeason = startYear != endYear;
+
+        if (isSplitSeason)
         {
-            return currentYear == startYear || currentYear == endYear;
+            // Split season: currentYear == startYear → hasn't started yet (starts in fall)
+            if (currentYear == startYear)
+                return SyncMode.Future;
+
+            // Split season: currentYear == endYear → in progress (ends in spring)
+            if (currentYear == endYear)
+                return SyncMode.Current;
+        }
+        else
+        {
+            // Single year season: currentYear == startYear → current
+            if (currentYear == startYear)
+                return SyncMode.Current;
         }
 
-        // For single year seasons (e.g., 2026), check if it's current year
-        return currentYear == startYear;
+        return SyncMode.Historical;
     }
 }
