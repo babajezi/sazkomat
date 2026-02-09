@@ -27,6 +27,9 @@ public class DebugSessionResult
 
     [JsonPropertyName("logs")]
     public List<string> Logs { get; set; } = new();
+
+    [JsonPropertyName("storedVariables")]
+    public Dictionary<string, string> StoredVariables { get; set; } = new();
 }
 
 /// <summary>

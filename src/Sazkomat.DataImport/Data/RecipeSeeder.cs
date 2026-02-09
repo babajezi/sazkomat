@@ -44,6 +44,7 @@ public static class RecipeSeeder
                     existing.ActionsJson = newRecipe.ActionsJson;
                     existing.Priority = newRecipe.Priority;
                     existing.Description = newRecipe.Description;
+                    existing.RequiresHint = newRecipe.RequiresHint;
                     existing.UpdatedAt = DateTime.UtcNow;
                 }
                 else
@@ -135,6 +136,27 @@ public static class RecipeSeeder
                 return 'no main tab found';
             })()";
 
+        // JavaScript to detect if page has supported stage tabs (hint for Two Stage recipe)
+        const string detectStageTabsHintScript = @"
+            (() => {
+                const tabs = Array.from(document.querySelectorAll('.list-tabs__item__in, .list-tabs a'));
+                const visibleTexts = tabs
+                    .filter(t => t.offsetParent)
+                    .map(t => t.textContent.trim().toLowerCase());
+
+                const knownPairs = [
+                    ['first stage', 'second stage'],
+                    ['apertura', 'clausura']
+                ];
+
+                for (const [a, b] of knownPairs) {
+                    if (visibleTexts.some(t => t.includes(a)) && visibleTexts.some(t => t.includes(b))) {
+                        return 'true';
+                    }
+                }
+                return 'false';
+            })()";
+
         // JavaScript to sort by round
         const string sortByRoundScript = @"
             (() => {
@@ -200,6 +222,9 @@ public static class RecipeSeeder
             new { type = "evaluate", script = clickMainTabScript },
             new { type = "wait", milliseconds = 1500 },
             new { type = "waitForLoadState", state = "networkidle", timeout = 10000 },
+
+            // 5b. Detect stage tabs and store hint for Two Stage recipe
+            new { type = "evaluate", script = detectStageTabsHintScript, storeAs = "hasStageTabsHint" },
 
             // 6. Sort by round
             new { type = "evaluate", script = sortByRoundScript },
@@ -531,6 +556,7 @@ public static class RecipeSeeder
             PageType = "results",
             Priority = 5,
             IsActive = true,
+            RequiresHint = "hasStageTabsHint",
             ActionsJson = JsonSerializer.Serialize(actions),
             RoundHeaderSelector = ".//th[contains(text(), 'Round')]",
             GroupPatternRegex = @"^(.+?)\s*-\s*(\d+)\.\s*Round$",

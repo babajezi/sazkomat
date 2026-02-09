@@ -68,6 +68,13 @@ public class ScraperRecipe : Entity
     /// </summary>
     public string? OddsCellSelector { get; set; }
 
+    /// <summary>
+    /// Optional hint key that must be "true" in accumulated variables
+    /// from previous recipe executions for this recipe to run.
+    /// Null = no prerequisite.
+    /// </summary>
+    public string? RequiresHint { get; set; }
+
     // Statistics (denormalized for quick access)
 
     /// <summary>

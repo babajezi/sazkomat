@@ -68,6 +68,10 @@ public class ScraperRecipeConfiguration : IEntityTypeConfiguration<ScraperRecipe
             .HasColumnName("odds_cell_selector")
             .HasMaxLength(500);
 
+        builder.Property(r => r.RequiresHint)
+            .HasColumnName("requires_hint")
+            .HasMaxLength(100);
+
         builder.Property(r => r.TotalAttempts)
             .HasColumnName("total_attempts")
             .IsRequired()

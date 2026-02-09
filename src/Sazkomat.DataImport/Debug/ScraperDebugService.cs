@@ -61,7 +61,8 @@ public class ScraperDebugService : IAsyncDisposable
                 Success = results.All(r => r.Success),
                 TotalDurationMs = _sessionStopwatch.ElapsedMilliseconds,
                 Results = results,
-                Logs = _logs.ToList()
+                Logs = _logs.ToList(),
+                StoredVariables = new Dictionary<string, string>(_storedVariables)
             };
         }
         catch (Exception ex)
@@ -72,7 +73,8 @@ public class ScraperDebugService : IAsyncDisposable
                 Success = false,
                 TotalDurationMs = _sessionStopwatch.ElapsedMilliseconds,
                 Results = new List<DebugStepResult>(),
-                Logs = _logs.ToList()
+                Logs = _logs.ToList(),
+                StoredVariables = new Dictionary<string, string>(_storedVariables)
             };
         }
     }

@@ -426,6 +426,7 @@ PostgreSQL 16 s dvěma schématy:
 | match_row_selector | varchar(500) | NOT NULL |
 | odds_cell_selector | varchar(500) | NULL |
 | group_pattern_regex | varchar(200) | NULL |
+| requires_hint | varchar(100) | NULL |
 | actions_json | jsonb | NOT NULL, DEFAULT '[]' |
 | total_attempts | integer | NOT NULL, DEFAULT 0 |
 | successful_attempts | integer | NOT NULL, DEFAULT 0 |
@@ -436,4 +437,4 @@ PostgreSQL 16 s dvěma schématy:
 
 ---
 
-**Poslední aktualizace:** 2026-02-03
+**Poslední aktualizace:** 2026-02-07

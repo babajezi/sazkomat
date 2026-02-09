@@ -469,6 +469,9 @@ public class SeasonSyncService : ISeasonSyncService
         }
 
         var triedRecipes = new List<TriedRecipeInfo>();
+        var accumulatedHints = new Dictionary<string, string>();
+        ScraperRecipe? firstNoRoundsFoundRecipe = null;
+        ScrapeResult? firstNoRoundsFoundResult = null;
         var countrySlug = league.Country?.Code?.ToLowerInvariant() ?? "unknown";
         var baseUrl = $"https://www.betexplorer.com/football/{countrySlug}/{league.BetExplorerSlug}/";
 
@@ -484,6 +487,25 @@ public class SeasonSyncService : ISeasonSyncService
 
         foreach (var recipe in recipes)
         {
+            // Skip recipe if RequiresHint not satisfied (bypass for LastSuccessfulRecipeId)
+            var isLastSuccessful = leagueSeason.LastSuccessfulRecipeId == recipe.Id;
+            if (!string.IsNullOrEmpty(recipe.RequiresHint) && !isLastSuccessful)
+            {
+                if (!accumulatedHints.TryGetValue(recipe.RequiresHint, out var hintValue) || hintValue != "true")
+                {
+                    _logger.LogInformation("Skipping recipe '{RecipeName}': hint '{Hint}' = '{Value}'",
+                        recipe.Name, recipe.RequiresHint, accumulatedHints.GetValueOrDefault(recipe.RequiresHint, "(not set)"));
+                    triedRecipes.Add(new TriedRecipeInfo
+                    {
+                        RecipeId = recipe.Id,
+                        RecipeName = recipe.Name,
+                        Error = $"Skipped: hint '{recipe.RequiresHint}' not satisfied",
+                        DurationMs = 0
+                    });
+                    continue;
+                }
+            }
+
             _logger.LogInformation("Trying recipe '{RecipeName}' for {League} {Season}",
                 recipe.Name, league.DisplayName, season.Name);
 
@@ -523,7 +545,11 @@ public class SeasonSyncService : ISeasonSyncService
                 }
             }
 
-            if (!execResult!.Success)
+            // Accumulate hints from this recipe's execution (regardless of success)
+            foreach (var kv in execResult!.StoredVariables)
+                accumulatedHints[kv.Key] = kv.Value;
+
+            if (!execResult.Success)
             {
                 _logger.LogWarning("Recipe '{RecipeName}' failed for {League} {Season}: {Error}",
                     recipe.Name, league.DisplayName, season.Name, execResult.ErrorReason);
@@ -572,10 +598,18 @@ public class SeasonSyncService : ISeasonSyncService
             if (isNoRoundsFound)
             {
                 // Page has match data but no round structure - could be wrong tab selection (e.g., Main vs Apertura/Clausura)
-                // Try fallback recipes to see if different tab structure works
+                // Try fallback recipes to see if different tab structure works.
+                // Remember the first recipe that found matches - if no fallback produces rounds,
+                // this is a valid "no rounds" result (e.g., old seasons without round data on BetExplorer).
                 _logger.LogInformation(
                     "Recipe '{RecipeName}' for {League} {Season}: Page has {MatchCount} match results but no round structure. Trying fallback recipes.",
                     recipe.Name, league.DisplayName, season.Name, scrapeResult.TotalMatchRowsFound);
+
+                if (firstNoRoundsFoundRecipe == null)
+                {
+                    firstNoRoundsFoundRecipe = recipe;
+                    firstNoRoundsFoundResult = scrapeResult;
+                }
 
                 await _recipeRepository.IncrementStatsAsync(recipe.Id, success: false);
                 triedRecipes.Add(new TriedRecipeInfo
@@ -620,7 +654,23 @@ public class SeasonSyncService : ISeasonSyncService
             await _recipeRepository.IncrementStatsAsync(recipe.Id, success: false);
         }
 
-        // No recipe worked
+        // No recipe produced rounds. If a recipe found matches but no round structure,
+        // treat it as a valid result - the page exists but has no rounds (e.g., old seasons on BetExplorer).
+        if (firstNoRoundsFoundRecipe != null && firstNoRoundsFoundResult != null)
+        {
+            _logger.LogInformation(
+                "No recipe found rounds for {League} {Season}, but '{RecipeName}' found {MatchCount} matches without round structure. Treating as valid NoRoundsFound result.",
+                league.DisplayName, season.Name, firstNoRoundsFoundRecipe.Name, firstNoRoundsFoundResult.TotalMatchRowsFound);
+
+            await _recipeRepository.IncrementStatsAsync(firstNoRoundsFoundRecipe.Id, success: true);
+            leagueSeason.LastSuccessfulRecipeId = firstNoRoundsFoundRecipe.Id;
+            leagueSeason.LastRecipeTestedAt = DateTime.UtcNow;
+            await _leagueSeasonRepository.UpdateAsync(leagueSeason);
+
+            return RecipeScrapeAttempt.FailedWithResult(firstNoRoundsFoundResult, triedRecipes);
+        }
+
+        // No recipe worked at all
         leagueSeason.LastRecipeTestedAt = DateTime.UtcNow;
         leagueSeason.LastSuccessfulRecipeId = null;
         await _leagueSeasonRepository.UpdateAsync(leagueSeason);

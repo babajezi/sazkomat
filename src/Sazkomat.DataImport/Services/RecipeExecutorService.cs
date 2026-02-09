@@ -91,7 +91,8 @@ public class RecipeExecutorService
                 return RecipeExecutionResult.Failed(
                     $"Recipe execution failed: {lastError}",
                     result.Logs,
-                    sw.ElapsedMilliseconds);
+                    sw.ElapsedMilliseconds,
+                    result.StoredVariables);
             }
 
             if (htmlDetails == null || string.IsNullOrWhiteSpace(htmlDetails.Html))
@@ -99,13 +100,14 @@ public class RecipeExecutorService
                 return RecipeExecutionResult.Failed(
                     "Recipe did not extract any HTML (missing extractHtml action or empty result)",
                     result.Logs,
-                    sw.ElapsedMilliseconds);
+                    sw.ElapsedMilliseconds,
+                    result.StoredVariables);
             }
 
             _logger.LogInformation("Recipe '{RecipeName}' extracted {Length} chars of HTML in {Duration}ms",
                 recipe.Name, htmlDetails.Html.Length, sw.ElapsedMilliseconds);
 
-            return RecipeExecutionResult.Succeeded(htmlDetails.Html, result.Logs, sw.ElapsedMilliseconds);
+            return RecipeExecutionResult.Succeeded(htmlDetails.Html, result.Logs, sw.ElapsedMilliseconds, result.StoredVariables);
         }
         catch (Exception ex)
         {
@@ -563,7 +565,7 @@ public class RecipeExecutorService
 
     private Round CreateRoundFromMatches(Guid leagueId, int roundNumber, string? groupName, List<MatchResult> matches)
     {
-        const int maxMatchesPerRound = 17;
+        const int maxMatchesPerRound = 20;
         if (matches.Count > maxMatchesPerRound)
         {
             var groupInfo = groupName != null ? $" (Group: {groupName})" : "";

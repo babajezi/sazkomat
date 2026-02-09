@@ -30,25 +30,32 @@ public class RecipeExecutionResult
     /// </summary>
     public long DurationMs { get; set; }
 
-    public static RecipeExecutionResult Succeeded(string html, List<string> logs, long durationMs)
+    /// <summary>
+    /// Variables stored during recipe execution (e.g., hints for orchestrator)
+    /// </summary>
+    public Dictionary<string, string> StoredVariables { get; set; } = new();
+
+    public static RecipeExecutionResult Succeeded(string html, List<string> logs, long durationMs, Dictionary<string, string>? storedVariables = null)
     {
         return new RecipeExecutionResult
         {
             Success = true,
             Html = html,
             Logs = logs,
-            DurationMs = durationMs
+            DurationMs = durationMs,
+            StoredVariables = storedVariables ?? new()
         };
     }
 
-    public static RecipeExecutionResult Failed(string errorReason, List<string> logs, long durationMs)
+    public static RecipeExecutionResult Failed(string errorReason, List<string> logs, long durationMs, Dictionary<string, string>? storedVariables = null)
     {
         return new RecipeExecutionResult
         {
             Success = false,
             ErrorReason = errorReason,
             Logs = logs,
-            DurationMs = durationMs
+            DurationMs = durationMs,
+            StoredVariables = storedVariables ?? new()
         };
     }
 }
