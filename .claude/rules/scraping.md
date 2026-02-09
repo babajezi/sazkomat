@@ -1,9 +1,9 @@
 # Pravidla pro BetExplorer scraping
 
-## Max 15 zápasů na kolo
+## Max 20 zápasů na kolo
 
-- Žádná fotbalová liga nemá více než 15 zápasů v jednom kole
-- Pokud scraper najde kolo s více než 15 zápasy = **chyba parsování**
+- Většina lig má max 18 zápasů na kolo (36 týmů, např. Mexico Liga Premier Serie A)
+- Pokud scraper najde kolo s více než 20 zápasy = **chyba parsování**
 - Typická příčina: nesprávné sloučení více kol dohromady
 - **Při detekci se vyhodí výjimka** - sync selže a musí se opravit parser
 

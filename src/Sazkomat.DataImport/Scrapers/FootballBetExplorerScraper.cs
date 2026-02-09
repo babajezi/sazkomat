@@ -686,9 +686,9 @@ public class FootballBetExplorerScraper : ILeagueScraper
 
     private Round CreateRoundFromMatches(Guid leagueId, string season, int roundNumber, string? groupName, List<MatchResult> matches)
     {
-        // Validation: No league has more than 15 matches per round
+        // Validation: Most leagues have up to 18 matches per round (36 teams)
         // If we see more, it's a parsing error (e.g., multiple rounds merged)
-        const int maxMatchesPerRound = 17;
+        const int maxMatchesPerRound = 20;
         if (matches.Count > maxMatchesPerRound)
         {
             var groupInfo = groupName != null ? $" (Group: {groupName})" : "";
