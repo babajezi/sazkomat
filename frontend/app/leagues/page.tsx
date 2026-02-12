@@ -34,6 +34,13 @@ enum LockFilter {
   NotLocked = "none"
 }
 
+enum HasResultsFilter {
+  All = "",
+  Yes = "yes",
+  Partial = "partial",
+  No = "no"
+}
+
 export default function LeaguesPage() {
   const queryClient = useQueryClient();
   const { language } = useLanguage();
@@ -50,6 +57,7 @@ export default function LeaguesPage() {
   const [filterHasProviders, setFilterHasProviders] = useState<string>(HasProvidersFilter.All);
   const [filterProviderId, setFilterProviderId] = useState<string>("");
   const [filterLockStatus, setFilterLockStatus] = useState<string>("");
+  const [filterHasResults, setFilterHasResults] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState<string>("");
 
   const { data: leagues, isLoading, error } = useQuery({
@@ -265,6 +273,21 @@ export default function LeaguesPage() {
       if ((league.lockedSeasonsCount ?? 0) !== 0) return false;
     }
 
+    // Filtr podle výsledků (has data)
+    if (filterHasResults === HasResultsFilter.Yes) {
+      const withData = league.seasonsWithDataCount ?? 0;
+      const historical = league.historicalSeasonsCount ?? 0;
+      if (!(withData > 0 && withData >= historical)) return false;
+    }
+    if (filterHasResults === HasResultsFilter.Partial) {
+      const withData = league.seasonsWithDataCount ?? 0;
+      const historical = league.historicalSeasonsCount ?? 0;
+      if (!(withData > 0 && withData < historical)) return false;
+    }
+    if (filterHasResults === HasResultsFilter.No) {
+      if ((league.seasonsWithDataCount ?? 0) !== 0) return false;
+    }
+
     return true;
   });
 
@@ -350,7 +373,7 @@ export default function LeaguesPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-8 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-9 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="filter-sport">Sport</Label>
                   <select
@@ -493,6 +516,21 @@ export default function LeaguesPage() {
                   </select>
                 </div>
 
+                <div className="grid gap-2">
+                  <Label htmlFor="filter-has-results">Má výsledky</Label>
+                  <select
+                    id="filter-has-results"
+                    value={filterHasResults}
+                    onChange={(e) => { setFilterHasResults(e.target.value); setPage(0); }}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <option value={HasResultsFilter.All}>Vše</option>
+                    <option value={HasResultsFilter.Yes}>Všechny sezóny</option>
+                    <option value={HasResultsFilter.Partial}>Částečně</option>
+                    <option value={HasResultsFilter.No}>Bez výsledků</option>
+                  </select>
+                </div>
+
                 <div className="grid gap-2 items-end">
                   <Button
                     variant="outline"
@@ -505,6 +543,7 @@ export default function LeaguesPage() {
                       setFilterHasProviders("");
                       setFilterProviderId("");
                       setFilterLockStatus("");
+                      setFilterHasResults("");
                       setPage(0);
                     }}
                     className="w-full"

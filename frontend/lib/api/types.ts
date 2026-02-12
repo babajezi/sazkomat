@@ -215,6 +215,7 @@ export interface League {
   // Aggregated season stats
   historicalSeasonsCount?: number;
   lockedSeasonsCount?: number;
+  seasonsWithDataCount?: number;
 }
 
 export interface LeagueProvider {
@@ -301,6 +302,10 @@ export interface LeagueSeason {
   isLocked: boolean;
   lockedAt?: string | null;
   lastValidatedAt?: string | null;
+  // Ignore mechanism
+  isIgnored: boolean;
+  ignoredAt?: string | null;
+  ignoredNote?: string | null;
 }
 
 export interface AvailableSeason extends Season {
@@ -621,6 +626,11 @@ export interface SyncWorkflowState {
 
 export interface UpdateSyncEnabledRequest {
   enabled: boolean;
+}
+
+export interface UpdateIgnoredRequest {
+  ignored: boolean;
+  note?: string;
 }
 
 export interface SyncSeasonDataRequest {

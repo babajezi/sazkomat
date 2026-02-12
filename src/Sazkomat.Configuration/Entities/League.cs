@@ -24,6 +24,9 @@ public class League : Entity
     [NotMapped]
     public int LockedSeasonsCount { get; set; }
 
+    [NotMapped]
+    public int SeasonsWithDataCount { get; set; }
+
     // Navigation
     public Sport Sport { get; set; } = null!;
     public Country Country { get; set; } = null!;

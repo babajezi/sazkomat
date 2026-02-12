@@ -59,7 +59,8 @@ public class LeagueRepository : ILeagueRepository
                 {
                     LeagueId = g.Key,
                     HistoricalCount = g.Count(ls => ls.SyncMode == SyncMode.Historical),
-                    LockedCount = g.Count(ls => ls.IsLocked)
+                    LockedCount = g.Count(ls => ls.IsLocked),
+                    WithDataCount = g.Count(ls => ls.HasData)
                 })
                 .ToListAsync();
 
@@ -68,6 +69,7 @@ public class LeagueRepository : ILeagueRepository
                 var stats = seasonStats.FirstOrDefault(s => s.LeagueId == league.Id);
                 league.HistoricalSeasonsCount = stats?.HistoricalCount ?? 0;
                 league.LockedSeasonsCount = stats?.LockedCount ?? 0;
+                league.SeasonsWithDataCount = stats?.WithDataCount ?? 0;
             }
         }
 
