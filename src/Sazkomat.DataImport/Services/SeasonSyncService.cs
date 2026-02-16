@@ -221,6 +221,16 @@ public class SeasonSyncService : ISeasonSyncService
                 return Result<SyncResponse>.Failure("Season is locked and cannot be synced. Unlock the season first if you need to update data.");
             }
 
+            // Check if season is ignored
+            if (leagueSeason.IsIgnored)
+            {
+                _logger.LogWarning(
+                    "Cannot sync ignored season: {League} - {Season}",
+                    leagueId, seasonId);
+
+                return Result<SyncResponse>.Failure("Season is ignored and cannot be synced. Remove ignore flag first if you need to update data.");
+            }
+
             // Check if we should skip this season
             if (!forceUpdate &&
                 leagueSeason.SyncMode == SyncMode.Historical &&
@@ -472,6 +482,8 @@ public class SeasonSyncService : ISeasonSyncService
         var accumulatedHints = new Dictionary<string, string>();
         ScraperRecipe? firstNoRoundsFoundRecipe = null;
         ScrapeResult? firstNoRoundsFoundResult = null;
+        ScraperRecipe? firstNoResultsRecipe = null;
+        ScrapeResult? firstNoResultsResult = null;
         var countrySlug = league.Country?.Code?.ToLowerInvariant() ?? "unknown";
         var baseUrl = $"https://www.betexplorer.com/football/{countrySlug}/{league.BetExplorerSlug}/";
 
@@ -629,6 +641,12 @@ public class SeasonSyncService : ISeasonSyncService
                     "Recipe '{RecipeName}' for {League} {Season}: No results found. Trying fallback recipes.",
                     recipe.Name, league.DisplayName, season.Name);
 
+                if (firstNoResultsRecipe == null)
+                {
+                    firstNoResultsRecipe = recipe;
+                    firstNoResultsResult = scrapeResult;
+                }
+
                 await _recipeRepository.IncrementStatsAsync(recipe.Id, success: false);
 
                 triedRecipes.Add(new TriedRecipeInfo
@@ -670,6 +688,21 @@ public class SeasonSyncService : ISeasonSyncService
             return RecipeScrapeAttempt.FailedWithResult(firstNoRoundsFoundResult, triedRecipes);
         }
 
+        // No recipe found any results. If a recipe got NoResults (page exists but empty),
+        // treat it as a valid result - e.g., cancelled season, no data on BetExplorer.
+        if (firstNoResultsRecipe != null && firstNoResultsResult != null)
+        {
+            _logger.LogInformation(
+                "No recipe found results for {League} {Season}. Page exists but has no match data (e.g., cancelled season). First recipe: '{RecipeName}'.",
+                league.DisplayName, season.Name, firstNoResultsRecipe.Name);
+
+            leagueSeason.LastRecipeTestedAt = DateTime.UtcNow;
+            leagueSeason.LastSuccessfulRecipeId = firstNoResultsRecipe.Id;
+            await _leagueSeasonRepository.UpdateAsync(leagueSeason);
+
+            return RecipeScrapeAttempt.FailedWithResult(firstNoResultsResult, triedRecipes);
+        }
+
         // No recipe worked at all
         leagueSeason.LastRecipeTestedAt = DateTime.UtcNow;
         leagueSeason.LastSuccessfulRecipeId = null;
@@ -688,14 +721,15 @@ public class SeasonSyncService : ISeasonSyncService
         {
             _logger.LogInformation("Syncing all marked seasons for provider {ProviderId}", providerId);
 
-            // Get all sync-enabled league seasons (excluding locked ones)
+            // Get all sync-enabled league seasons (excluding locked and ignored ones)
             var allSyncEnabledSeasons = await _leagueSeasonRepository.GetSyncEnabledAsync();
             var lockedCount = allSyncEnabledSeasons.Count(s => s.IsLocked);
-            var syncEnabledSeasons = allSyncEnabledSeasons.Where(s => !s.IsLocked).ToList();
+            var ignoredCount = allSyncEnabledSeasons.Count(s => s.IsIgnored);
+            var syncEnabledSeasons = allSyncEnabledSeasons.Where(s => !s.IsLocked && !s.IsIgnored).ToList();
 
             _logger.LogInformation(
-                "Found {Count} seasons marked for sync ({LockedCount} locked, skipped)",
-                syncEnabledSeasons.Count, lockedCount);
+                "Found {Count} seasons marked for sync ({LockedCount} locked, {IgnoredCount} ignored, skipped)",
+                syncEnabledSeasons.Count, lockedCount, ignoredCount);
 
             if (!syncEnabledSeasons.Any())
             {
