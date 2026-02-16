@@ -163,4 +163,16 @@ public class LeagueSeasonRepository : ILeagueSeasonRepository
             await _context.SaveChangesAsync();
         }
     }
+
+    public async Task UpdateIgnoredStatusAsync(Guid id, bool isIgnored, string? note)
+    {
+        var leagueSeason = await _context.LeagueSeasons.FindAsync(id);
+        if (leagueSeason != null)
+        {
+            leagueSeason.IsIgnored = isIgnored;
+            leagueSeason.IgnoredAt = isIgnored ? DateTime.UtcNow : null;
+            leagueSeason.IgnoredNote = isIgnored ? note : null;
+            await _context.SaveChangesAsync();
+        }
+    }
 }

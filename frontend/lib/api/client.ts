@@ -63,6 +63,7 @@ import type {
   RecipeStats,
   // Validation types
   LeagueValidationResult,
+  UpdateIgnoredRequest,
 } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
@@ -403,6 +404,16 @@ export const seasonApi = {
       `/config/leagues/${leagueId}/unlock`
     );
     return data;
+  },
+
+  updateIgnoredStatus: async (
+    leagueSeasonId: string,
+    request: UpdateIgnoredRequest
+  ): Promise<void> => {
+    await apiClient.patch(
+      `/config/seasons/league-seasons/${leagueSeasonId}/ignore`,
+      request
+    );
   },
 };
 

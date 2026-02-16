@@ -51,6 +51,22 @@ public class LeagueSeason : Entity
     /// </summary>
     public DateTime? LastValidatedAt { get; set; }
 
+    // Ignore mechanism
+    /// <summary>
+    /// Whether this season is manually ignored (known problematic, skip everywhere).
+    /// </summary>
+    public bool IsIgnored { get; set; } = false;
+
+    /// <summary>
+    /// When the season was ignored.
+    /// </summary>
+    public DateTime? IgnoredAt { get; set; }
+
+    /// <summary>
+    /// Explanation why the season is ignored.
+    /// </summary>
+    public string? IgnoredNote { get; set; }
+
     // Navigation
     public League League { get; set; } = null!;
     public Season Season { get; set; } = null!;

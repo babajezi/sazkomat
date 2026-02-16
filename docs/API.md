@@ -58,11 +58,12 @@ Base URL: `http://localhost:3001`
 |--------|----------|-------|
 | GET | /api/config/seasons | Seznam sezón |
 | GET | /api/config/seasons/available | Dostupné sezóny pro ligu (?leagueId) |
-| GET | /api/config/league-seasons | League-season vztahy (?leagueId) |
+| GET | /api/config/league-seasons | League-season vztahy (?leagueId) - response obsahuje isIgnored, ignoredAt, ignoredNote |
 | PATCH | /api/config/seasons/league-seasons/{id}/sync-enabled | Enable/disable sync |
 | POST | /api/config/seasons/league-seasons/{id}/validate | Validace jednotlivé sezóny |
 | POST | /api/config/seasons/league-seasons/{id}/lock | Zamčení sezóny |
 | POST | /api/config/seasons/league-seasons/{id}/unlock | Odemčení sezóny |
+| PATCH | /api/config/seasons/league-seasons/{id}/ignore | Označení/odoznačení sezóny jako ignorované (body: { ignored, note? }) |
 
 ### Data Providers
 
@@ -390,4 +391,4 @@ Base URL: `http://localhost:3001`
 
 ---
 
-**Poslední aktualizace:** 2026-02-01
+**Poslední aktualizace:** 2026-02-10

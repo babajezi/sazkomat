@@ -44,6 +44,15 @@ public class LeagueSeasonValidationService : ILeagueSeasonValidationService
             "Validating league season {LeagueSeasonId} ({League} - {Season})",
             leagueSeasonId, leagueSeason.League?.DisplayName, leagueSeason.Season?.Name);
 
+        // Ignored seasons return clean result (no issues)
+        if (leagueSeason.IsIgnored)
+        {
+            _logger.LogInformation(
+                "Season {LeagueSeasonId} is ignored, skipping validation",
+                leagueSeasonId);
+            return result;
+        }
+
         // Rule 1: Historical season without data
         if (leagueSeason.SyncMode == SyncMode.Historical && !leagueSeason.HasData)
         {
@@ -179,9 +188,10 @@ public class LeagueSeasonValidationService : ILeagueSeasonValidationService
         var allSeasons = await _leagueSeasonRepository.GetByLeagueIdAsync(leagueId, includeRelations: true);
         var currentYear = DateTime.UtcNow.Year;
 
-        // Filter to only historical seasons (not Current, not Future, not already locked)
+        // Filter to only historical seasons (not Current, not Future, not already locked, not ignored)
         var historicalSeasons = allSeasons
             .Where(s => s.SyncMode == SyncMode.Historical)
+            .Where(s => !s.IsIgnored)
             .Where(s => s.Season != null && s.Season.StartYear <= currentYear)  // Not future seasons
             .ToList();
 
@@ -237,10 +247,11 @@ public class LeagueSeasonValidationService : ILeagueSeasonValidationService
         var allSeasons = await _leagueSeasonRepository.GetByLeagueIdAsync(leagueId, includeRelations: true);
         var currentYear = DateTime.UtcNow.Year;
 
-        // Filter to only historical, unlocked seasons
+        // Filter to only historical, unlocked, non-ignored seasons
         var toValidateAndLock = allSeasons
             .Where(s => s.SyncMode == SyncMode.Historical)
             .Where(s => !s.IsLocked)
+            .Where(s => !s.IsIgnored)
             .Where(s => s.Season != null && s.Season.StartYear <= currentYear)  // Not future seasons
             .ToList();
 

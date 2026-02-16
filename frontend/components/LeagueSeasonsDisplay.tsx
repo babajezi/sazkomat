@@ -12,7 +12,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ChevronDown, ChevronUp, RefreshCw, Download, Loader2, CheckCircle, XCircle, Lock, LockOpen, CheckCircle2, AlertTriangle } from "lucide-react";
+import { ChevronDown, ChevronUp, RefreshCw, Download, Loader2, CheckCircle, XCircle, Lock, LockOpen, CheckCircle2, AlertTriangle, EyeOff } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import type { LeagueSeason, LeagueProvider, LeagueValidationResult } from "@/lib/api/types";
 import { SyncMode, ProviderType, NoDataReason, IssueSeverity } from "@/lib/api/types";
 
@@ -529,6 +530,7 @@ export function LeagueSeasonsDisplay({ leagueId, leagueProviders }: LeagueSeason
               isToggling={toggleSyncMutation.isPending}
               onSyncSeason={() => syncSeasonMutation.mutate(season.seasonId)}
               isSyncing={syncingSeasonId === season.seasonId}
+              onRefetch={refetch}
             />
           ))}
         </div>
@@ -555,6 +557,7 @@ interface SeasonRowProps {
   isToggling: boolean;
   onSyncSeason: () => void;
   isSyncing: boolean;
+  onRefetch: () => void;
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
@@ -566,10 +569,24 @@ function SeasonRow({
   isToggling,
   onSyncSeason,
   isSyncing,
+  onRefetch,
 }: SeasonRowProps) {
   const [showWarning, setShowWarning] = useState(false);
   const [showRounds, setShowRounds] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
+  const [showIgnoreDialog, setShowIgnoreDialog] = useState(false);
+  const [ignoreNote, setIgnoreNote] = useState(season.ignoredNote || "");
+  const queryClient = useQueryClient();
+
+  const ignoreMutation = useMutation({
+    mutationFn: ({ ignored, note }: { ignored: boolean; note?: string }) =>
+      seasonApi.updateIgnoredStatus(season.id, { ignored, note }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["league-seasons", leagueId] });
+      setShowIgnoreDialog(false);
+      onRefetch();
+    },
+  });
 
   // Fetch rounds automatically for seasons with data - needed for perfect rounds stats
   const { data: roundsData, isLoading: roundsLoading } = useQuery({
@@ -629,7 +646,7 @@ function SeasonRow({
 
   return (
     <>
-      <div className="border rounded-lg p-3 bg-white">
+      <div className={`border rounded-lg p-3 ${season.isIgnored ? "bg-gray-50 opacity-60" : "bg-white"}`}>
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <span className="font-medium">{season.seasonName}</span>
@@ -667,6 +684,12 @@ function SeasonRow({
                 Zamknuto {season.lockedAt && new Date(season.lockedAt).toLocaleDateString("cs-CZ")}
               </span>
             )}
+            {season.isIgnored && (
+              <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded flex items-center gap-1" title={season.ignoredNote || undefined}>
+                <EyeOff className="h-3 w-3" />
+                Ignorováno
+              </span>
+            )}
           </div>
           {/* Note for partial data or error */}
           {season.noDataNote && (
@@ -676,13 +699,13 @@ function SeasonRow({
           )}
           <div className="flex flex-col gap-1 items-end">
             <div className="flex gap-1">
-              {/* Sync button - disabled when locked */}
+              {/* Sync button - disabled when locked or ignored */}
               <Button
                 variant="outline"
                 size="sm"
                 onClick={onSyncSeason}
-                disabled={isSyncing || season.isLocked}
-                title={season.isLocked ? "Sezóna je zamčená" : "Synchronizovat tuto sezónu (force)"}
+                disabled={isSyncing || season.isLocked || season.isIgnored}
+                title={season.isLocked ? "Sezóna je zamčená" : season.isIgnored ? "Sezóna je ignorována" : "Synchronizovat tuto sezónu (force)"}
               >
                 {isSyncing ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -695,10 +718,33 @@ function SeasonRow({
                 variant={season.syncEnabled ? "default" : "outline"}
                 size="sm"
                 onClick={handleToggleClick}
-                disabled={isToggling || season.isLocked}
-                title={season.isLocked ? "Sezóna je zamčená" : undefined}
+                disabled={isToggling || season.isLocked || season.isIgnored}
+                title={season.isLocked ? "Sezóna je zamčená" : season.isIgnored ? "Sezóna je ignorována" : undefined}
               >
                 {season.syncEnabled ? "✓ Sync ON" : "○ Sync OFF"}
+              </Button>
+
+              {/* Ignore toggle button */}
+              <Button
+                variant={season.isIgnored ? "default" : "outline"}
+                size="sm"
+                onClick={() => {
+                  if (season.isIgnored) {
+                    ignoreMutation.mutate({ ignored: false });
+                  } else {
+                    setIgnoreNote("");
+                    setShowIgnoreDialog(true);
+                  }
+                }}
+                disabled={ignoreMutation.isPending || season.isLocked}
+                className={season.isIgnored ? "bg-gray-500 hover:bg-gray-600" : ""}
+                title={season.isIgnored ? "Zrušit ignorování" : "Označit jako ignorovanou"}
+              >
+                {ignoreMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <EyeOff className="h-4 w-4" />
+                )}
               </Button>
             </div>
             {season.hasData && (
@@ -744,6 +790,12 @@ function SeasonRow({
           </div>
         )}
       </div>
+
+      {season.isIgnored && season.ignoredNote && (
+        <div className="text-xs text-gray-500 mt-1 italic">
+          Ignorováno: {season.ignoredNote}
+        </div>
+      )}
 
       {(season.lastDataSyncAt || season.lastSuccessfulRecipeName) && (
         <div className="text-xs text-gray-500 mt-1 flex flex-wrap gap-x-3">
@@ -829,6 +881,52 @@ function SeasonRow({
         </div>
       )}
     </div>
+
+    <Dialog open={showIgnoreDialog} onOpenChange={setShowIgnoreDialog}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Ignorovat sezónu {season.seasonName}</DialogTitle>
+          <DialogDescription>
+            Ignorovaná sezóna bude přeskočena při synchronizaci a validaci.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-4">
+          <div>
+            <label className="text-sm font-medium mb-1 block">Důvod (volitelné)</label>
+            <Textarea
+              value={ignoreNote}
+              onChange={(e) => setIgnoreNote(e.target.value)}
+              placeholder="Např. Show More appends headerless matches, BetExplorer page is broken..."
+              rows={3}
+            />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setShowIgnoreDialog(false)}
+          >
+            Zrušit
+          </Button>
+          <Button
+            type="button"
+            onClick={() => ignoreMutation.mutate({ ignored: true, note: ignoreNote || undefined })}
+            disabled={ignoreMutation.isPending}
+            className="bg-gray-600 hover:bg-gray-700"
+          >
+            {ignoreMutation.isPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <EyeOff className="mr-2 h-4 w-4" />
+            )}
+            Ignorovat
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
 
     <Dialog open={showWarning} onOpenChange={setShowWarning}>
       <DialogContent>

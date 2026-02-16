@@ -97,6 +97,18 @@ public class LeagueSeasonConfiguration : IEntityTypeConfiguration<LeagueSeason>
         builder.Property(ls => ls.LastValidatedAt)
             .HasColumnName("last_validated_at");
 
+        builder.Property(ls => ls.IsIgnored)
+            .HasColumnName("is_ignored")
+            .IsRequired()
+            .HasDefaultValue(false);
+
+        builder.Property(ls => ls.IgnoredAt)
+            .HasColumnName("ignored_at");
+
+        builder.Property(ls => ls.IgnoredNote)
+            .HasColumnName("ignored_note")
+            .HasMaxLength(500);
+
         builder.Property(ls => ls.CreatedAt)
             .HasColumnName("created_at")
             .IsRequired();
@@ -128,5 +140,6 @@ public class LeagueSeasonConfiguration : IEntityTypeConfiguration<LeagueSeason>
         builder.HasIndex(ls => ls.SyncEnabled);
         builder.HasIndex(ls => ls.IsCurrent);
         builder.HasIndex(ls => ls.IsLocked);
+        builder.HasIndex(ls => ls.IsIgnored);
     }
 }

@@ -153,7 +153,10 @@ public static class SeasonEndpoints
                             lastSuccessfulRecipeName = await GetRecipeName(ls.LastSuccessfulRecipeId),
                             isLocked = ls.IsLocked,
                             lockedAt = ls.LockedAt,
-                            lastValidatedAt = ls.LastValidatedAt
+                            lastValidatedAt = ls.LastValidatedAt,
+                            isIgnored = ls.IsIgnored,
+                            ignoredAt = ls.IgnoredAt,
+                            ignoredNote = ls.IgnoredNote
                         });
                     }
                 }
@@ -194,7 +197,10 @@ public static class SeasonEndpoints
                             lastSuccessfulRecipeName = await GetRecipeName(ls.LastSuccessfulRecipeId),
                             isLocked = ls.IsLocked,
                             lockedAt = ls.LockedAt,
-                            lastValidatedAt = ls.LastValidatedAt
+                            lastValidatedAt = ls.LastValidatedAt,
+                            isIgnored = ls.IsIgnored,
+                            ignoredAt = ls.IgnoredAt,
+                            ignoredNote = ls.IgnoredNote
                         });
                     }
                 }
@@ -320,7 +326,34 @@ public static class SeasonEndpoints
         .Produces(200)
         .Produces(400)
         .Produces(404);
+        // PATCH /api/config/seasons/league-seasons/{id}/ignore
+        group.MapPatch("/league-seasons/{id}/ignore", async (
+            Guid id,
+            [FromBody] UpdateIgnoredRequest request,
+            ILeagueSeasonRepository leagueSeasonRepository) =>
+        {
+            var leagueSeason = await leagueSeasonRepository.GetByIdAsync(id);
+            if (leagueSeason == null)
+            {
+                return Results.NotFound(new { error = "League season not found" });
+            }
+
+            await leagueSeasonRepository.UpdateIgnoredStatusAsync(id, request.Ignored, request.Note);
+
+            return Results.Ok(new
+            {
+                message = request.Ignored ? "Season marked as ignored" : "Season ignore flag removed",
+                isIgnored = request.Ignored,
+                ignoredAt = request.Ignored ? DateTime.UtcNow : (DateTime?)null,
+                ignoredNote = request.Ignored ? request.Note : null
+            });
+        })
+        .WithName("UpdateIgnoredStatus")
+        .WithSummary("Mark or unmark a league season as ignored")
+        .Produces(200)
+        .Produces(404);
     }
 }
 
 public record UpdateSyncEnabledRequest(bool Enabled);
+public record UpdateIgnoredRequest(bool Ignored, string? Note = null);

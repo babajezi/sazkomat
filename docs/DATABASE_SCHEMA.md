@@ -91,10 +91,13 @@ PostgreSQL 16 s dvěma schématy:
 | is_locked | boolean | NOT NULL, DEFAULT false |
 | locked_at | timestamptz | NULL |
 | last_validated_at | timestamptz | NULL |
+| is_ignored | boolean | NOT NULL, DEFAULT false |
+| ignored_at | timestamptz | NULL |
+| ignored_note | varchar(500) | NULL |
 | created_at | timestamptz | NOT NULL |
 | updated_at | timestamptz | NOT NULL |
 
-**Indexes:** (league_id, season_id) UNIQUE, is_locked
+**Indexes:** (league_id, season_id) UNIQUE, is_locked, is_ignored
 
 **Enums:**
 - `no_data_reason`: "None", "PageNotFound", "NoRoundsFound", "NoResults", "ParsingError", "NetworkError", "PartialData", "NoRecipeFound"
