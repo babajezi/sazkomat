@@ -683,7 +683,14 @@ export default function LeaguesPage() {
                     </div>
                     <div>
                       <span className="font-medium">BetExplorer:</span>{" "}
-                      {league.betExplorerSlug}
+                      <a
+                        href={`https://www.betexplorer.com/football/${getCountry(league.countryId)?.code?.toLowerCase() ?? "unknown"}/${league.betExplorerSlug}/`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:underline"
+                      >
+                        {league.betExplorerSlug}
+                      </a>
                     </div>
                     <div>
                       <span className="font-medium">Sázkově aktivní:</span>{" "}
