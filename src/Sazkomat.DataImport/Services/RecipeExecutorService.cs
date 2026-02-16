@@ -288,8 +288,17 @@ public class RecipeExecutorService
                     {
                         // Combine stageName with groupName if both present
                         var effectiveGroupName = GetEffectiveGroupName(stageName, groupName);
-                        var round = CreateRoundFromMatches(leagueId, roundNumber, effectiveGroupName, matches);
-                        rounds.Add(round);
+                        try
+                        {
+                            var round = CreateRoundFromMatches(leagueId, roundNumber, effectiveGroupName, matches);
+                            rounds.Add(round);
+                        }
+                        catch (InvalidOperationException ex)
+                        {
+                            // Skip rounds with too many matches (e.g., Show More loaded extra matches without headers)
+                            _logger.LogWarning("Skipping round {RoundNumber}{Group}: {Error}",
+                                roundNumber, effectiveGroupName != null ? $" ({effectiveGroupName})" : "", ex.Message);
+                        }
                     }
                 }
             }

@@ -182,14 +182,11 @@ public class ScraperDebugService : IAsyncDisposable
     {
         if (_page == null) throw new InvalidOperationException("Page not initialized");
 
-        if (!_storedVariables.TryGetValue(action.Variable, out var url))
+        if (!_storedVariables.TryGetValue(action.Variable, out var url) ||
+            string.IsNullOrWhiteSpace(url) || url == "null" || url == "false")
         {
-            throw new InvalidOperationException($"Variable '{action.Variable}' not found. Available: {string.Join(", ", _storedVariables.Keys)}");
-        }
-
-        if (string.IsNullOrWhiteSpace(url))
-        {
-            throw new InvalidOperationException($"Variable '{action.Variable}' is empty or null");
+            Log($"Variable '{action.Variable}' is empty or not set, skipping navigation");
+            return new NavigateDetails { FinalUrl = _page.Url };
         }
 
         Log($"Navigating to variable '{action.Variable}': {url}");

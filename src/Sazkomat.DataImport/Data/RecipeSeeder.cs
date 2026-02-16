@@ -11,6 +11,12 @@ namespace Sazkomat.DataImport.Data;
 /// </summary>
 public static class RecipeSeeder
 {
+    /// <summary>
+    /// Whitelist of stage tab names known to contain rounds (not knockout brackets).
+    /// Shared between Full Workflow (hint detection) and Stage Tabs recipe (tab selection).
+    /// </summary>
+    private const string KnownStageNamesJs = @"['first stage', 'second stage', 'apertura', 'clausura', 'taca guanabara', 'taca rio', 'opening stage', 'closing stage', 'phase 1', 'phase 2', 'primera fase', 'segunda fase', 'first phase', 'second phase']";
+
     public static async Task SeedDefaultRecipesAsync(DataImportDbContext context)
     {
         var existingRecipes = await context.ScraperRecipes
@@ -19,13 +25,11 @@ public static class RecipeSeeder
 
         // Priority order (most reliable first):
         // 1. Full Workflow - navigate via dropdown, click Results, sort by round, Show More
-        // 2. Direct Sort - try direct URL with ?s=r parameter as fallback
-        // 5. Two Stage - auto-detects stage tabs (First/Second Stage, Apertura/Clausura, etc.)
+        // 5. Stage Tabs - processes known stage tabs (First/Second Stage, Apertura/Clausura, etc.)
         var newRecipes = new List<ScraperRecipe>
         {
             CreateFullWorkflowRecipe(),        // Priority 1 - full workflow via dropdown
-            CreateDirectSortRecipe(),          // Priority 2 - direct URL fallback
-            CreateTwoStageRecipe(),            // Priority 5 - auto-detect two stage tabs
+            CreateStageTabsRecipe(),           // Priority 5 - whitelist-based stage tabs
         };
 
         if (!existingRecipes.Any())
@@ -55,7 +59,7 @@ public static class RecipeSeeder
             }
 
             // Remove old recipes that are no longer needed
-            var oldRecipeNames = new[] { "BetExplorer URL Sort", "BetExplorer Direct", "BetExplorer Sort Only", "BetExplorer First/Second Stage" };
+            var oldRecipeNames = new[] { "BetExplorer URL Sort", "BetExplorer Direct", "BetExplorer Sort Only", "BetExplorer First/Second Stage", "BetExplorer Direct Sort", "BetExplorer Two Stage" };
             var recipesToRemove = existingRecipes.Where(e => oldRecipeNames.Contains(e.Name)).ToList();
             if (recipesToRemove.Any())
             {
@@ -98,63 +102,51 @@ public static class RecipeSeeder
                 return null;
             })()";
 
-        // JavaScript to click Results tab
-        const string clickResultsTabScript = @"
+        // JavaScript to find Results tab URL (returns URL for navigateToVariable)
+        // Using navigateToVariable instead of click() to avoid potential context destruction
+        const string findResultsTabUrlScript = @"
             (() => {
                 const links = Array.from(document.querySelectorAll('a'));
                 const resultsLink = links.find(a => {
                     const href = a.getAttribute('href') || '';
                     return href.includes('/results') && !href.includes('/football/results/') && a.offsetParent !== null;
                 });
-                if (resultsLink) {
-                    resultsLink.click();
-                    return true;
-                }
-                return false;
+                return resultsLink ? resultsLink.href : null;
             })()";
 
-        // JavaScript to click Main stage tab (if exists and not already selected)
+        // JavaScript to find Main stage tab URL (if exists and not already selected)
         // Some leagues have multiple stages (Main, Playoff, Relegation, etc.)
-        // We want to ensure Main is selected to get all regular season rounds
-        // Note: tabs have class "list-tabs__item__in"
-        const string clickMainTabScript = @"
+        // We want to navigate to Main to get all regular season rounds
+        // Returns the full URL for navigateToVariable (avoids context destruction from click())
+        // Note: tabs have class "list-tabs__item__in", selected tab has "current" class
+        const string findMainTabUrlScript = @"
             (() => {
-                // Look for stage tabs - BetExplorer uses list-tabs__item__in class
                 const stageTabs = document.querySelectorAll('.list-tabs__item__in, .list-tabs a, .stages a, [class*=""stage""] a');
                 for (const tab of stageTabs) {
                     const text = tab.textContent.toLowerCase().trim();
-                    // Click on 'Main' or 'All' tab if found and visible
                     if ((text === 'main' || text === 'all' || text.includes('main stage')) && tab.offsetParent !== null) {
-                        // Check if already selected (has 'active' class or similar)
-                        if (!tab.classList.contains('active') && !tab.parentElement?.classList.contains('active')) {
-                            tab.click();
-                            return 'clicked: ' + text;
+                        // Check if already selected (BetExplorer uses 'current' class)
+                        if (!tab.classList.contains('active') && !tab.classList.contains('current') &&
+                            !tab.parentElement?.classList.contains('active') && !tab.parentElement?.classList.contains('current')) {
+                            return tab.href || null;
                         }
-                        return 'already selected: ' + text;
+                        return null; // Already selected
                     }
                 }
-                return 'no main tab found';
+                return null; // No main tab found
             })()";
 
-        // JavaScript to detect if page has supported stage tabs (hint for Two Stage recipe)
+        // JavaScript to detect if page has whitelisted stage tabs (hint for Stage Tabs recipe)
         const string detectStageTabsHintScript = @"
             (() => {
+                const knownStageNames = " + KnownStageNamesJs + @";
                 const tabs = Array.from(document.querySelectorAll('.list-tabs__item__in, .list-tabs a'));
-                const visibleTexts = tabs
-                    .filter(t => t.offsetParent)
-                    .map(t => t.textContent.trim().toLowerCase());
-
-                const knownPairs = [
-                    ['first stage', 'second stage'],
-                    ['apertura', 'clausura']
-                ];
-
-                for (const [a, b] of knownPairs) {
-                    if (visibleTexts.some(t => t.includes(a)) && visibleTexts.some(t => t.includes(b))) {
-                        return 'true';
-                    }
-                }
-                return 'false';
+                const found = tabs.filter(tab => {
+                    if (!tab.offsetParent || !tab.href) return false;
+                    const text = tab.textContent.trim().toLowerCase();
+                    return knownStageNames.some(name => text.includes(name));
+                });
+                return found.length >= 1 ? 'true' : 'false';
             })()";
 
         // JavaScript to sort by round
@@ -213,17 +205,20 @@ public static class RecipeSeeder
             new { type = "waitForLoadState", state = "load", timeout = 30000 },
             new { type = "wait", milliseconds = 1000 },
 
-            // 4. Click Results tab
-            new { type = "evaluate", script = clickResultsTabScript },
-            new { type = "waitForLoadState", state = "networkidle", timeout = 15000 },
+            // 4. Navigate to Results tab via Playwright
+            new { type = "evaluate", script = findResultsTabUrlScript, storeAs = "resultsUrl" },
+            new { type = "navigateToVariable", variable = "resultsUrl" },
+            new { type = "waitForLoadState", state = "load", timeout = 30000 },
             new { type = "wait", milliseconds = 1000 },
 
-            // 5. Click Main stage tab (if exists) to ensure we get all regular season rounds
-            new { type = "evaluate", script = clickMainTabScript },
-            new { type = "wait", milliseconds = 1500 },
-            new { type = "waitForLoadState", state = "networkidle", timeout = 10000 },
+            // 5. Find Main stage tab URL (if exists) and navigate via Playwright
+            // Using navigateToVariable instead of click() to avoid Playwright context destruction
+            new { type = "evaluate", script = findMainTabUrlScript, storeAs = "mainStageUrl" },
+            new { type = "navigateToVariable", variable = "mainStageUrl" },
+            new { type = "waitForLoadState", state = "load", timeout = 30000 },
+            new { type = "wait", milliseconds = 1000 },
 
-            // 5b. Detect stage tabs and store hint for Two Stage recipe
+            // 5b. Detect whitelisted stage tabs and store hint for Stage Tabs recipe
             new { type = "evaluate", script = detectStageTabsHintScript, storeAs = "hasStageTabsHint" },
 
             // 6. Sort by round
@@ -248,73 +243,20 @@ public static class RecipeSeeder
             Priority = 1,
             IsActive = true,
             ActionsJson = JsonSerializer.Serialize(actions),
-            RoundHeaderSelector = ".//th[contains(text(), 'Round')]",
+            RoundHeaderSelector = ".//th[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'round')]",
             GroupPatternRegex = @"^(.+?)\s*-\s*(\d+)\.\s*Round$",
             MatchRowSelector = ".//tr[td[contains(@class, 'h-text-left')]]"
         };
     }
 
     /// <summary>
-    /// Direct URL fallback - tries to construct direct URL with season.
-    /// Less reliable but faster when it works.
+    /// Stage Tabs recipe: processes known stage tabs that contain rounds.
+    /// Uses a whitelist of tab names (First/Second Stage, Apertura/Clausura, Taca Guanabara, etc.)
+    /// to identify tabs with round data, skipping knockout brackets (Taca Rio, Play Offs).
+    /// Supports up to 4 stage tabs via slot-based actions.
+    /// Priority 5 = fallback when Full Workflow detects stage tabs hint.
     /// </summary>
-    private static ScraperRecipe CreateDirectSortRecipe()
-    {
-        // JavaScript to click Show More repeatedly
-        var showMoreScript = @"
-            (async () => {
-                for (let i = 0; i < 10; i++) {
-                    const links = Array.from(document.querySelectorAll('a'));
-                    const showMore = links.find(a =>
-                        a.textContent.toLowerCase().includes('show more') &&
-                        a.offsetParent !== null
-                    );
-                    if (showMore) {
-                        showMore.click();
-                        await new Promise(r => setTimeout(r, 1500));
-                    } else {
-                        break;
-                    }
-                }
-            })()";
-
-        var actions = new object[]
-        {
-            // Try direct URL with season in league slug format (league-YYYY-YYYY/results/?s=r)
-            // This works for some leagues where URL is predictable
-            new { type = "navigate", url = "{baseUrl}results/?s=r" },
-            new { type = "waitForLoadState", state = "load", timeout = 30000 },
-            new { type = "wait", milliseconds = 2000 },
-
-            // Click Show More
-            new { type = "evaluate", script = showMoreScript },
-            new { type = "wait", milliseconds = 1000 },
-
-            // Extract HTML
-            new { type = "extractHtml", maxLength = 1000000 }
-        };
-
-        return new ScraperRecipe
-        {
-            Name = "BetExplorer Direct Sort",
-            Description = "Direct URL with ?s=r - fallback for current season (Priority 2)",
-            Provider = "betexplorer",
-            PageType = "results",
-            Priority = 2,
-            IsActive = true,
-            ActionsJson = JsonSerializer.Serialize(actions),
-            RoundHeaderSelector = ".//th[contains(text(), 'Round')]",
-            GroupPatternRegex = @"^(.+?)\s*-\s*(\d+)\.\s*Round$",
-            MatchRowSelector = ".//tr[td[contains(@class, 'h-text-left')]]"
-        };
-    }
-
-    /// <summary>
-    /// Generic recipe for leagues with two stage tabs (e.g., First Stage/Second Stage, Apertura/Clausura).
-    /// Auto-detects stage tabs and collects content from both stages with markers.
-    /// Priority 5 = fallback when other recipes fail (no "Main" tab).
-    /// </summary>
-    private static ScraperRecipe CreateTwoStageRecipe()
+    private static ScraperRecipe CreateStageTabsRecipe()
     {
         // JavaScript to find season URL from dropdown
         const string findSeasonUrlScript = @"
@@ -330,78 +272,39 @@ public static class RecipeSeeder
                 return null;
             })()";
 
-        // JavaScript to click Results tab
-        const string clickResultsTabScript = @"
+        // JavaScript to find Results tab URL
+        const string findResultsTabUrlScript = @"
             (() => {
                 const links = Array.from(document.querySelectorAll('a'));
                 const resultsLink = links.find(a => {
                     const href = a.getAttribute('href') || '';
                     return href.includes('/results') && !href.includes('/football/results/') && a.offsetParent !== null;
                 });
-                if (resultsLink) {
-                    resultsLink.click();
-                    return true;
-                }
-                return false;
+                return resultsLink ? resultsLink.href : null;
             })()";
 
-        // JavaScript to detect and store stage tab names
-        // Finds tabs that are actual stages (not navigation like Summary, Results, etc.)
-        const string detectStageTabsScript = @"
+        // JavaScript to detect whitelisted stage tabs and store URLs in sessionStorage
+        const string detectAndStoreStageTabsScript = @"
             (() => {
+                const knownStageNames = " + KnownStageNamesJs + @";
                 const tabs = Array.from(document.querySelectorAll('.list-tabs__item__in, .list-tabs a'));
-                const excludePatterns = ['summary', 'results', 'fixtures', 'stats', 'head-to-head', 'h2h', 'play offs', 'play-offs', 'playoff'];
-
+                const seen = new Set();
                 const stageTabs = tabs.filter(tab => {
+                    if (!tab.offsetParent || !tab.href) return false;
+                    if (seen.has(tab.href)) return false;
                     const text = tab.textContent.trim().toLowerCase();
-                    // Exclude navigation tabs and playoff tabs
-                    if (excludePatterns.some(p => text.includes(p))) return false;
-                    // Must be visible
-                    if (!tab.offsetParent) return false;
-                    // Should have reasonable length (not empty, not too long)
-                    if (text.length < 2 || text.length > 30) return false;
+                    if (!knownStageNames.some(name => text.includes(name))) return false;
+                    seen.add(tab.href);
                     return true;
-                }).map(tab => tab.textContent.trim());
+                });
 
-                // Store first two stage names for later use
-                if (stageTabs.length >= 2) {
-                    sessionStorage.setItem('__stage1Name', stageTabs[0]);
-                    sessionStorage.setItem('__stage2Name', stageTabs[1]);
-                    return 'found stages: ' + stageTabs[0] + ', ' + stageTabs[1];
+                const count = Math.min(stageTabs.length, 4);
+                for (let i = 0; i < count; i++) {
+                    sessionStorage.setItem('__stageUrl' + (i + 1), stageTabs[i].href);
+                    sessionStorage.setItem('__stageName' + (i + 1), stageTabs[i].textContent.trim());
                 }
-                return 'not enough stages found: ' + stageTabs.join(', ');
-            })()";
-
-        // JavaScript to click first detected stage tab
-        const string clickFirstStageScript = @"
-            (() => {
-                const stageName = sessionStorage.getItem('__stage1Name');
-                if (!stageName) return 'no stage1 stored';
-
-                const tabs = document.querySelectorAll('.list-tabs__item__in, .list-tabs a');
-                for (const tab of tabs) {
-                    if (tab.textContent.trim() === stageName) {
-                        tab.click();
-                        return 'clicked: ' + stageName;
-                    }
-                }
-                return 'not found: ' + stageName;
-            })()";
-
-        // JavaScript to click second detected stage tab
-        const string clickSecondStageScript = @"
-            (() => {
-                const stageName = sessionStorage.getItem('__stage2Name');
-                if (!stageName) return 'no stage2 stored';
-
-                const tabs = document.querySelectorAll('.list-tabs__item__in, .list-tabs a');
-                for (const tab of tabs) {
-                    if (tab.textContent.trim() === stageName) {
-                        tab.click();
-                        return 'clicked: ' + stageName;
-                    }
-                }
-                return 'not found: ' + stageName;
+                sessionStorage.setItem('__stageCount', String(count));
+                return 'found ' + count + ' stage tabs: ' + stageTabs.slice(0, count).map(t => t.textContent.trim()).join(', ');
             })()";
 
         // JavaScript to sort by round
@@ -443,49 +346,52 @@ public static class RecipeSeeder
                 }
             })()";
 
-        // Store first stage content - use sessionStorage (persists across page navigations)
-        // Uses detected stage name from __stage1Name
-        const string storeFirstStageScript = @"
+        // Template: read stage URL from sessionStorage for slot N
+        // Returns null when slot is unused (N > stageCount), causing navigateToVariable to skip
+        const string getStageUrlTemplate = @"
             (() => {
-                const stageName = sessionStorage.getItem('__stage1Name') || 'Stage 1';
-                const table = document.querySelector('.table-main');
-                if (!table) {
-                    sessionStorage.setItem('__stageContent', '');
-                    return 'no table found';
-                }
-                const content = '<!-- STAGE: ' + stageName + ' -->\n' + table.outerHTML;
-                sessionStorage.setItem('__stageContent', content);
-                return 'stored ' + stageName + ': ' + content.length + ' chars';
+                const count = parseInt(sessionStorage.getItem('__stageCount') || '0');
+                if (SLOT_NUM > count) return null;
+                return sessionStorage.getItem('__stageUrlSLOT_NUM');
             })()";
 
-        // Append second stage content and inject into page
-        // Uses detected stage name from __stage2Name
-        const string appendSecondStageAndInjectScript = @"
+        // Template: store stage HTML into sessionStorage (cumulative) for slot N
+        // Bails out early when slot is unused (N > stageCount)
+        const string storeStageHtmlTemplate = @"
             (() => {
-                const stageName = sessionStorage.getItem('__stage2Name') || 'Stage 2';
+                const count = parseInt(sessionStorage.getItem('__stageCount') || '0');
+                if (SLOT_NUM > count) return 'slot SLOT_NUM unused';
+                const stageName = sessionStorage.getItem('__stageNameSLOT_NUM') || 'Stage SLOT_NUM';
                 const table = document.querySelector('.table-main');
-                if (!table) return 'no table found';
+                if (!table) return 'no table found for ' + stageName;
+                const prev = sessionStorage.getItem('__combinedHtml') || '';
+                const stageHtml = '<!-- STAGE: ' + stageName + ' -->\n' + table.outerHTML;
+                sessionStorage.setItem('__combinedHtml', prev + '\n' + stageHtml);
+                return 'stored ' + stageName + ': ' + stageHtml.length + ' chars';
+            })()";
 
-                const firstStage = sessionStorage.getItem('__stageContent') || '';
-                const secondStage = '<!-- STAGE: ' + stageName + ' -->\n' + table.outerHTML;
-                const combined = firstStage + '\n' + secondStage;
+        // Final: inject combined HTML from all stages into page body
+        const string injectCombinedHtmlScript = @"
+            (() => {
+                const combined = sessionStorage.getItem('__combinedHtml') || '';
+                const count = parseInt(sessionStorage.getItem('__stageCount') || '0');
+                for (let i = 1; i <= count; i++) {
+                    sessionStorage.removeItem('__stageUrl' + i);
+                    sessionStorage.removeItem('__stageName' + i);
+                }
+                sessionStorage.removeItem('__stageCount');
+                sessionStorage.removeItem('__combinedHtml');
 
-                // Clear sessionStorage after use
-                sessionStorage.removeItem('__stageContent');
-                sessionStorage.removeItem('__stage1Name');
-                sessionStorage.removeItem('__stage2Name');
-
-                // Create visible container with combined content
                 const container = document.createElement('div');
                 container.id = 'combined-stages';
                 container.innerHTML = combined;
                 document.body.innerHTML = '';
                 document.body.appendChild(container);
-
-                return 'combined ' + combined.length + ' chars';
+                return 'injected ' + combined.length + ' chars';
             })()";
 
-        var actions = new object[]
+        // Build actions list with slot-based approach for up to 4 stage tabs
+        var actions = new List<object>
         {
             // 1. Navigate to base league URL
             new { type = "navigate", url = "{baseUrl}" },
@@ -500,65 +406,52 @@ public static class RecipeSeeder
             new { type = "waitForLoadState", state = "load", timeout = 30000 },
             new { type = "wait", milliseconds = 1000 },
 
-            // 4. Click Results tab
-            new { type = "evaluate", script = clickResultsTabScript },
-            new { type = "waitForLoadState", state = "networkidle", timeout = 15000 },
+            // 4. Navigate to Results tab
+            new { type = "evaluate", script = findResultsTabUrlScript, storeAs = "resultsUrl" },
+            new { type = "navigateToVariable", variable = "resultsUrl" },
+            new { type = "waitForLoadState", state = "load", timeout = 30000 },
             new { type = "wait", milliseconds = 1000 },
 
-            // 5. Auto-detect stage tabs (stores names in sessionStorage)
-            new { type = "evaluate", script = detectStageTabsScript },
-
-            // === FIRST STAGE ===
-            // 6. Click first detected stage tab
-            new { type = "evaluate", script = clickFirstStageScript },
-            new { type = "wait", milliseconds = 2000 },
-            new { type = "waitForLoadState", state = "networkidle", timeout = 15000 },
-
-            // 6. Sort by round
-            new { type = "evaluate", script = sortByRoundScript },
-            new { type = "wait", milliseconds = 2000 },
-            new { type = "waitForLoadState", state = "networkidle", timeout = 15000 },
-
-            // 7. Show More
-            new { type = "evaluate", script = showMoreScript },
-            new { type = "wait", milliseconds = 1000 },
-
-            // 8. Store First Stage content in JS variable
-            new { type = "evaluate", script = storeFirstStageScript },
-
-            // === SECOND STAGE ===
-            // 9. Click Second Stage tab
-            new { type = "evaluate", script = clickSecondStageScript },
-            new { type = "wait", milliseconds = 2000 },
-            new { type = "waitForLoadState", state = "networkidle", timeout = 15000 },
-
-            // 10. Sort by round
-            new { type = "evaluate", script = sortByRoundScript },
-            new { type = "wait", milliseconds = 2000 },
-            new { type = "waitForLoadState", state = "networkidle", timeout = 15000 },
-
-            // 11. Show More
-            new { type = "evaluate", script = showMoreScript },
-            new { type = "wait", milliseconds = 1000 },
-
-            // 12. Append Second Stage and inject combined content into page body
-            new { type = "evaluate", script = appendSecondStageAndInjectScript },
-
-            // 13. Extract full page HTML (now contains only combined stages)
-            new { type = "extractHtml", maxLength = 2000000 }
+            // 5. Detect whitelisted stage tabs and store URLs in sessionStorage
+            new { type = "evaluate", script = detectAndStoreStageTabsScript },
         };
+
+        // 6. Slot-based actions for up to 4 stage tabs
+        // Each slot: read URL -> navigate -> sort -> show more -> store HTML
+        // Unused slots (N > stageCount) skip gracefully: navigate gets null, storeHtml bails out
+        for (int n = 1; n <= 4; n++)
+        {
+            var getUrl = getStageUrlTemplate.Replace("SLOT_NUM", n.ToString());
+            var storeHtml = storeStageHtmlTemplate.Replace("SLOT_NUM", n.ToString());
+            var varName = $"stage{n}Url";
+
+            actions.Add(new { type = "evaluate", script = getUrl, storeAs = varName });
+            actions.Add(new { type = "navigateToVariable", variable = varName });
+            actions.Add(new { type = "waitForLoadState", state = "load", timeout = 30000 });
+            actions.Add(new { type = "wait", milliseconds = 1000 });
+            actions.Add(new { type = "evaluate", script = sortByRoundScript });
+            actions.Add(new { type = "wait", milliseconds = 2000 });
+            actions.Add(new { type = "waitForLoadState", state = "networkidle", timeout = 15000 });
+            actions.Add(new { type = "evaluate", script = showMoreScript });
+            actions.Add(new { type = "wait", milliseconds = 1000 });
+            actions.Add(new { type = "evaluate", script = storeHtml });
+        }
+
+        // 7. Inject combined HTML from all stages into page body and extract
+        actions.Add(new { type = "evaluate", script = injectCombinedHtmlScript });
+        actions.Add(new { type = "extractHtml", maxLength = 4000000 });
 
         return new ScraperRecipe
         {
-            Name = "BetExplorer Two Stage",
-            Description = "Auto-detects two stage tabs (First/Second Stage, Apertura/Clausura, etc.) - Priority 5",
+            Name = "BetExplorer Stage Tabs",
+            Description = "Processes known stage tabs that contain rounds (First/Second Stage, Apertura/Clausura, Taca Guanabara, etc.)",
             Provider = "betexplorer",
             PageType = "results",
             Priority = 5,
             IsActive = true,
             RequiresHint = "hasStageTabsHint",
             ActionsJson = JsonSerializer.Serialize(actions),
-            RoundHeaderSelector = ".//th[contains(text(), 'Round')]",
+            RoundHeaderSelector = ".//th[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'round')]",
             GroupPatternRegex = @"^(.+?)\s*-\s*(\d+)\.\s*Round$",
             MatchRowSelector = ".//tr[td[contains(@class, 'h-text-left')]]"
         };
