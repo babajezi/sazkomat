@@ -18,5 +18,10 @@ public enum MappingStatus
     /// <summary>
     /// League was manually mapped via LeagueNameMapping table
     /// </summary>
-    ManualMapped = 2
+    ManualMapped = 2,
+
+    /// <summary>
+    /// League was explicitly ignored by the user (will not be imported)
+    /// </summary>
+    Ignored = 3
 }

@@ -45,7 +45,7 @@ Base URL: `http://localhost:3001`
 | GET | /api/config/leagues | Seznam lig (?sportId, ?countryId, ?onlyEnabled) |
 | POST | /api/config/leagues | Vytvoření ligy |
 | PATCH | /api/config/leagues/{id} | Aktualizace ligy |
-| DELETE | /api/config/leagues/{id} | Smazání ligy |
+| DELETE | /api/config/leagues/{id} | Smazání ligy (?ignoreInProvider=true → před smazáním označí provider_leagues jako Ignored, resetuje IsImported/LeagueId/ImportedAt a smaže související kola a zápasy) |
 | PATCH | /api/config/leagues/{leagueId}/providers/{providerId} | Toggle sync status |
 | GET | /api/config/leagues/{leagueId}/betting-availability | Betting providers pro ligu |
 | POST | /api/config/leagues/{leagueId}/validate | Validace všech historických sezón ligy |

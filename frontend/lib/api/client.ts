@@ -211,8 +211,10 @@ export const configApi = {
     return data;
   },
 
-  deleteLeague: async (id: string): Promise<void> => {
-    await apiClient.delete(`/config/leagues/${id}`);
+  deleteLeague: async (id: string, ignoreInProvider: boolean = false): Promise<void> => {
+    await apiClient.delete(`/config/leagues/${id}`, {
+      params: { ignoreInProvider },
+    });
   },
 
   toggleLeagueProviderSync: async (

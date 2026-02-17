@@ -520,11 +520,11 @@ public class ImportService : IImportService
                         }
                     }
 
-                    // Skip unmapped leagues (only import successfully mapped leagues)
-                    if (providerLeague.MappingStatus == MappingStatus.Unmapped)
+                    // Skip unmapped or ignored leagues (only import successfully mapped leagues)
+                    if (providerLeague.MappingStatus is MappingStatus.Unmapped or MappingStatus.Ignored)
                     {
-                        _logger.LogDebug("Skipping unmapped ProviderLeague {LeagueId} ({Name}) - no BetExplorer mapping",
-                            providerLeagueId, providerLeague.ProviderName);
+                        _logger.LogDebug("Skipping {Status} ProviderLeague {LeagueId} ({Name}) - no BetExplorer mapping",
+                            providerLeague.MappingStatus, providerLeagueId, providerLeague.ProviderName);
                         skippedCount++;
                         continue;
                     }

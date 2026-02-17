@@ -266,7 +266,7 @@ PostgreSQL 16 s dvěma schématy:
 | created_at | timestamptz | NOT NULL |
 | updated_at | timestamptz | NOT NULL |
 
-**Enums (mapping_status):** 0=Unmapped, 1=AutoMapped, 2=ManualMapped
+**Enums (mapping_status):** 0=Unmapped, 1=AutoMapped, 2=ManualMapped, 3=Ignored
 
 ### provider_seasons (cache)
 | Column | Type | Constraints |

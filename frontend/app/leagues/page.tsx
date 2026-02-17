@@ -10,11 +10,20 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import Link from "next/link";
 import { EditLeagueDialog } from "@/components/LeagueFormDialog";
 import { LeagueSeasonsDisplay } from "@/components/LeagueSeasonsDisplay";
@@ -46,6 +55,9 @@ export default function LeaguesPage() {
   const { language } = useLanguage();
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedLeague, setSelectedLeague] = useState<League | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [leagueToDelete, setLeagueToDelete] = useState<League | null>(null);
+  const [ignoreInProvider, setIgnoreInProvider] = useState(true);
   const [providerDialogOpen, setProviderDialogOpen] = useState(false);
   const [editingProviderMapping, setEditingProviderMapping] = useState<LeagueProvider | null>(null);
   const [page, setPage] = useState(0);
@@ -81,8 +93,11 @@ export default function LeaguesPage() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => configApi.deleteLeague(id),
+    mutationFn: ({ id, ignoreInProvider }: { id: string; ignoreInProvider: boolean }) =>
+      configApi.deleteLeague(id, ignoreInProvider),
     onSuccess: () => {
+      setDeleteDialogOpen(false);
+      setLeagueToDelete(null);
       queryClient.invalidateQueries({ queryKey: ["leagues"] });
     },
   });
@@ -130,13 +145,15 @@ export default function LeaguesPage() {
     setEditDialogOpen(true);
   };
 
-  const handleDelete = async (league: League) => {
-    if (
-      window.confirm(
-        `Opravdu chcete smazat ligu "${getLeagueDisplayName(league, language)}"? Tato akce je nevratná.`
-      )
-    ) {
-      deleteMutation.mutate(league.id);
+  const handleDelete = (league: League) => {
+    setLeagueToDelete(league);
+    setIgnoreInProvider(true);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (leagueToDelete) {
+      deleteMutation.mutate({ id: leagueToDelete.id, ignoreInProvider });
     }
   };
 
@@ -786,6 +803,54 @@ export default function LeaguesPage() {
           editingMapping={editingProviderMapping || undefined}
         />
       )}
+
+      {/* Delete League Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Smazat ligu</DialogTitle>
+            <DialogDescription>
+              Opravdu chcete smazat ligu{" "}
+              <strong>{leagueToDelete ? getLeagueDisplayName(leagueToDelete, language) : ""}</strong>?
+              Tato akce je nevratná.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-3">
+            <p className="text-sm text-gray-600">
+              Budou smazány všechny sezóny, kola, zápasy a provider mappings této ligy.
+            </p>
+            {leagueToDelete?.leagueProviders && leagueToDelete.leagueProviders.length > 0 && (
+              <div className="space-y-2">
+                <Checkbox
+                  id="ignore-in-provider"
+                  checked={ignoreInProvider}
+                  onChange={(e) => setIgnoreInProvider(e.target.checked)}
+                  label="Ignorovat v provider cache"
+                />
+                <p className="text-xs text-gray-500 ml-6">
+                  Zaškrtnutím se ligy v provider cache ({leagueToDelete.leagueProviders.map(lp => lp.provider?.name || lp.providerName).join(", ")}) označí jako ignorované a nebudou se znovu importovat.
+                </p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteDialogOpen(false)}
+              disabled={deleteMutation.isPending}
+            >
+              Zrušit
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDelete}
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? "Mazání..." : "Smazat"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

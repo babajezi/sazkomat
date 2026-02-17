@@ -217,11 +217,50 @@ public static class ConfigurationEndpoints
         .Produces(200)
         .Produces(400);
 
-        // DELETE /api/config/leagues/{id}
+        // DELETE /api/config/leagues/{id}?ignoreInProvider=true
         group.MapDelete("/leagues/{id:guid}", async (
             Guid id,
+            [FromQuery] bool ignoreInProvider,
+            ILeagueProviderRepository leagueProviderRepo,
+            Sazkomat.DataImport.Data.DataImportDbContext dataImportContext,
             IConfigurationService service) =>
         {
+            if (ignoreInProvider)
+            {
+                // Get league_providers before deletion (cascade will remove them)
+                var leagueProviders = await leagueProviderRepo.GetByLeagueIdAsync(id);
+
+                foreach (var lp in leagueProviders)
+                {
+                    // Find provider_leagues matching this provider + slug and mark as Ignored
+                    await dataImportContext.ProviderLeagues
+                        .Where(pl => pl.ProviderId == lp.ProviderId && pl.ProviderSlug == lp.ProviderSlug)
+                        .ExecuteUpdateAsync(s => s
+                            .SetProperty(pl => pl.MappingStatus, Sazkomat.DataImport.Entities.MappingStatus.Ignored)
+                            .SetProperty(pl => pl.IsImported, false)
+                            .SetProperty(pl => pl.LeagueId, (Guid?)null)
+                            .SetProperty(pl => pl.ImportedAt, (DateTime?)null));
+                }
+            }
+
+            // Delete rounds and matches in data_import schema (cross-schema, no FK cascade)
+            var roundIds = await dataImportContext.Rounds
+                .Where(r => r.LeagueId == id)
+                .Select(r => r.Id)
+                .ToListAsync();
+
+            if (roundIds.Count > 0)
+            {
+                await dataImportContext.Matches
+                    .Where(m => roundIds.Contains(m.RoundId))
+                    .ExecuteDeleteAsync();
+
+                await dataImportContext.Rounds
+                    .Where(r => r.LeagueId == id)
+                    .ExecuteDeleteAsync();
+            }
+
+            // Delete league (cascade handles league_seasons, league_providers)
             var result = await service.DeleteLeagueAsync(id);
 
             if (!result.IsSuccess)
