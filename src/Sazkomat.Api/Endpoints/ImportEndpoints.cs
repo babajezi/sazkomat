@@ -221,6 +221,7 @@ public static class ImportEndpoints
         {
             var query = context.Rounds
                 .Include(r => r.Matches)
+                .Include(r => r.Season)
                 .AsQueryable();
 
             // Convert season string to seasonId if provided
@@ -240,30 +241,22 @@ public static class ImportEndpoints
 
             var totalCount = await query.CountAsync();
 
-            // Load all seasons for sorting (Season navigation is ignored, it's in different schema)
-            var allSeasons = await seasonRepository.GetAllAsync();
-            var seasonStartYears = allSeasons.ToDictionary(s => s.Id, s => s.StartYear);
+            // Sort at DB level using cross-schema JOIN
+            query = sortDescending
+                ? query.OrderByDescending(r => r.Season.StartYear)
+                       .ThenByDescending(r => r.RoundNumber)
+                : query.OrderBy(r => r.Season.StartYear)
+                       .ThenBy(r => r.RoundNumber);
 
-            // Load all matching rounds for in-memory sorting
-            var allRounds = await query.ToListAsync();
-
-            // Sort in memory by season start year
-            IEnumerable<Round> sortedRounds = sortDescending
-                ? allRounds.OrderByDescending(r => seasonStartYears.GetValueOrDefault(r.SeasonId, 0))
-                           .ThenByDescending(r => r.RoundNumber)
-                : allRounds.OrderBy(r => seasonStartYears.GetValueOrDefault(r.SeasonId, 0))
-                           .ThenBy(r => r.RoundNumber);
-
-            // Apply pagination in memory
+            // Apply pagination at DB level
             if (skip.HasValue)
             {
-                sortedRounds = sortedRounds.Skip(skip.Value);
+                query = query.Skip(skip.Value);
             }
 
-            var rounds = sortedRounds.Take(take ?? 50).ToList();
+            query = query.Take(take ?? 50);
 
-            // Build season names dictionary from already loaded seasons
-            var seasons = allSeasons.ToDictionary(s => s.Id, s => s.Name);
+            var rounds = await query.ToListAsync();
 
             // Load leagues for all rounds
             var leagueIds = rounds.Select(r => r.LeagueId).Distinct().ToList();
@@ -290,7 +283,7 @@ public static class ImportEndpoints
                 id = r.Id,
                 leagueId = r.LeagueId,
                 league = leagues.ContainsKey(r.LeagueId) ? leagues[r.LeagueId] : null,
-                season = seasons.ContainsKey(r.SeasonId) ? seasons[r.SeasonId] : null,
+                season = r.Season?.Name,
                 roundNumber = r.RoundNumber,
                 groupName = r.GroupName,
                 matchesCount = r.MatchesCount,

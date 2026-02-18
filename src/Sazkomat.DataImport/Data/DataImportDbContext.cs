@@ -76,6 +76,20 @@ public class DataImportDbContext : DbContext
 
         // Scraper recipes
         modelBuilder.ApplyConfiguration(new ScraperRecipeConfiguration());
+
+        // Season from configuration schema (read-only, for cross-schema JOINs)
+        modelBuilder.Entity<Season>(b =>
+        {
+            b.ToTable("seasons", "configuration", t => t.ExcludeFromMigrations());
+            b.HasKey(s => s.Id);
+            b.Property(s => s.Id).HasColumnName("id");
+            b.Property(s => s.Name).HasColumnName("name");
+            b.Property(s => s.StartYear).HasColumnName("start_year");
+            b.Property(s => s.EndYear).HasColumnName("end_year");
+            b.Property(s => s.CreatedAt).HasColumnName("created_at");
+            b.Property(s => s.UpdatedAt).HasColumnName("updated_at");
+            b.Ignore(s => s.LeagueSeasons);
+        });
     }
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

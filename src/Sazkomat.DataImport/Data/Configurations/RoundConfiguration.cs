@@ -35,9 +35,14 @@ public class RoundConfiguration : IEntityTypeConfiguration<Round>
         builder.Property(r => r.CreatedAt).HasColumnName("created_at").IsRequired();
         builder.Property(r => r.UpdatedAt).HasColumnName("updated_at").IsRequired();
 
-        // Ignore navigation properties (League and Season are managed by ConfigurationDbContext)
+        // League navigation is managed by ConfigurationDbContext
         builder.Ignore(r => r.League);
-        builder.Ignore(r => r.Season);
+
+        // Season FK - enables cross-schema JOIN for efficient sorting
+        builder.HasOne(r => r.Season)
+            .WithMany()
+            .HasForeignKey(r => r.SeasonId)
+            .IsRequired();
 
         // Unique constraint (includes GroupName for leagues with groups)
         builder.HasIndex(r => new { r.LeagueId, r.SeasonId, r.GroupName, r.RoundNumber })
