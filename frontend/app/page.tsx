@@ -77,12 +77,12 @@ function LandingPage() {
                 predikce sportovních výsledků.
               </p>
               <p>
-                <strong>Fáze 1:</strong> Konfigurace lig, import historických
-                dat, perzistence do PostgreSQL
-              </p>
-              <p>
-                <strong>Technologie:</strong> .NET 10, PostgreSQL 16, Next.js 15,
-                Docker
+                Verze {process.env.NEXT_PUBLIC_VERSION}
+                {process.env.NEXT_PUBLIC_BUILD_TIME && (
+                  <span className="ml-2">
+                    (build: {new Date(process.env.NEXT_PUBLIC_BUILD_TIME).toLocaleString("cs-CZ")})
+                  </span>
+                )}
               </p>
             </CardContent>
           </Card>
@@ -411,12 +411,12 @@ function Dashboard() {
                 predikce sportovních výsledků.
               </p>
               <p>
-                <strong>Fáze 1:</strong> Konfigurace lig, import historických
-                dat, perzistence do PostgreSQL
-              </p>
-              <p>
-                <strong>Technologie:</strong> .NET 10, PostgreSQL 16, Next.js 15,
-                Docker
+                Verze {process.env.NEXT_PUBLIC_VERSION}
+                {process.env.NEXT_PUBLIC_BUILD_TIME && (
+                  <span className="ml-2">
+                    (build: {new Date(process.env.NEXT_PUBLIC_BUILD_TIME).toLocaleString("cs-CZ")})
+                  </span>
+                )}
               </p>
             </CardContent>
           </Card>
