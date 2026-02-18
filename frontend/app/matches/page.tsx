@@ -366,15 +366,39 @@ export default function MatchesPage() {
             .map(([key, roundMatches]) => {
               const typedRoundMatches = roundMatches as Match[];
               const firstMatch = typedRoundMatches[0];
+              const homeWins = typedRoundMatches.filter(m => m.result === MatchResult.Home).length;
+              const draws = typedRoundMatches.filter(m => m.result === MatchResult.Draw).length;
+              const awayWins = typedRoundMatches.filter(m => m.result === MatchResult.Away).length;
+              const total = homeWins + draws + awayWins;
               return (
                 <Card key={key}>
                   <CardHeader>
-                    <CardTitle>
-                      {firstMatch.league?.displayName || firstMatch.league?.name} - {firstMatch.round.season} - Kolo {firstMatch.round.roundNumber}
-                    </CardTitle>
-                    <CardDescription>
-                      {typedRoundMatches.length} zápasů
-                    </CardDescription>
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <CardTitle>
+                          {firstMatch.league?.displayName || firstMatch.league?.name} - {firstMatch.round.season} - Kolo {firstMatch.round.roundNumber}
+                        </CardTitle>
+                        <CardDescription>
+                          {typedRoundMatches.length} zápasů
+                        </CardDescription>
+                      </div>
+                      {total > 0 && (
+                        <div className="text-right">
+                          <div className="text-sm text-muted-foreground mb-1">Výsledky (1-X-2)</div>
+                          <div className="flex gap-1 font-mono text-xl font-bold">
+                            <span className={`min-w-[60px] text-center px-2 py-1 rounded ${homeWins > 0 && draws === 0 && awayWins === 0 ? "bg-green-100 text-green-800" : "bg-gray-100"}`}>
+                              {homeWins}
+                            </span>
+                            <span className={`min-w-[60px] text-center px-2 py-1 rounded ${draws > 0 && homeWins === 0 && awayWins === 0 ? "bg-green-100 text-green-800" : "bg-gray-100"}`}>
+                              {draws}
+                            </span>
+                            <span className={`min-w-[60px] text-center px-2 py-1 rounded ${awayWins > 0 && homeWins === 0 && draws === 0 ? "bg-green-100 text-green-800" : "bg-gray-100"}`}>
+                              {awayWins}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-2">
