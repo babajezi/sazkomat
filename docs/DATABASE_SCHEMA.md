@@ -438,6 +438,23 @@ PostgreSQL 16 s dvěma schématy:
 
 **Unique Index:** (provider, page_type, name)
 
+### analytical_views
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | uuid | PK |
+| name | varchar(200) | NOT NULL |
+| description | varchar(1000) | NULL |
+| spec_json | jsonb | NOT NULL |
+| tags | varchar(500) | NULL |
+| is_favorite | boolean | NOT NULL, DEFAULT false |
+| execution_count | integer | NOT NULL, DEFAULT 0 |
+| last_executed_at | timestamptz | NULL |
+| last_execution_ms | integer | NULL |
+| created_at | timestamptz | NOT NULL |
+| updated_at | timestamptz | NOT NULL |
+
+**Indexes:** ix_analytical_views_name, ix_analytical_views_is_favorite, ix_analytical_views_last_executed_at
+
 ---
 
-**Poslední aktualizace:** 2026-02-07
+**Poslední aktualizace:** 2026-02-19

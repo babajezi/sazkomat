@@ -362,6 +362,22 @@ Base URL: `http://localhost:3001`
 
 ---
 
+## Analytics
+
+| Method | Endpoint | Popis |
+|--------|----------|-------|
+| POST | /api/analytics/execute | Spustí ad-hoc ViewSpec |
+| GET | /api/analytics/metadata | Dostupné dimenze, metriky, sloupce |
+| GET | /api/analytics/views | Seznam uložených pohledů |
+| GET | /api/analytics/views/{id} | Detail pohledu |
+| POST | /api/analytics/views | Vytvoří pohled |
+| PUT | /api/analytics/views/{id} | Aktualizuje pohled |
+| DELETE | /api/analytics/views/{id} | Smaže pohled |
+| POST | /api/analytics/views/{id}/execute | Spustí uložený pohled |
+| POST | /api/analytics/views/{id}/favorite | Toggle oblíbený |
+
+---
+
 ## External Scrapers
 
 | Method | Endpoint | Popis |
@@ -391,4 +407,4 @@ Base URL: `http://localhost:3001`
 
 ---
 
-**Poslední aktualizace:** 2026-02-10
+**Poslední aktualizace:** 2026-02-19

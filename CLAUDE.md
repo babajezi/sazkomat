@@ -30,8 +30,9 @@
 src/
 ├── Sazkomat.Core/           # Sdílené jádro (Entity, Result pattern)
 ├── Sazkomat.Configuration/  # Sport, Country, League, Season, Providers
-├── Sazkomat.DataImport/     # Round, Match, Scrapers, Jobs, Cache
-├── Sazkomat.Strategy/       # (Fáze 2)
+├── Sazkomat.Data/           # Round, Match, Scrapers, Jobs, Cache, Analytical Views
+├── Sazkomat.Strategy/       # Analytics Engine, SQL Builder, ViewSpec
+├── Sazkomat.BettingProviders/ # Betano, Fortuna, Tipsport, Chance, Kingsbet
 └── Sazkomat.Api/            # REST API endpointy
 
 frontend/
@@ -44,18 +45,19 @@ frontend/
 
 Dvě PostgreSQL schémata:
 - **configuration** - sports, countries, leagues, seasons, league_seasons, data_providers, *_providers
-- **data_import** - rounds, matches, import_jobs, sync_jobs, provider_*, unmatched_*, *_name_mappings, scraper_recipes
+- **data_import** - rounds, matches, import_jobs, sync_jobs, provider_*, unmatched_*, *_name_mappings, scraper_recipes, analytical_views
 
 Kompletní schéma: viz `docs/DATABASE_SCHEMA.md`
 
 ## API
 
-126+ endpointů organizovaných do kategorií:
+135+ endpointů organizovaných do kategorií:
 - Config (sports, countries, leagues, seasons, providers)
 - Scan, Import, Sync, LiveSync
 - Jobs, Unmatched Leagues/Countries
 - Name Mappings, Provider Cache
 - Recipes, Debug, Database
+- Analytics (execute, views, metadata)
 
 Kompletní dokumentace: viz `docs/API.md`
 
@@ -88,9 +90,9 @@ dotnet ef migrations add MigrationName \
   --project src/Sazkomat.Configuration \
   --startup-project src/Sazkomat.Api
 
-# DataImport modul
+# Data modul
 dotnet ef migrations add MigrationName \
-  --project src/Sazkomat.DataImport \
+  --project src/Sazkomat.Data \
   --startup-project src/Sazkomat.Api
 ```
 

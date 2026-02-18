@@ -64,6 +64,14 @@ import type {
   // Validation types
   LeagueValidationResult,
   UpdateIgnoredRequest,
+  // Analytics types
+  ViewSpec,
+  AnalyticsResult,
+  AnalyticsViewListItem,
+  AnalyticsViewDetail,
+  CreateViewRequest,
+  UpdateViewRequest,
+  AnalyticsMetadata,
 } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
@@ -1011,6 +1019,54 @@ export const adminApi = {
   // Update a user
   updateUser: async (userId: string, request: UpdateUserRequest): Promise<User> => {
     const { data } = await apiClient.patch<User>(`/admin/users/${userId}`, request);
+    return data;
+  },
+};
+
+// Analytics endpoints
+export const analyticsApi = {
+  execute: async (spec: ViewSpec): Promise<AnalyticsResult> => {
+    const { data } = await apiClient.post<AnalyticsResult>("/analytics/execute", spec);
+    return data;
+  },
+
+  getMetadata: async (): Promise<AnalyticsMetadata> => {
+    const { data } = await apiClient.get<AnalyticsMetadata>("/analytics/metadata");
+    return data;
+  },
+
+  getViews: async (): Promise<AnalyticsViewListItem[]> => {
+    const { data } = await apiClient.get<AnalyticsViewListItem[]>("/analytics/views");
+    return data;
+  },
+
+  getView: async (id: string): Promise<AnalyticsViewDetail> => {
+    const { data } = await apiClient.get<AnalyticsViewDetail>(`/analytics/views/${id}`);
+    return data;
+  },
+
+  createView: async (request: CreateViewRequest): Promise<{ id: string; name: string }> => {
+    const { data } = await apiClient.post<{ id: string; name: string }>("/analytics/views", request);
+    return data;
+  },
+
+  updateView: async (id: string, request: UpdateViewRequest): Promise<{ id: string; name: string }> => {
+    const { data } = await apiClient.put<{ id: string; name: string }>(`/analytics/views/${id}`, request);
+    return data;
+  },
+
+  deleteView: async (id: string): Promise<{ message: string }> => {
+    const { data } = await apiClient.delete<{ message: string }>(`/analytics/views/${id}`);
+    return data;
+  },
+
+  executeView: async (id: string): Promise<AnalyticsResult> => {
+    const { data } = await apiClient.post<AnalyticsResult>(`/analytics/views/${id}/execute`);
+    return data;
+  },
+
+  toggleFavorite: async (id: string): Promise<{ id: string; isFavorite: boolean }> => {
+    const { data } = await apiClient.post<{ id: string; isFavorite: boolean }>(`/analytics/views/${id}/favorite`);
     return data;
   },
 };

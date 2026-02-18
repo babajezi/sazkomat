@@ -1107,3 +1107,109 @@ export interface RecipeAction {
   timeout?: number;
   script?: string;
 }
+
+// ==================== ANALYTICS TYPES ====================
+
+export interface ViewSpec {
+  dataSource: string;
+  filters?: ViewFilters;
+  groupBy?: string[];
+  metrics: MetricSpec[];
+  sort?: SortSpec;
+  limit?: number;
+  visualization?: VisualizationSpec;
+}
+
+export interface ViewFilters {
+  leagueIds?: string[];
+  countryIds?: string[];
+  seasonNames?: string[];
+  dateRange?: { from?: string; to?: string };
+  results?: string[];
+  hasOdds?: boolean;
+  oddsRange?: { column: string; min?: number; max?: number };
+  minMatches?: number;
+  fieldComparisons?: { left: string; operator: string; right: string }[];
+}
+
+export interface MetricSpec {
+  type: string;
+  column?: string;
+  result?: string;
+  alias?: string;
+}
+
+export interface SortSpec {
+  column: string;
+  direction: string;
+}
+
+export interface VisualizationSpec {
+  type: string;
+  options?: Record<string, unknown>;
+}
+
+export interface ColumnDefinition {
+  name: string;
+  type: string;
+  alias?: string;
+}
+
+export interface AnalyticsResult {
+  columns: ColumnDefinition[];
+  rows: Record<string, unknown>[];
+  totalRows: number;
+  executionMs: number;
+  spec: ViewSpec;
+}
+
+export interface AnalyticsViewListItem {
+  id: string;
+  name: string;
+  description: string | null;
+  tags: string | null;
+  isFavorite: boolean;
+  executionCount: number;
+  lastExecutedAt: string | null;
+  lastExecutionMs: number | null;
+  visualizationType: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AnalyticsViewDetail {
+  id: string;
+  name: string;
+  description: string | null;
+  specJson: string;
+  spec: ViewSpec | null;
+  tags: string | null;
+  isFavorite: boolean;
+  executionCount: number;
+  lastExecutedAt: string | null;
+  lastExecutionMs: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateViewRequest {
+  name: string;
+  description?: string;
+  spec: ViewSpec;
+  tags?: string;
+}
+
+export interface UpdateViewRequest {
+  name?: string;
+  description?: string;
+  spec?: ViewSpec;
+  tags?: string;
+}
+
+export interface AnalyticsMetadata {
+  dataSources: string[];
+  dimensions: { name: string; description: string }[];
+  metricTypes: { type: string; description: string; requiresColumn: boolean; requiresResult: boolean }[];
+  columns: { name: string; table: string; type: string; description: string }[];
+  operators: string[];
+}

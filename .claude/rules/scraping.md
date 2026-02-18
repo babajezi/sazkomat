@@ -41,5 +41,5 @@ Některé ligy mají sezónu rozdělenou na skupiny, např. Indonesia Championsh
 | "West - 22. Round" | "West" | 22 |
 
 ### Klíčové soubory
-- `src/Sazkomat.DataImport/Entities/Round.cs` - GroupName property
-- `src/Sazkomat.DataImport/Scrapers/FootballBetExplorerScraper.cs` - ParseRoundHeader()
+- `src/Sazkomat.Data/Entities/Round.cs` - GroupName property
+- `src/Sazkomat.Data/Scrapers/FootballBetExplorerScraper.cs` - ParseRoundHeader()
