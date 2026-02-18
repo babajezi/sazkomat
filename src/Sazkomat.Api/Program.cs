@@ -328,6 +328,16 @@ builder.Services.AddScoped<ScraperDebugService>();
 // Register recipe executor service for adaptive scraping
 builder.Services.AddScoped<RecipeExecutorService>();
 
+// Register Analytics engine and service
+builder.Services.AddScoped<Sazkomat.Strategy.Engine.AnalyticsEngine>(sp =>
+{
+    var connString = builder.Configuration.GetConnectionString("DefaultConnection")
+        ?? throw new InvalidOperationException("DefaultConnection string not found");
+    var logger = sp.GetRequiredService<ILogger<Sazkomat.Strategy.Engine.AnalyticsEngine>>();
+    return new Sazkomat.Strategy.Engine.AnalyticsEngine(connString, logger);
+});
+builder.Services.AddScoped<Sazkomat.Strategy.Services.AnalyticalViewService>();
+
 // Configure Hangfire
 var hangfireConnection = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("DefaultConnection string not found");
@@ -412,6 +422,7 @@ app.MapUserAdminEndpoints();
 app.MapTipsportEndpoints();
 app.MapDebugEndpoints();
 app.MapRecipeEndpoints();
+app.MapAnalyticsEndpoints();
 
 // Auto migration and seed on startup
 using (var scope = app.Services.CreateScope())

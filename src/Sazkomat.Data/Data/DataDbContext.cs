@@ -47,6 +47,9 @@ public class DataDbContext : DbContext
     // Scraper recipes for adaptive scraping
     public DbSet<ScraperRecipe> ScraperRecipes => Set<ScraperRecipe>();
 
+    // Analytical views
+    public DbSet<AnalyticalView> AnalyticalViews => Set<AnalyticalView>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -76,6 +79,9 @@ public class DataDbContext : DbContext
 
         // Scraper recipes
         modelBuilder.ApplyConfiguration(new ScraperRecipeConfiguration());
+
+        // Analytical views
+        modelBuilder.ApplyConfiguration(new AnalyticalViewConfiguration());
 
         // Season from configuration schema (read-only, for cross-schema JOINs)
         modelBuilder.Entity<Season>(b =>

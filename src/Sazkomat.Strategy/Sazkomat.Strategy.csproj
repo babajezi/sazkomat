@@ -2,6 +2,12 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Sazkomat.Core\Sazkomat.Core.csproj" />
+    <ProjectReference Include="..\Sazkomat.Data\Sazkomat.Data.csproj" />
+    <ProjectReference Include="..\Sazkomat.Configuration\Sazkomat.Configuration.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.0" />
   </ItemGroup>
 
   <PropertyGroup>
