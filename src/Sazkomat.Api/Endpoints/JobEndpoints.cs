@@ -1,6 +1,6 @@
 using Hangfire;
 using Microsoft.AspNetCore.Mvc;
-using Sazkomat.DataImport.Services;
+using Sazkomat.Data.Services;
 
 namespace Sazkomat.Api.Endpoints;
 

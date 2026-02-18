@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Sazkomat.Configuration.Services;
-using Sazkomat.DataImport.DTOs;
-using Sazkomat.DataImport.Services;
+using Sazkomat.Data.DTOs;
+using Sazkomat.Data.Services;
 using Sazkomat.BettingProviders.Services;
 
 namespace Sazkomat.Api.Endpoints;

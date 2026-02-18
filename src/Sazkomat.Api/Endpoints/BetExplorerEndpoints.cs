@@ -1,8 +1,8 @@
 using System.Text.Json;
 using Sazkomat.Configuration.Entities;
 using Sazkomat.Configuration.Repositories;
-using Sazkomat.DataImport.Repositories;
-using Sazkomat.DataImport.Scrapers;
+using Sazkomat.Data.Repositories;
+using Sazkomat.Data.Scrapers;
 
 namespace Sazkomat.Api.Endpoints;
 
@@ -164,7 +164,7 @@ public static class BetExplorerEndpoints
 
                 if (existing == null)
                 {
-                    var providerLeague = new DataImport.Entities.ProviderLeague
+                    var providerLeague = new Data.Entities.ProviderLeague
                     {
                         ProviderId = BetExplorerProviderId,
                         ProviderSlug = league.Slug,

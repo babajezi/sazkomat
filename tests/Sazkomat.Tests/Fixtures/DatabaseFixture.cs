@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Sazkomat.Configuration.Data;
-using Sazkomat.DataImport.Data;
+using Sazkomat.Data.Data;
 
 namespace Sazkomat.Tests.Fixtures;
 
@@ -25,15 +25,15 @@ public class DatabaseFixture : IDisposable
     }
 
     /// <summary>
-    /// Creates a new DataImportDbContext with in-memory database
+    /// Creates a new DataDbContext with in-memory database
     /// </summary>
-    public DataImportDbContext CreateDataImportDbContext()
+    public DataDbContext CreateDataDbContext()
     {
-        var options = new DbContextOptionsBuilder<DataImportDbContext>()
+        var options = new DbContextOptionsBuilder<DataDbContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
             .Options;
 
-        return new DataImportDbContext(options);
+        return new DataDbContext(options);
     }
 
     public void Dispose()

@@ -9,7 +9,7 @@ COPY Directory.Build.props ./
 # Copy only production project files (tests not needed for API build)
 COPY src/Sazkomat.Core/*.csproj ./src/Sazkomat.Core/
 COPY src/Sazkomat.Configuration/*.csproj ./src/Sazkomat.Configuration/
-COPY src/Sazkomat.DataImport/*.csproj ./src/Sazkomat.DataImport/
+COPY src/Sazkomat.Data/*.csproj ./src/Sazkomat.Data/
 COPY src/Sazkomat.BettingProviders/*.csproj ./src/Sazkomat.BettingProviders/
 COPY src/Sazkomat.Strategy/*.csproj ./src/Sazkomat.Strategy/
 COPY src/Sazkomat.Api/*.csproj ./src/Sazkomat.Api/

@@ -2,7 +2,7 @@ using Hangfire;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Sazkomat.DataImport.Services;
+using Sazkomat.Data.Services;
 
 namespace Sazkomat.Api.Services;
 

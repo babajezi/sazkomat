@@ -1,12 +1,12 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Sazkomat.Configuration.Repositories;
-using Sazkomat.DataImport.Data;
-using Sazkomat.DataImport.DTOs;
-using Sazkomat.DataImport.Entities;
-using Sazkomat.DataImport.Repositories;
-using Sazkomat.DataImport.Scrapers;
-using Sazkomat.DataImport.Services;
+using Sazkomat.Data.Data;
+using Sazkomat.Data.DTOs;
+using Sazkomat.Data.Entities;
+using Sazkomat.Data.Repositories;
+using Sazkomat.Data.Scrapers;
+using Sazkomat.Data.Services;
 
 namespace Sazkomat.Api.Endpoints;
 
@@ -210,7 +210,7 @@ public static class ImportEndpoints
 
         // GET /api/import/rounds
         group.MapGet("/rounds", async (
-            DataImportDbContext context,
+            DataDbContext context,
             ISeasonRepository seasonRepository,
             ILeagueRepository leagueRepository,
             string? season = null,
@@ -459,7 +459,7 @@ public static class ImportEndpoints
 
         // GET /api/import/seasons/imported - Get all seasons that have imported rounds
         group.MapGet("/seasons/imported", async (
-            DataImportDbContext context,
+            DataDbContext context,
             ISeasonRepository seasonRepository) =>
         {
             // Get all unique season IDs from rounds
@@ -497,7 +497,7 @@ public static class ImportEndpoints
 
         // GET /api/import/rounds/available - Get all available round numbers for filters
         group.MapGet("/rounds/available", async (
-            DataImportDbContext context,
+            DataDbContext context,
             ISeasonRepository seasonRepository,
             [FromQuery] Guid? leagueId,
             [FromQuery] string? season) =>

@@ -3,7 +3,7 @@ using Sazkomat.BettingProviders.Entities;
 using Sazkomat.BettingProviders.Models;
 using Sazkomat.BettingProviders.Services;
 using Sazkomat.Core.Common;
-using Sazkomat.DataImport.Services;
+using Sazkomat.Data.Services;
 
 namespace Sazkomat.BettingProviders.Scrapers;
 

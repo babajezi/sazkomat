@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Sazkomat.DataImport.Data;
-using Sazkomat.DataImport.Entities;
+using Sazkomat.Data.Data;
+using Sazkomat.Data.Entities;
 
 namespace Sazkomat.Api.Endpoints;
 
@@ -23,7 +23,7 @@ public static class TipsportEndpoints
 
     private static async Task<IResult> ReceiveTipsportLeagues(
         [FromBody] TipsportLeaguesRequest request,
-        DataImportDbContext dbContext,
+        DataDbContext dbContext,
         ILogger<Program> logger)
     {
         try

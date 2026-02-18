@@ -1,8 +1,8 @@
 using Moq;
 using Microsoft.Extensions.Logging;
 using Sazkomat.Configuration.Entities;
-using Sazkomat.DataImport.Entities;
-using Sazkomat.DataImport.Scrapers;
+using Sazkomat.Data.Entities;
+using Sazkomat.Data.Scrapers;
 
 namespace Sazkomat.Tests.Scrapers;
 

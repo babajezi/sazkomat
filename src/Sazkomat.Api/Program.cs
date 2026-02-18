@@ -13,11 +13,11 @@ using Sazkomat.Configuration.Entities;
 using Sazkomat.Configuration.Repositories;
 using Sazkomat.Configuration.Services;
 using Sazkomat.Configuration.Settings;
-using Sazkomat.DataImport.Data;
-using Sazkomat.DataImport.Debug;
-using Sazkomat.DataImport.Repositories;
-using Sazkomat.DataImport.Scrapers;
-using Sazkomat.DataImport.Services;
+using Sazkomat.Data.Data;
+using Sazkomat.Data.Debug;
+using Sazkomat.Data.Repositories;
+using Sazkomat.Data.Scrapers;
+using Sazkomat.Data.Services;
 using Sazkomat.BettingProviders.Scrapers;
 using Sazkomat.BettingProviders.Services;
 using StackExchange.Redis;
@@ -114,7 +114,7 @@ builder.Services.AddCors(options =>
 builder.Services.AddDbContext<ConfigurationDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-builder.Services.AddDbContext<DataImportDbContext>(options =>
+builder.Services.AddDbContext<DataDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // === JWT Settings ===
@@ -217,7 +217,7 @@ builder.Services.AddScoped<IUniversalImportExportService, UniversalImportExportS
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ILeagueSeasonValidationService, LeagueSeasonValidationService>();
 
-// Register DataImport repositories
+// Register Data repositories
 builder.Services.AddScoped<IRoundRepository, RoundRepository>();
 builder.Services.AddScoped<IMatchRepository, MatchRepository>();
 builder.Services.AddScoped<IImportJobRepository, ImportJobRepository>();
@@ -233,7 +233,7 @@ builder.Services.AddScoped<ICountryNameMappingRepository, CountryNameMappingRepo
 builder.Services.AddScoped<IUnmatchedLeagueRepository, UnmatchedLeagueRepository>();
 builder.Services.AddScoped<IUnmatchedCountryRepository, UnmatchedCountryRepository>();
 
-// Register DataImport scrapers
+// Register Data scrapers
 builder.Services.AddScoped<ILeagueScraper, FootballBetExplorerScraper>();
 builder.Services.AddScoped<ISeasonScraper, BetExplorerSeasonScraper>();
 builder.Services.AddScoped<ICountryScraper, BetExplorerCountryScraper>();
@@ -241,8 +241,8 @@ builder.Services.AddScoped<BetExplorerLeagueMetadataScraper>(); // Concrete clas
 builder.Services.AddScoped<ILeagueMetadataScraper, BetExplorerLeagueMetadataScraper>();
 builder.Services.AddScoped<ScraperFactory>();
 
-// Register DataImport validators
-builder.Services.AddScoped<Sazkomat.DataImport.Validators.ILeagueRoundValidator, Sazkomat.DataImport.Validators.BetExplorerRoundValidator>();
+// Register Data validators
+builder.Services.AddScoped<Sazkomat.Data.Validators.ILeagueRoundValidator, Sazkomat.Data.Validators.BetExplorerRoundValidator>();
 
 // Configure Redis
 var redisConnectionString = builder.Configuration.GetConnectionString("RedisConnection") ?? "localhost:6379";
@@ -307,7 +307,7 @@ builder.Services.AddScoped<PlaywrightHttpClient>();
 // Register PlaywrightHttpClient as the default IHttpClient for scrapers
 builder.Services.AddScoped<IHttpClient, PlaywrightHttpClient>();
 
-// Register DataImport services
+// Register Data services
 builder.Services.AddScoped<IImportOrchestrator, ImportOrchestrator>();
 builder.Services.AddScoped<ISyncService, ProviderSyncService>();
 builder.Services.AddScoped<ISeasonSyncService, SeasonSyncService>();
@@ -419,7 +419,7 @@ using (var scope = app.Services.CreateScope())
     try
     {
         var configContext = scope.ServiceProvider.GetRequiredService<ConfigurationDbContext>();
-        var dataImportContext = scope.ServiceProvider.GetRequiredService<DataImportDbContext>();
+        var dataImportContext = scope.ServiceProvider.GetRequiredService<DataDbContext>();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
 
         logger.LogInformation("Running database migrations...");
@@ -448,9 +448,9 @@ using (var scope = app.Services.CreateScope())
         // Cleanup orphaned jobs (stuck in Running status from previous crash/restart)
         logger.LogInformation("Checking for orphaned jobs...");
         var orphanedJobsCount = await dataImportContext.SyncJobs
-            .Where(j => j.Status == Sazkomat.DataImport.Entities.SyncJobStatus.Running)
+            .Where(j => j.Status == Sazkomat.Data.Entities.SyncJobStatus.Running)
             .ExecuteUpdateAsync(setters => setters
-                .SetProperty(j => j.Status, Sazkomat.DataImport.Entities.SyncJobStatus.Failed)
+                .SetProperty(j => j.Status, Sazkomat.Data.Entities.SyncJobStatus.Failed)
                 .SetProperty(j => j.CompletedAt, DateTime.UtcNow)
                 .SetProperty(j => j.ErrorMessage, "Job orphaned after application restart"));
         if (orphanedJobsCount > 0)

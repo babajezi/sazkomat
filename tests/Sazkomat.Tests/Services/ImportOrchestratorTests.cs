@@ -4,11 +4,11 @@ using Sazkomat.Configuration.Entities;
 using Sazkomat.Configuration.Repositories;
 using Sazkomat.Configuration.Services;
 using Sazkomat.Core.Common;
-using Sazkomat.DataImport.DTOs;
-using Sazkomat.DataImport.Entities;
-using Sazkomat.DataImport.Repositories;
-using Sazkomat.DataImport.Scrapers;
-using Sazkomat.DataImport.Services;
+using Sazkomat.Data.DTOs;
+using Sazkomat.Data.Entities;
+using Sazkomat.Data.Repositories;
+using Sazkomat.Data.Scrapers;
+using Sazkomat.Data.Services;
 
 namespace Sazkomat.Tests.Services;
 

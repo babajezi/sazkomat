@@ -1,22 +1,22 @@
 using Microsoft.EntityFrameworkCore;
 using Sazkomat.Configuration.Data;
-using Sazkomat.DataImport.Data;
+using Sazkomat.Data.Data;
 
 namespace Sazkomat.Api.Services;
 
 public class DatabaseResetService : IDatabaseResetService
 {
     private readonly ConfigurationDbContext _configContext;
-    private readonly DataImportDbContext _dataImportContext;
+    private readonly DataDbContext _dataContext;
     private readonly ILogger<DatabaseResetService> _logger;
 
     public DatabaseResetService(
         ConfigurationDbContext configContext,
-        DataImportDbContext dataImportContext,
+        DataDbContext dataContext,
         ILogger<DatabaseResetService> logger)
     {
         _configContext = configContext;
-        _dataImportContext = dataImportContext;
+        _dataContext = dataContext;
         _logger = logger;
     }
 
@@ -27,14 +27,14 @@ public class DatabaseResetService : IDatabaseResetService
         try
         {
             // Disable triggers and foreign key checks temporarily
-            await _dataImportContext.Database.ExecuteSqlRawAsync("SET session_replication_role = 'replica';");
+            await _dataContext.Database.ExecuteSqlRawAsync("SET session_replication_role = 'replica';");
             await _configContext.Database.ExecuteSqlRawAsync("SET session_replication_role = 'replica';");
 
             // Delete data from data_import schema (in correct order due to FKs)
             _logger.LogInformation("Truncating data_import schema tables...");
-            await _dataImportContext.Database.ExecuteSqlRawAsync("TRUNCATE TABLE data_import.matches CASCADE;");
-            await _dataImportContext.Database.ExecuteSqlRawAsync("TRUNCATE TABLE data_import.rounds CASCADE;");
-            await _dataImportContext.Database.ExecuteSqlRawAsync("TRUNCATE TABLE data_import.import_jobs CASCADE;");
+            await _dataContext.Database.ExecuteSqlRawAsync("TRUNCATE TABLE data_import.matches CASCADE;");
+            await _dataContext.Database.ExecuteSqlRawAsync("TRUNCATE TABLE data_import.rounds CASCADE;");
+            await _dataContext.Database.ExecuteSqlRawAsync("TRUNCATE TABLE data_import.import_jobs CASCADE;");
 
             // Delete data from configuration schema (in correct order due to FKs)
             _logger.LogInformation("Truncating configuration schema tables...");
@@ -48,7 +48,7 @@ public class DatabaseResetService : IDatabaseResetService
             await _configContext.Database.ExecuteSqlRawAsync("TRUNCATE TABLE configuration.data_providers CASCADE;");
 
             // Re-enable triggers and foreign key checks
-            await _dataImportContext.Database.ExecuteSqlRawAsync("SET session_replication_role = 'origin';");
+            await _dataContext.Database.ExecuteSqlRawAsync("SET session_replication_role = 'origin';");
             await _configContext.Database.ExecuteSqlRawAsync("SET session_replication_role = 'origin';");
 
             _logger.LogWarning("Database reset completed - all data has been deleted");
@@ -60,7 +60,7 @@ public class DatabaseResetService : IDatabaseResetService
             // Make sure to re-enable constraints even if error occurs
             try
             {
-                await _dataImportContext.Database.ExecuteSqlRawAsync("SET session_replication_role = 'origin';");
+                await _dataContext.Database.ExecuteSqlRawAsync("SET session_replication_role = 'origin';");
                 await _configContext.Database.ExecuteSqlRawAsync("SET session_replication_role = 'origin';");
             }
             catch (Exception resetEx)
@@ -106,10 +106,10 @@ public class DatabaseResetService : IDatabaseResetService
 
             // Delete data from data_import schema
             _logger.LogInformation("Deleting import jobs...");
-            await _dataImportContext.Database.ExecuteSqlRawAsync("DELETE FROM data_import.import_jobs");
+            await _dataContext.Database.ExecuteSqlRawAsync("DELETE FROM data_import.import_jobs");
 
             _logger.LogInformation("Deleting rounds (and matches via cascade)...");
-            await _dataImportContext.Database.ExecuteSqlRawAsync("DELETE FROM data_import.rounds");
+            await _dataContext.Database.ExecuteSqlRawAsync("DELETE FROM data_import.rounds");
 
             // Delete junction tables
             _logger.LogInformation("Deleting league seasons...");
@@ -151,10 +151,10 @@ public class DatabaseResetService : IDatabaseResetService
 
             // Delete only data_import schema tables
             _logger.LogInformation("Deleting import jobs...");
-            await _dataImportContext.Database.ExecuteSqlRawAsync("DELETE FROM data_import.import_jobs");
+            await _dataContext.Database.ExecuteSqlRawAsync("DELETE FROM data_import.import_jobs");
 
             _logger.LogInformation("Deleting rounds (and matches via cascade)...");
-            await _dataImportContext.Database.ExecuteSqlRawAsync("DELETE FROM data_import.rounds");
+            await _dataContext.Database.ExecuteSqlRawAsync("DELETE FROM data_import.rounds");
 
             _logger.LogWarning("Imported data reset completed successfully");
             return (true, "Imported data deleted successfully. All configuration (countries, leagues, seasons) was preserved.");
@@ -245,11 +245,11 @@ public class DatabaseResetService : IDatabaseResetService
         };
 
         // Use appropriate context based on schema
-        var isDataImport = entity is "rounds" or "import_jobs" or "sync_jobs"
+        var isDataSchema = entity is "rounds" or "import_jobs" or "sync_jobs"
             or "provider_countries" or "provider_leagues" or "provider_seasons"
             or "country_name_mappings" or "league_name_mappings" or "unmatched_leagues";
 
-        var context = isDataImport ? (DbContext)_dataImportContext : _configContext;
+        var context = isDataSchema ? (DbContext)_dataContext : _configContext;
         return await context.Database.ExecuteSqlRawAsync(sql);
     }
 
@@ -260,15 +260,15 @@ public class DatabaseResetService : IDatabaseResetService
         try
         {
             // Data import schema
-            counts["rounds"] = await CountTableAsync(_dataImportContext, "data_import.rounds");
-            counts["import_jobs"] = await CountTableAsync(_dataImportContext, "data_import.import_jobs");
-            counts["sync_jobs"] = await CountTableAsync(_dataImportContext, "data_import.sync_jobs");
-            counts["provider_countries"] = await CountTableAsync(_dataImportContext, "data_import.provider_countries");
-            counts["provider_leagues"] = await CountTableAsync(_dataImportContext, "data_import.provider_leagues");
-            counts["provider_seasons"] = await CountTableAsync(_dataImportContext, "data_import.provider_seasons");
-            counts["country_name_mappings"] = await CountTableAsync(_dataImportContext, "data_import.country_name_mappings");
-            counts["league_name_mappings"] = await CountTableAsync(_dataImportContext, "data_import.league_name_mappings");
-            counts["unmatched_leagues"] = await CountTableAsync(_dataImportContext, "data_import.unmatched_leagues");
+            counts["rounds"] = await CountTableAsync(_dataContext, "data_import.rounds");
+            counts["import_jobs"] = await CountTableAsync(_dataContext, "data_import.import_jobs");
+            counts["sync_jobs"] = await CountTableAsync(_dataContext, "data_import.sync_jobs");
+            counts["provider_countries"] = await CountTableAsync(_dataContext, "data_import.provider_countries");
+            counts["provider_leagues"] = await CountTableAsync(_dataContext, "data_import.provider_leagues");
+            counts["provider_seasons"] = await CountTableAsync(_dataContext, "data_import.provider_seasons");
+            counts["country_name_mappings"] = await CountTableAsync(_dataContext, "data_import.country_name_mappings");
+            counts["league_name_mappings"] = await CountTableAsync(_dataContext, "data_import.league_name_mappings");
+            counts["unmatched_leagues"] = await CountTableAsync(_dataContext, "data_import.unmatched_leagues");
 
             // Configuration schema - main tables
             counts["leagues"] = await CountTableAsync(_configContext, "configuration.leagues");

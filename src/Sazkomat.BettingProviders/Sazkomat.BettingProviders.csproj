@@ -3,7 +3,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Sazkomat.Core\Sazkomat.Core.csproj" />
     <ProjectReference Include="..\Sazkomat.Configuration\Sazkomat.Configuration.csproj" />
-    <ProjectReference Include="..\Sazkomat.DataImport\Sazkomat.DataImport.csproj" />
+    <ProjectReference Include="..\Sazkomat.Data\Sazkomat.Data.csproj" />
   </ItemGroup>
 
   <ItemGroup>

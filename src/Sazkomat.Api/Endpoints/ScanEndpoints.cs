@@ -2,9 +2,9 @@ using Hangfire;
 using Microsoft.AspNetCore.Mvc;
 using Sazkomat.Configuration.Entities;
 using Sazkomat.Configuration.Repositories;
-using Sazkomat.DataImport.Entities;
-using Sazkomat.DataImport.Repositories;
-using Sazkomat.DataImport.Services;
+using Sazkomat.Data.Entities;
+using Sazkomat.Data.Repositories;
+using Sazkomat.Data.Services;
 
 namespace Sazkomat.Api.Endpoints;
 

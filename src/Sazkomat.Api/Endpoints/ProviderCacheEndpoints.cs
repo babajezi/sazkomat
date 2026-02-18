@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Sazkomat.Configuration.Data;
 using Sazkomat.Configuration.Entities;
-using Sazkomat.DataImport.Data;
+using Sazkomat.Data.Data;
 
 namespace Sazkomat.Api.Endpoints;
 
@@ -17,7 +17,7 @@ public static class ProviderCacheEndpoints
         // Get cached countries
         group.MapGet("/countries", async (
             [FromQuery] Guid providerId,
-            DataImportDbContext context) =>
+            DataDbContext context) =>
         {
             var countries = await context.ProviderCountries
                 .Where(pc => pc.ProviderId == providerId)
@@ -47,7 +47,7 @@ public static class ProviderCacheEndpoints
         // Get cached leagues
         group.MapGet("/leagues", async (
             [FromQuery] Guid providerId,
-            DataImportDbContext context) =>
+            DataDbContext context) =>
         {
             var leagues = await context.ProviderLeagues
                 .Where(pl => pl.ProviderId == providerId)
@@ -82,12 +82,12 @@ public static class ProviderCacheEndpoints
         // Get cached seasons
         group.MapGet("/seasons", async (
             [FromQuery] Guid providerId,
-            DataImportDbContext context,
+            DataDbContext context,
             ConfigurationDbContext configContext) =>
         {
             var currentYear = DateTime.UtcNow.Year;
 
-            // First, load seasons with provider leagues from DataImport context
+            // First, load seasons with provider leagues from Data context
             var rawSeasons = await (
                 from ps in context.ProviderSeasons
                 join pl in context.ProviderLeagues on ps.ProviderLeagueId equals pl.Id into plJoin
@@ -174,7 +174,7 @@ public static class ProviderCacheEndpoints
         // Delete cached countries
         group.MapDelete("/countries", async (
             [FromBody] DeleteCacheRequest request,
-            DataImportDbContext context) =>
+            DataDbContext context) =>
         {
             var ids = request.Ids.Select(Guid.Parse).ToList();
             var countries = await context.ProviderCountries
@@ -198,7 +198,7 @@ public static class ProviderCacheEndpoints
         // Delete cached leagues
         group.MapDelete("/leagues", async (
             [FromBody] DeleteCacheRequest request,
-            DataImportDbContext context) =>
+            DataDbContext context) =>
         {
             var ids = request.Ids.Select(Guid.Parse).ToList();
             var leagues = await context.ProviderLeagues
@@ -222,7 +222,7 @@ public static class ProviderCacheEndpoints
         // Delete cached seasons
         group.MapDelete("/seasons", async (
             [FromBody] DeleteCacheRequest request,
-            DataImportDbContext context) =>
+            DataDbContext context) =>
         {
             var ids = request.Ids.Select(Guid.Parse).ToList();
             var seasons = await context.ProviderSeasons
@@ -246,7 +246,7 @@ public static class ProviderCacheEndpoints
         // Get mapping details for a country
         group.MapGet("/countries/{id}/mapping", async (
             Guid id,
-            DataImportDbContext context,
+            DataDbContext context,
             ConfigurationDbContext configContext) =>
         {
             var providerCountry = await context.ProviderCountries
@@ -348,7 +348,7 @@ public static class ProviderCacheEndpoints
         // Get mapping details for a league
         group.MapGet("/leagues/{id}/mapping", async (
             Guid id,
-            DataImportDbContext context,
+            DataDbContext context,
             ConfigurationDbContext configContext) =>
         {
             var providerLeague = await context.ProviderLeagues
@@ -456,7 +456,7 @@ public static class ProviderCacheEndpoints
         group.MapPatch("/leagues/{id}/apply-mapping", async (
             Guid id,
             [FromBody] ApplyMappingRequest request,
-            DataImportDbContext context) =>
+            DataDbContext context) =>
         {
             // Get the ProviderLeague
             var providerLeague = await context.ProviderLeagues
@@ -491,7 +491,7 @@ public static class ProviderCacheEndpoints
 
             // Apply the mapping
             providerLeague.ProviderSlug = mapping.BetExplorerSlug;
-            providerLeague.MappingStatus = DataImport.Entities.MappingStatus.ManualMapped;
+            providerLeague.MappingStatus = Data.Entities.MappingStatus.ManualMapped;
 
             await context.SaveChangesAsync();
 

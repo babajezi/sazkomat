@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using Sazkomat.BettingProviders.Models;
 using Sazkomat.Core.Common;
-using Sazkomat.DataImport.Scrapers;
+using Sazkomat.Data.Scrapers;
 
 namespace Sazkomat.BettingProviders.Services;
 

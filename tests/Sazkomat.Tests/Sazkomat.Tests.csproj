@@ -23,7 +23,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Sazkomat.Core\Sazkomat.Core.csproj" />
     <ProjectReference Include="..\..\src\Sazkomat.Configuration\Sazkomat.Configuration.csproj" />
-    <ProjectReference Include="..\..\src\Sazkomat.DataImport\Sazkomat.DataImport.csproj" />
+    <ProjectReference Include="..\..\src\Sazkomat.Data\Sazkomat.Data.csproj" />
   </ItemGroup>
 
   <ItemGroup>

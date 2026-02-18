@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Moq;
 using Sazkomat.Configuration.Entities;
-using Sazkomat.DataImport.Scrapers;
+using Sazkomat.Data.Scrapers;
 using Xunit;
 using Xunit.Abstractions;
 

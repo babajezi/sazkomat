@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
-using Sazkomat.DataImport.Debug;
+using Sazkomat.Data.Debug;
 
 namespace Sazkomat.Api.Endpoints;
 

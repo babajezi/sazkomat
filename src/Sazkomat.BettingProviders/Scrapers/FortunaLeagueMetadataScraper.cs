@@ -2,8 +2,8 @@ using Microsoft.Extensions.Logging;
 using Sazkomat.BettingProviders.Entities;
 using Sazkomat.BettingProviders.Services;
 using Sazkomat.Configuration.Entities;
-using Sazkomat.DataImport.Scrapers;
-using Sazkomat.DataImport.Services;
+using Sazkomat.Data.Scrapers;
+using Sazkomat.Data.Services;
 
 namespace Sazkomat.BettingProviders.Scrapers;
 

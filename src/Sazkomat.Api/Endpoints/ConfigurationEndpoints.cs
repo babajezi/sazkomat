@@ -222,7 +222,7 @@ public static class ConfigurationEndpoints
             Guid id,
             [FromQuery] bool ignoreInProvider,
             ILeagueProviderRepository leagueProviderRepo,
-            Sazkomat.DataImport.Data.DataImportDbContext dataImportContext,
+            Sazkomat.Data.Data.DataDbContext dataImportContext,
             IConfigurationService service) =>
         {
             if (ignoreInProvider)
@@ -236,7 +236,7 @@ public static class ConfigurationEndpoints
                     await dataImportContext.ProviderLeagues
                         .Where(pl => pl.ProviderId == lp.ProviderId && pl.ProviderSlug == lp.ProviderSlug)
                         .ExecuteUpdateAsync(s => s
-                            .SetProperty(pl => pl.MappingStatus, Sazkomat.DataImport.Entities.MappingStatus.Ignored)
+                            .SetProperty(pl => pl.MappingStatus, Sazkomat.Data.Entities.MappingStatus.Ignored)
                             .SetProperty(pl => pl.IsImported, false)
                             .SetProperty(pl => pl.LeagueId, (Guid?)null)
                             .SetProperty(pl => pl.ImportedAt, (DateTime?)null));
@@ -370,7 +370,7 @@ public static class ConfigurationEndpoints
         group.MapDelete("/country-providers/by-provider", async (
             [FromBody] DeleteByProviderRequest request,
             ICountryProviderRepository repository,
-            Sazkomat.DataImport.Data.DataImportDbContext dataImportContext) =>
+            Sazkomat.Data.Data.DataDbContext dataImportContext) =>
         {
             var deleted = await repository.DeleteByProviderAsync(request.ProviderId);
 
@@ -396,7 +396,7 @@ public static class ConfigurationEndpoints
         group.MapDelete("/league-providers/by-provider", async (
             [FromBody] DeleteByProviderRequest request,
             ILeagueProviderRepository repository,
-            Sazkomat.DataImport.Data.DataImportDbContext dataImportContext) =>
+            Sazkomat.Data.Data.DataDbContext dataImportContext) =>
         {
             var deleted = await repository.DeleteByProviderAsync(request.ProviderId);
 

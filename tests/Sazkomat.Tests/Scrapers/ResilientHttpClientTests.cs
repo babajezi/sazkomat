@@ -1,7 +1,7 @@
 using Moq;
 using Moq.Protected;
 using Microsoft.Extensions.Logging;
-using Sazkomat.DataImport.Scrapers;
+using Sazkomat.Data.Scrapers;
 using System.Net;
 
 namespace Sazkomat.Tests.Scrapers;

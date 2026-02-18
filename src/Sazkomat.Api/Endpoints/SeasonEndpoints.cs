@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Sazkomat.Configuration.Models;
 using Sazkomat.Configuration.Repositories;
 using Sazkomat.Configuration.Services;
-using Sazkomat.DataImport.Repositories;
+using Sazkomat.Data.Repositories;
 
 namespace Sazkomat.Api.Endpoints;
 

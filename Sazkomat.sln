@@ -9,7 +9,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Sazkomat.Core", "src\Sazkom
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Sazkomat.Configuration", "src\Sazkomat.Configuration\Sazkomat.Configuration.csproj", "{64D178AD-8F7B-4BFC-9E24-FE8B2A1ACBF6}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Sazkomat.DataImport", "src\Sazkomat.DataImport\Sazkomat.DataImport.csproj", "{AC78B1FA-C38B-44CB-9D2E-9A3BDC5D47DD}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Sazkomat.Data", "src\Sazkomat.Data\Sazkomat.Data.csproj", "{AC78B1FA-C38B-44CB-9D2E-9A3BDC5D47DD}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Sazkomat.Strategy", "src\Sazkomat.Strategy\Sazkomat.Strategy.csproj", "{B2AC09CA-1A00-40DF-9410-80EBBC51460C}"
 EndProject
