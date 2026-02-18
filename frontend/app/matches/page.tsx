@@ -89,7 +89,7 @@ export default function MatchesPage() {
   });
 
   const handleFilterChange = (key: keyof MatchFilter, value: any) => {
-    setFilters((prev) => ({ ...prev, [key]: value, skip: 0 }));
+    setFilters((prev) => ({ ...prev, [key]: value, ...(key !== "skip" ? { skip: 0 } : {}) }));
   };
 
   const resetFilters = () => {
