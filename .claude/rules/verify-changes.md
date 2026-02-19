@@ -9,9 +9,13 @@ Po provedení změn, které uživatel bude testovat, **VŽDY ověř že aplikace
    - Ověřit že API běží: `curl http://localhost:3001/health`
 
 2. **Změny ve frontendu** (.tsx, .ts soubory)
-   - Pokud běží dev server - hot reload by měl fungovat
-   - Pokud ne - restartovat: `npm run dev`
-   - Ověřit v prohlížeči že stránka funguje
+   - **Dev mode** (výchozí `docker-compose up`): volume mount + hot reload funguje automaticky
+     - Změny v .tsx/.ts souborech se projeví okamžitě bez rebuildu
+     - Stačí ověřit: `curl -s -o /dev/null -w "%{http_code}" http://localhost:3000`
+   - **Production mode** (`docker-compose -f docker-compose.yml up`): soubory jsou v buildu
+     - Proto: `docker-compose -f docker-compose.yml build frontend && docker-compose -f docker-compose.yml up -d frontend`
+     - Počkat ~5s na start
+     - Pouhý `restart` NESTAČÍ — musí se rebuildit image
 
 3. **Změny v migraci/DB schématu**
    - Ověřit že migrace proběhla: zkontrolovat logy API

@@ -179,7 +179,7 @@ function Dashboard() {
               </Card>
             </div>
 
-            <div className="grid gap-6 md:grid-cols-2 mb-6">
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-6">
               <Card>
                 <CardHeader>
                   <CardTitle>🔄 Synchronizace</CardTitle>
@@ -204,6 +204,20 @@ function Dashboard() {
                 <CardContent>
                   <Link href="/jobs">
                     <Button className="w-full">Zobrazit joby</Button>
+                  </Link>
+                </CardContent>
+              </Card>
+
+              <Card className="border-blue-200">
+                <CardHeader>
+                  <CardTitle>📈 Analytika</CardTitle>
+                  <CardDescription>
+                    Analytické pohledy na historická data s grafy a tabulkami
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Link href="/analytics">
+                    <Button className="w-full">Zobrazit analytiku</Button>
                   </Link>
                 </CardContent>
               </Card>
