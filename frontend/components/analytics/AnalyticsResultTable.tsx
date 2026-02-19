@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import {
   Table,
   TableBody,
@@ -9,14 +9,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Loader2 } from "lucide-react";
 import type { AnalyticsResult } from "@/lib/api/types";
 
 interface Props {
   result: AnalyticsResult;
+  onSort?: (column: string, direction: "asc" | "desc") => void;
+  isSorting?: boolean;
 }
-
-type SortDirection = "asc" | "desc";
 
 function formatValue(value: unknown, type: string): string {
   if (value === null || value === undefined) return "—";
@@ -29,44 +29,18 @@ function formatValue(value: unknown, type: string): string {
   return String(value);
 }
 
-function compareValues(a: unknown, b: unknown, type: string): number {
-  if (a == null && b == null) return 0;
-  if (a == null) return 1;
-  if (b == null) return -1;
+export function AnalyticsResultTable({ result, onSort, isSorting }: Props) {
+  const sortColumn = result.spec.sort?.column ?? null;
+  const sortDirection = (result.spec.sort?.direction as "asc" | "desc") ?? "asc";
 
-  if (type === "number") return Number(a) - Number(b);
-  if (type === "date") return new Date(String(a)).getTime() - new Date(String(b)).getTime();
-  return String(a).localeCompare(String(b));
-}
-
-export function AnalyticsResultTable({ result }: Props) {
-  const initialSort = result.spec.sort;
-  const [sortColumn, setSortColumn] = useState<string | null>(initialSort?.column ?? null);
-  const [sortDirection, setSortDirection] = useState<SortDirection>(
-    (initialSort?.direction as SortDirection) ?? "asc"
-  );
-
-  const columnTypeMap = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const col of result.columns) {
-      map.set(col.name, col.type);
-    }
-    return map;
-  }, [result.columns]);
-
-  const sortedRows = useMemo(() => {
-    if (!sortColumn) return result.rows;
-    const type = columnTypeMap.get(sortColumn) ?? "string";
-    const dir = sortDirection === "asc" ? 1 : -1;
-    return [...result.rows].sort((a, b) => dir * compareValues(a[sortColumn], b[sortColumn], type));
-  }, [result.rows, sortColumn, sortDirection, columnTypeMap]);
+  const rows = useMemo(() => result.rows, [result.rows]);
 
   function handleSort(columnName: string) {
+    if (!onSort) return;
     if (sortColumn === columnName) {
-      setSortDirection((d) => (d === "asc" ? "desc" : "asc"));
+      onSort(columnName, sortDirection === "asc" ? "desc" : "asc");
     } else {
-      setSortColumn(columnName);
-      setSortDirection("asc");
+      onSort(columnName, "desc");
     }
   }
 
@@ -88,19 +62,21 @@ export function AnalyticsResultTable({ result }: Props) {
               return (
                 <TableHead
                   key={col.name}
-                  className={`whitespace-nowrap cursor-pointer select-none hover:bg-muted/50 ${col.type === "number" ? "text-right" : ""}`}
+                  className={`whitespace-nowrap select-none ${onSort ? "cursor-pointer hover:bg-muted/50" : ""} ${col.type === "number" ? "text-right" : ""}`}
                   onClick={() => handleSort(col.name)}
                 >
                   <div className={`flex items-center gap-1 ${col.type === "number" ? "justify-end" : ""}`}>
                     <span>{col.alias || col.name}</span>
-                    {isActive ? (
-                      sortDirection === "asc" ? (
-                        <ArrowUp className="h-3.5 w-3.5" />
+                    {onSort && (
+                      isActive ? (
+                        sortDirection === "asc" ? (
+                          <ArrowUp className="h-3.5 w-3.5" />
+                        ) : (
+                          <ArrowDown className="h-3.5 w-3.5" />
+                        )
                       ) : (
-                        <ArrowDown className="h-3.5 w-3.5" />
+                        <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground/40" />
                       )
-                    ) : (
-                      <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground/40" />
                     )}
                   </div>
                 </TableHead>
@@ -108,8 +84,8 @@ export function AnalyticsResultTable({ result }: Props) {
             })}
           </TableRow>
         </TableHeader>
-        <TableBody>
-          {sortedRows.map((row, i) => (
+        <TableBody className={isSorting ? "opacity-50 transition-opacity" : "transition-opacity"}>
+          {rows.map((row, i) => (
             <TableRow key={i}>
               {result.columns.map((col) => (
                 <TableCell
@@ -123,8 +99,9 @@ export function AnalyticsResultTable({ result }: Props) {
           ))}
         </TableBody>
       </Table>
-      <div className="text-xs text-gray-500 mt-2 px-2">
-        {result.totalRows} řádků · {result.executionMs}ms
+      <div className="flex items-center gap-2 text-xs text-gray-500 mt-2 px-2">
+        {isSorting && <Loader2 className="h-3 w-3 animate-spin" />}
+        <span>{result.totalRows} řádků · {result.executionMs}ms</span>
       </div>
     </div>
   );

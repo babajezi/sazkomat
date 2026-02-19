@@ -29,7 +29,7 @@ import {
   LineChart as LineChartIcon,
   PieChart as PieChartIcon,
 } from "lucide-react";
-import type { AnalyticsResult, AnalyticsViewListItem } from "@/lib/api/types";
+import type { AnalyticsResult, AnalyticsViewListItem, ViewSpec } from "@/lib/api/types";
 
 const vizIcons: Record<string, React.ReactNode> = {
   table: <TableIcon className="w-4 h-4" />,
@@ -58,6 +58,22 @@ export default function AnalyticsPage() {
       queryClient.invalidateQueries({ queryKey: ["analytics-views"] });
     },
   });
+
+  const adHocExecuteMutation = useMutation({
+    mutationFn: (spec: ViewSpec) => analyticsApi.execute(spec),
+    onSuccess: (result) => {
+      setActiveResult(result);
+    },
+  });
+
+  function handleSort(column: string, direction: "asc" | "desc") {
+    if (!activeResult) return;
+    const newSpec: ViewSpec = {
+      ...activeResult.spec,
+      sort: { column, direction },
+    };
+    adHocExecuteMutation.mutate(newSpec);
+  }
 
   const favoriteMutation = useMutation({
     mutationFn: (id: string) => analyticsApi.toggleFavorite(id),
@@ -118,7 +134,11 @@ export default function AnalyticsPage() {
           </CardHeader>
           <CardContent>
             {activeVizType === "table" ? (
-              <AnalyticsResultTable result={activeResult} />
+              <AnalyticsResultTable
+                result={activeResult}
+                onSort={handleSort}
+                isSorting={adHocExecuteMutation.isPending}
+              />
             ) : (
               <AnalyticsChart result={activeResult} type={activeVizType} />
             )}
