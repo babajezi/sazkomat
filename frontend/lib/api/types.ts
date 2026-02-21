@@ -1118,6 +1118,9 @@ export interface ViewSpec {
   sort?: SortSpec;
   limit?: number;
   visualization?: VisualizationSpec;
+  customSql?: string;
+  columnFilters?: Record<string, string[]>;
+  excludeFilterColumns?: string[];
 }
 
 export interface ViewFilters {
@@ -1212,4 +1215,128 @@ export interface AnalyticsMetadata {
   metricTypes: { type: string; description: string; requiresColumn: boolean; requiresResult: boolean }[];
   columns: { name: string; table: string; type: string; description: string }[];
   operators: string[];
+}
+
+// ==================== STRATEGY TYPES ====================
+
+export interface ParameterDefinition {
+  name: string;
+  label: string;
+  type: "number" | "select" | "boolean";
+  defaultValue: unknown;
+  options?: SelectOption[];
+}
+
+export interface SelectOption {
+  label: string;
+  value: string;
+}
+
+export interface StrategyInfo {
+  type: string;
+  name: string;
+  description: string;
+  parameters: ParameterDefinition[];
+}
+
+export interface StrategySimulationSpec {
+  strategyType: string;
+  parameters?: Record<string, unknown>;
+  leagueIds?: string[];
+  countryIds?: string[];
+  seasonNames?: string[];
+  requireOdds?: boolean;
+  minMatches: number;
+  startYear?: number;
+}
+
+export interface LeagueScreening {
+  leagueId: string;
+  league: string;
+  country: string;
+  totalSeasons: number;
+  totalRounds: number;
+  perfectCount: number;
+  near1Count: number;
+  near2Count: number;
+  perfectRate: number;
+  near1Rate: number;
+  near2Rate: number;
+  avgGap: number;
+  maxGap: number;
+  roundsWithOdds: number;
+}
+
+export interface ScreeningResult {
+  id?: string;
+  leagues: LeagueScreening[];
+  totalLeagues: number;
+  totalRounds: number;
+  executionMs: number;
+}
+
+export interface SimulationSummary {
+  totalLeagueSeasons: number;
+  totalRounds: number;
+  winningRounds: number;
+  winRate: number;
+  totalStaked: number;
+  totalWon: number;
+  profit: number;
+  roi: number;
+  maxConsecutiveLosses: number;
+  maxStake: number;
+  roundsWithOdds: number;
+}
+
+export interface SeasonDetail {
+  season: string;
+  totalRounds: number;
+  winningRounds: number;
+  totalStaked: number;
+  totalWon: number;
+  profit: number;
+  hasOdds: boolean;
+}
+
+export interface LeagueSimulationResult {
+  leagueId: string;
+  league: string;
+  country: string;
+  totalRounds: number;
+  totalSeasons: number;
+  winningRounds: number;
+  totalStaked: number;
+  totalWon: number;
+  profit: number;
+  hasOdds: boolean;
+  maxConsecutiveLosses: number;
+  maxStake: number;
+  seasons: SeasonDetail[];
+}
+
+export interface SimulationResult {
+  summary: SimulationSummary;
+  leagues: LeagueSimulationResult[];
+  executionMs: number;
+}
+
+export interface ScreeningListItem {
+  id: string;
+  name: string;
+  strategyType: string;
+  roundsAnalyzed: number;
+  calculatedAt: string;
+  createdAt: string;
+}
+
+export interface ScreeningDetail {
+  id: string;
+  name: string;
+  strategyType: string;
+  spec: StrategySimulationSpec | null;
+  result: ScreeningResult | null;
+  roundsAnalyzed: number;
+  calculatedAt: string;
+  createdAt: string;
 }
