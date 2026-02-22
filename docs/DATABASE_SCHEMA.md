@@ -455,6 +455,22 @@ PostgreSQL 16 s dvěma schématy:
 
 **Indexes:** ix_analytical_views_name, ix_analytical_views_is_favorite, ix_analytical_views_last_executed_at
 
+### strategy_screenings
+
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | uuid | PK, DEFAULT gen_random_uuid() |
+| name | varchar(200) | NOT NULL |
+| strategy_type | varchar(100) | NOT NULL |
+| parameters_json | jsonb | NOT NULL |
+| result_json | jsonb | NOT NULL |
+| rounds_analyzed | integer | NOT NULL, DEFAULT 0 |
+| calculated_at | timestamptz | NOT NULL |
+| created_at | timestamptz | NOT NULL |
+| updated_at | timestamptz | NOT NULL |
+
+**Indexes:** ix_strategy_screenings_strategy_type
+
 ---
 
-**Poslední aktualizace:** 2026-02-19
+**Poslední aktualizace:** 2026-02-21

@@ -367,6 +367,7 @@ Base URL: `http://localhost:3001`
 | Method | Endpoint | Popis |
 |--------|----------|-------|
 | POST | /api/analytics/execute | Spustí ad-hoc ViewSpec |
+| POST | /api/analytics/distinct | Vrátí unikátní hodnoty sloupce z custom SQL (pro column filters) |
 | GET | /api/analytics/metadata | Dostupné dimenze, metriky, sloupce |
 | GET | /api/analytics/views | Seznam uložených pohledů |
 | GET | /api/analytics/views/{id} | Detail pohledu |
@@ -395,6 +396,19 @@ Base URL: `http://localhost:3001`
 
 ---
 
+## Strategies
+
+| Method | Endpoint | Popis |
+|--------|----------|-------|
+| GET | /api/strategies/types | Dostupné strategie s definicemi parametrů |
+| POST | /api/strategies/screen | Fáze 1: Screening lig (auto-save) |
+| POST | /api/strategies/simulate | Fáze 2: Backtest strategie |
+| GET | /api/strategies/screenings | Seznam uložených screeningů |
+| GET | /api/strategies/screenings/{id} | Detail screeningu s výsledky |
+| DELETE | /api/strategies/screenings/{id} | Smazání screeningu |
+
+---
+
 ## Poznámky
 
 - Všechny endpointy vrací JSON
@@ -407,4 +421,4 @@ Base URL: `http://localhost:3001`
 
 ---
 
-**Poslední aktualizace:** 2026-02-19
+**Poslední aktualizace:** 2026-02-21

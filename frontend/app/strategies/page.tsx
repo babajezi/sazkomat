@@ -350,8 +350,8 @@ export default function StrategiesPage() {
                       <div className="flex items-center gap-2">
                         <Checkbox
                           checked={Boolean(params[p.name] ?? p.defaultValue)}
-                          onCheckedChange={(checked) =>
-                            setParams((prev) => ({ ...prev, [p.name]: checked }))
+                          onChange={(e) =>
+                            setParams((prev) => ({ ...prev, [p.name]: e.target.checked }))
                           }
                         />
                       </div>
@@ -399,7 +399,7 @@ export default function StrategiesPage() {
                       <div className="flex items-center gap-2 h-10">
                         <Checkbox
                           checked={requireOdds}
-                          onCheckedChange={(checked) => setRequireOdds(checked === true)}
+                          onChange={(e) => setRequireOdds(e.target.checked)}
                         />
                         <span className="text-sm">Pouze kola s kurzy</span>
                       </div>
@@ -541,8 +541,8 @@ export default function StrategiesPage() {
                           screeningResult.leagues.length > 0 &&
                           selectedLeagueIds.size === screeningResult.leagues.length
                         }
-                        onCheckedChange={(checked) =>
-                          checked ? selectAllLeagues() : deselectAllLeagues()
+                        onChange={(e) =>
+                          e.target.checked ? selectAllLeagues() : deselectAllLeagues()
                         }
                       />
                     </TableHead>
@@ -580,7 +580,7 @@ export default function StrategiesPage() {
                       <TableCell>
                         <Checkbox
                           checked={selectedLeagueIds.has(l.leagueId)}
-                          onCheckedChange={() => toggleLeagueSelection(l.leagueId)}
+                          onChange={() => toggleLeagueSelection(l.leagueId)}
                         />
                       </TableCell>
                       <TableCell className="font-medium">{l.league}</TableCell>

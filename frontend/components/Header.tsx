@@ -93,6 +93,12 @@ export function Header() {
                   >
                     Analytika
                   </Link>
+                  <Link
+                    href="/strategies"
+                    className="text-sm text-blue-600 hover:text-blue-800 transition-colors font-medium"
+                  >
+                    Strategie
+                  </Link>
                   {isAdmin && (
                     <Link
                       href="/admin"

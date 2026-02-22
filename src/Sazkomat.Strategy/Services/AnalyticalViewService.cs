@@ -36,6 +36,11 @@ public class AnalyticalViewService
         return await _engine.ExecuteAsync(spec);
     }
 
+    public async Task<Result<List<DistinctValueItem>>> GetDistinctValuesAsync(ViewSpec spec, string column)
+    {
+        return await _engine.GetDistinctValuesAsync(spec, column);
+    }
+
     public async Task<Result<AnalyticsResult>> ExecuteByIdAsync(Guid id)
     {
         var view = await _context.AnalyticalViews.FindAsync(id);

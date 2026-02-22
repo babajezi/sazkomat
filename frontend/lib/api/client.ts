@@ -72,6 +72,13 @@ import type {
   CreateViewRequest,
   UpdateViewRequest,
   AnalyticsMetadata,
+  // Strategy types
+  StrategyInfo,
+  StrategySimulationSpec,
+  ScreeningResult,
+  SimulationResult,
+  ScreeningListItem,
+  ScreeningDetail,
 } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
@@ -1030,6 +1037,11 @@ export const analyticsApi = {
     return data;
   },
 
+  getDistinctValues: async (spec: ViewSpec, column: string): Promise<{ value: string; count: number }[]> => {
+    const { data } = await apiClient.post<{ values: { value: string; count: number }[] }>("/analytics/distinct", { spec, column });
+    return data.values;
+  },
+
   getMetadata: async (): Promise<AnalyticsMetadata> => {
     const { data } = await apiClient.get<AnalyticsMetadata>("/analytics/metadata");
     return data;
@@ -1067,6 +1079,39 @@ export const analyticsApi = {
 
   toggleFavorite: async (id: string): Promise<{ id: string; isFavorite: boolean }> => {
     const { data } = await apiClient.post<{ id: string; isFavorite: boolean }>(`/analytics/views/${id}/favorite`);
+    return data;
+  },
+};
+
+// Strategy endpoints
+export const strategiesApi = {
+  getTypes: async (): Promise<StrategyInfo[]> => {
+    const { data } = await apiClient.get<StrategyInfo[]>("/strategies/types");
+    return data;
+  },
+
+  screen: async (spec: StrategySimulationSpec, name?: string): Promise<ScreeningResult> => {
+    const { data } = await apiClient.post<ScreeningResult>("/strategies/screen", { spec, name });
+    return data;
+  },
+
+  simulate: async (spec: StrategySimulationSpec): Promise<SimulationResult> => {
+    const { data } = await apiClient.post<SimulationResult>("/strategies/simulate", spec);
+    return data;
+  },
+
+  getScreenings: async (): Promise<ScreeningListItem[]> => {
+    const { data } = await apiClient.get<ScreeningListItem[]>("/strategies/screenings");
+    return data;
+  },
+
+  getScreening: async (id: string): Promise<ScreeningDetail> => {
+    const { data } = await apiClient.get<ScreeningDetail>(`/strategies/screenings/${id}`);
+    return data;
+  },
+
+  deleteScreening: async (id: string): Promise<{ message: string }> => {
+    const { data } = await apiClient.delete<{ message: string }>(`/strategies/screenings/${id}`);
     return data;
   },
 };

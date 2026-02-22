@@ -338,6 +338,18 @@ builder.Services.AddScoped<Sazkomat.Strategy.Engine.AnalyticsEngine>(sp =>
 });
 builder.Services.AddScoped<Sazkomat.Strategy.Services.AnalyticalViewService>();
 
+// Register Strategy executors and service
+builder.Services.AddSingleton<Sazkomat.Strategy.Engine.IStrategyExecutor, Sazkomat.Strategy.Engine.ProgressiveDominanceExecutor>();
+builder.Services.AddScoped<Sazkomat.Strategy.Services.StrategyService>(sp =>
+{
+    var connString = builder.Configuration.GetConnectionString("DefaultConnection")
+        ?? throw new InvalidOperationException("DefaultConnection string not found");
+    var context = sp.GetRequiredService<Sazkomat.Data.Data.DataDbContext>();
+    var executors = sp.GetRequiredService<IEnumerable<Sazkomat.Strategy.Engine.IStrategyExecutor>>();
+    var logger = sp.GetRequiredService<ILogger<Sazkomat.Strategy.Services.StrategyService>>();
+    return new Sazkomat.Strategy.Services.StrategyService(connString, context, executors, logger);
+});
+
 // Configure Hangfire
 var hangfireConnection = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("DefaultConnection string not found");
@@ -423,6 +435,7 @@ app.MapTipsportEndpoints();
 app.MapDebugEndpoints();
 app.MapRecipeEndpoints();
 app.MapAnalyticsEndpoints();
+app.MapStrategyEndpoints();
 
 // Auto migration and seed on startup
 using (var scope = app.Services.CreateScope())

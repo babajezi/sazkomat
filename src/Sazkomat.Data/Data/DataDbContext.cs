@@ -50,6 +50,9 @@ public class DataDbContext : DbContext
     // Analytical views
     public DbSet<AnalyticalView> AnalyticalViews => Set<AnalyticalView>();
 
+    // Strategy screenings
+    public DbSet<StrategyScreening> StrategyScreenings => Set<StrategyScreening>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -82,6 +85,9 @@ public class DataDbContext : DbContext
 
         // Analytical views
         modelBuilder.ApplyConfiguration(new AnalyticalViewConfiguration());
+
+        // Strategy screenings
+        modelBuilder.ApplyConfiguration(new StrategyScreeningConfiguration());
 
         // Season from configuration schema (read-only, for cross-schema JOINs)
         modelBuilder.Entity<Season>(b =>
