@@ -28,6 +28,7 @@ import {
   Table as TableIcon,
   LineChart as LineChartIcon,
   PieChart as PieChartIcon,
+  X,
 } from "lucide-react";
 import type { AnalyticsResult, AnalyticsViewListItem, ViewSpec } from "@/lib/api/types";
 
@@ -75,6 +76,27 @@ export default function AnalyticsPage() {
     adHocExecuteMutation.mutate(newSpec);
   }
 
+  function handleFilter(column: string, values: string[]) {
+    if (!activeResult) return;
+    const currentFilters = { ...(activeResult.spec.columnFilters ?? {}) };
+    if (values.length === 0) {
+      delete currentFilters[column];
+    } else {
+      currentFilters[column] = values;
+    }
+    const newSpec: ViewSpec = {
+      ...activeResult.spec,
+      columnFilters: Object.keys(currentFilters).length > 0 ? currentFilters : undefined,
+    };
+    adHocExecuteMutation.mutate(newSpec);
+  }
+
+  function removeFilter(column: string) {
+    handleFilter(column, []);
+  }
+
+  const activeColumnFilters = activeResult?.spec.columnFilters ?? {};
+
   const favoriteMutation = useMutation({
     mutationFn: (id: string) => analyticsApi.toggleFavorite(id),
     onSuccess: () => {
@@ -91,7 +113,7 @@ export default function AnalyticsPage() {
   });
 
   return (
-    <div className="container mx-auto px-4 py-6 space-y-6">
+    <div className="mx-auto px-4 py-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Analytika</h1>
@@ -132,12 +154,30 @@ export default function AnalyticsPage() {
               </div>
             </div>
           </CardHeader>
+          {/* Active column filter badges */}
+          {Object.keys(activeColumnFilters).length > 0 && (
+            <div className="px-6 pb-2 flex items-center gap-2 flex-wrap">
+              <span className="text-xs text-muted-foreground">Filtry:</span>
+              {Object.entries(activeColumnFilters).map(([col, vals]) => (
+                <Badge key={col} variant="secondary" className="text-xs gap-1 pr-1">
+                  {col}: {vals.length <= 2 ? vals.join(", ") : `${vals.length} hodnot`}
+                  <button
+                    onClick={() => removeFilter(col)}
+                    className="ml-0.5 rounded-full hover:bg-muted-foreground/20 p-0.5"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              ))}
+            </div>
+          )}
           <CardContent>
             {activeVizType === "table" ? (
               <AnalyticsResultTable
                 result={activeResult}
                 onSort={handleSort}
                 isSorting={adHocExecuteMutation.isPending}
+                onFilter={handleFilter}
               />
             ) : (
               <AnalyticsChart result={activeResult} type={activeVizType} />

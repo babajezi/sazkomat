@@ -38,6 +38,9 @@ public static class SpecValidator
 
     public static Result Validate(ViewSpec spec)
     {
+        if (!string.IsNullOrWhiteSpace(spec.CustomSql))
+            return ValidateCustomSql(spec);
+
         if (!ValidDataSources.Contains(spec.DataSource))
             return Result.Failure($"Invalid dataSource: '{spec.DataSource}'. Must be one of: {string.Join(", ", ValidDataSources)}");
 
@@ -101,6 +104,29 @@ public static class SpecValidator
         {
             if (!WhitelistedOddsColumns.Contains(spec.Filters.OddsRange.Column))
                 return Result.Failure($"Odds range column '{spec.Filters.OddsRange.Column}' is not a valid odds column.");
+        }
+
+        return Result.Success();
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex SafeColumnNameRegex =
+        new(@"^[a-zA-Z_][a-zA-Z0-9_]*$", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    private static Result ValidateCustomSql(ViewSpec spec)
+    {
+        if (spec.Sort != null && !ValidSortDirections.Contains(spec.Sort.Direction))
+            return Result.Failure($"Invalid sort direction: '{spec.Sort.Direction}'. Must be 'asc' or 'desc'.");
+
+        if (spec.Limit is < 1 or > 10000)
+            return Result.Failure("Limit must be between 1 and 10000.");
+
+        if (spec.ColumnFilters != null)
+        {
+            foreach (var key in spec.ColumnFilters.Keys)
+            {
+                if (!SafeColumnNameRegex.IsMatch(key))
+                    return Result.Failure($"Invalid column filter key: '{key}'. Must match [a-zA-Z_][a-zA-Z0-9_]*.");
+            }
         }
 
         return Result.Success();

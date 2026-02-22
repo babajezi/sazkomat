@@ -24,6 +24,15 @@ public class ViewSpec
 
     [JsonPropertyName("visualization")]
     public VisualizationSpec? Visualization { get; set; }
+
+    [JsonPropertyName("customSql")]
+    public string? CustomSql { get; set; }
+
+    [JsonPropertyName("columnFilters")]
+    public Dictionary<string, List<string>>? ColumnFilters { get; set; }
+
+    [JsonPropertyName("excludeFilterColumns")]
+    public List<string>? ExcludeFilterColumns { get; set; }
 }
 
 public class ViewFilters

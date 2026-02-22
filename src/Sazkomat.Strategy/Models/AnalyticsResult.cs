@@ -15,3 +15,9 @@ public class ColumnDefinition
     public string Type { get; set; } = "string";
     public string? Alias { get; set; }
 }
+
+public class DistinctValueItem
+{
+    public string Value { get; set; } = string.Empty;
+    public long Count { get; set; }
+}

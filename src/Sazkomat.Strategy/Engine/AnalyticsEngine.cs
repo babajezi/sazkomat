@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using Npgsql;
 using Sazkomat.Core.Common;
@@ -23,8 +24,18 @@ public class AnalyticsEngine
         if (!validation.IsSuccess)
             return Result<AnalyticsResult>.Failure(validation.Error!);
 
-        var builder = new AnalyticsSqlBuilder(spec);
-        var (sql, parameters) = builder.Build();
+        string sql;
+        List<NpgsqlParameter> parameters;
+
+        if (!string.IsNullOrWhiteSpace(spec.CustomSql))
+        {
+            (sql, parameters) = BuildCustomSql(spec);
+        }
+        else
+        {
+            var builder = new AnalyticsSqlBuilder(spec);
+            (sql, parameters) = builder.Build();
+        }
 
         _logger.LogDebug("Analytics SQL: {Sql}", sql);
 
@@ -93,6 +104,91 @@ public class AnalyticsEngine
             _logger.LogError(ex, "Analytics execution error");
             return Result<AnalyticsResult>.Failure($"Execution error: {ex.Message}");
         }
+    }
+
+    private static readonly Regex SafeColumnName = new(@"^[a-zA-Z_][a-zA-Z0-9_]*$", RegexOptions.Compiled);
+
+    public async Task<Result<List<DistinctValueItem>>> GetDistinctValuesAsync(ViewSpec spec, string column)
+    {
+        if (string.IsNullOrWhiteSpace(spec.CustomSql))
+            return Result<List<DistinctValueItem>>.Failure("Distinct values are only supported for custom SQL queries.");
+
+        if (!SafeColumnName.IsMatch(column))
+            return Result<List<DistinctValueItem>>.Failure($"Invalid column name: '{column}'.");
+
+        var innerSql = spec.CustomSql.TrimEnd().TrimEnd(';');
+        var sql = $"SELECT \"{column}\"::text AS value, COUNT(*) AS cnt FROM ({innerSql}) _sub GROUP BY \"{column}\"::text ORDER BY 1 LIMIT 200";
+
+        try
+        {
+            await using var conn = new NpgsqlConnection(_connectionString);
+            await conn.OpenAsync();
+
+            await using var cmd = new NpgsqlCommand(sql, conn);
+            await using var reader = await cmd.ExecuteReaderAsync();
+
+            var values = new List<DistinctValueItem>();
+            while (await reader.ReadAsync())
+            {
+                if (!reader.IsDBNull(0))
+                    values.Add(new DistinctValueItem
+                    {
+                        Value = reader.GetString(0),
+                        Count = reader.GetInt64(1)
+                    });
+            }
+
+            return Result<List<DistinctValueItem>>.Success(values);
+        }
+        catch (PostgresException ex)
+        {
+            _logger.LogError(ex, "Distinct values SQL error: {Message}\nSQL: {Sql}", ex.Message, sql);
+            return Result<List<DistinctValueItem>>.Failure($"SQL error: {ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Distinct values execution error");
+            return Result<List<DistinctValueItem>>.Failure($"Execution error: {ex.Message}");
+        }
+    }
+
+    private static (string sql, List<NpgsqlParameter> parameters) BuildCustomSql(ViewSpec spec)
+    {
+        var limit = spec.Limit ?? 1000;
+        var innerSql = spec.CustomSql!.TrimEnd().TrimEnd(';');
+        var parameters = new List<NpgsqlParameter>();
+
+        var sql = $"SELECT * FROM ({innerSql}) _sub";
+
+        // Apply column filters as WHERE clause
+        if (spec.ColumnFilters is { Count: > 0 })
+        {
+            var conditions = new List<string>();
+            var filterIndex = 0;
+            foreach (var (columnName, values) in spec.ColumnFilters)
+            {
+                if (values.Count == 0 || !SafeColumnName.IsMatch(columnName))
+                    continue;
+
+                var paramName = $"p_filter_{filterIndex}";
+                conditions.Add($"\"{columnName}\"::text = ANY(@{paramName})");
+                parameters.Add(new NpgsqlParameter(paramName, values.ToArray()));
+                filterIndex++;
+            }
+
+            if (conditions.Count > 0)
+                sql += " WHERE " + string.Join(" AND ", conditions);
+        }
+
+        if (spec.Sort != null && SafeColumnName.IsMatch(spec.Sort.Column))
+        {
+            var direction = spec.Sort.Direction.Equals("asc", StringComparison.OrdinalIgnoreCase) ? "ASC" : "DESC";
+            sql += $" ORDER BY \"{spec.Sort.Column}\" {direction}";
+        }
+
+        sql += $" LIMIT {limit}";
+
+        return (sql, parameters);
     }
 
     private static string MapPostgresType(Type type)

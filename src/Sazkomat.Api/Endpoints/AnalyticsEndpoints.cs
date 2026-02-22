@@ -125,6 +125,17 @@ public static class AnalyticsEndpoints
         .WithName("ExecuteAnalyticsView")
         .Produces<AnalyticsResult>(200);
 
+        // POST /api/analytics/distinct — Get distinct values for a column
+        group.MapPost("/distinct", async (DistinctValuesRequest request, AnalyticalViewService service) =>
+        {
+            var result = await service.GetDistinctValuesAsync(request.Spec, request.Column);
+            return result.IsSuccess
+                ? Results.Ok(new { values = result.Value })
+                : Results.BadRequest(new { error = result.Error });
+        })
+        .WithName("GetDistinctValues")
+        .Produces(200);
+
         // POST /api/analytics/views/{id}/favorite — Toggle favorite
         group.MapPost("/views/{id:guid}/favorite", async (Guid id, AnalyticalViewService service) =>
         {
@@ -198,4 +209,10 @@ public class UpdateViewRequest
     public string? Description { get; set; }
     public ViewSpec? Spec { get; set; }
     public string? Tags { get; set; }
+}
+
+public class DistinctValuesRequest
+{
+    public ViewSpec Spec { get; set; } = new();
+    public string Column { get; set; } = string.Empty;
 }

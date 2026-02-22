@@ -10,12 +10,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ArrowDown, ArrowUp, ArrowUpDown, Loader2 } from "lucide-react";
-import type { AnalyticsResult } from "@/lib/api/types";
+import { ColumnFilterPopover } from "@/components/analytics/ColumnFilterPopover";
+import type { AnalyticsResult, ViewSpec } from "@/lib/api/types";
 
 interface Props {
   result: AnalyticsResult;
   onSort?: (column: string, direction: "asc" | "desc") => void;
   isSorting?: boolean;
+  onFilter?: (column: string, values: string[]) => void;
 }
 
 function formatValue(value: unknown, type: string): string {
@@ -29,9 +31,12 @@ function formatValue(value: unknown, type: string): string {
   return String(value);
 }
 
-export function AnalyticsResultTable({ result, onSort, isSorting }: Props) {
+export function AnalyticsResultTable({ result, onSort, isSorting, onFilter }: Props) {
   const sortColumn = result.spec.sort?.column ?? null;
   const sortDirection = (result.spec.sort?.direction as "asc" | "desc") ?? "asc";
+  const columnFilters = result.spec.columnFilters ?? {};
+  const excludeFilterColumns = new Set(result.spec.excludeFilterColumns ?? []);
+  const hasCustomSql = !!result.spec.customSql;
 
   const rows = useMemo(() => result.rows, [result.rows]);
 
@@ -59,6 +64,8 @@ export function AnalyticsResultTable({ result, onSort, isSorting }: Props) {
           <TableRow>
             {result.columns.map((col) => {
               const isActive = sortColumn === col.name;
+              const showFilter = hasCustomSql && onFilter && !excludeFilterColumns.has(col.name);
+              const activeFiltersForCol = columnFilters[col.name] ?? [];
               return (
                 <TableHead
                   key={col.name}
@@ -77,6 +84,14 @@ export function AnalyticsResultTable({ result, onSort, isSorting }: Props) {
                       ) : (
                         <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground/40" />
                       )
+                    )}
+                    {showFilter && (
+                      <ColumnFilterPopover
+                        column={col.name}
+                        spec={result.spec}
+                        activeFilters={activeFiltersForCol}
+                        onApply={onFilter}
+                      />
                     )}
                   </div>
                 </TableHead>
